@@ -11,7 +11,7 @@
 # GNU General Public License for more details.
 #
 # Directories to be built
-DIRS=CppUTest
+DIRS=CppUTest snap
 
 .PHONY: subdirs $(DIRS)
 
