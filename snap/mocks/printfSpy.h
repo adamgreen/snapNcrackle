@@ -10,13 +10,17 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-#ifndef _COMMAND_LINE_TEST_H_
-#define _COMMAND_LINE_TEST_H_
+/* Module for spying on printf output from code under test. */
+#ifndef _PRINTF_SPY_H_
+#define _PRINTF_SPY_H_
 
-/* Used to redirect specific calls to stubs as necessary for testing. */
-#include <printfSpy.h>
 
-/* Force printf() to go through function pointer so that tests can spy on it. */
-#define printf __printf
+/* Pointer to printf routine which can intercepted by this module. */
+extern int (*__printf)(const char* pFormat, ...);
 
-#endif /* _COMMAND_LINE_TEST_H_ */
+void        printfSpy_Construct(size_t BufferSize);
+int         printfSpy_printf(const char* pFormat, ...);
+const char* printfSpy_GetLastOutput(void);
+void        printfSpy_Destruct(void);
+
+#endif /* _PRINTF_SPY_H_ */

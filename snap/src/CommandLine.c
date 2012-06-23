@@ -10,15 +10,32 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
+#include <string.h>
+#include <stdio.h>
 #include "CommandLine.h"
+#include "CommandLineTest.h"
+
+static void displayUsage(void)
+{
+    printf("Usage: snap sourceFilename ...\n"
+           "Where:\n"
+           "       sourceFilename is the name of an input assembly language file.\n"
+           "         Note: You can provide more than one sourceFilename on the\n"
+           "                command line.\n");
+}
 
 int CommandLine_Init(CommandLine* pThis, int argc, const char** argv)
 {
+    memset(pThis, 0, sizeof(*pThis));
+    
+    if (!argc)
+    {
+        displayUsage();
+        return -1;
+    }
+        
     pThis->sourceFileCount = argc;
-    if (argc)
-        pThis->pSourceFiles = argv;
-    else
-        pThis->pSourceFiles = NULL;
+    pThis->pSourceFiles = argv;
     
     return 0;
 }

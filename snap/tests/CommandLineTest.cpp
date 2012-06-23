@@ -16,6 +16,7 @@
 extern "C"
 {
 #include "CommandLine.h"
+#include "CommandLineTest.h"
 #include "util.h"
 }
 
@@ -23,21 +24,27 @@ extern "C"
 #include "CppUTest/TestHarness.h"
 
 
+static const char g_usageString[] = "Usage:";
+
+
 TEST_GROUP(CommandLine)
 {
     const char*     m_argv[10];
-    CommandLine     m_CommandLine;
+    CommandLine     m_commandLine;
     int             m_argc;
     
     void setup()
     {
         memset(m_argv, 0, sizeof(m_argv));
-        memset(&m_CommandLine, 0, sizeof(m_CommandLine));
+        memset(&m_commandLine, 0xff, sizeof(m_commandLine));
         m_argc = 0;
+
+        printfSpy_Construct(strlen(g_usageString));
     }
 
     void teardown()
     {
+        printfSpy_Destruct();
     }
 
     void addArg(const char* pArg)
@@ -46,29 +53,41 @@ TEST_GROUP(CommandLine)
         m_argv[m_argc++] = pArg;
     }
     
+    void validateSourceFilesAndNoErrorMessage(const char** pFirstSourceFileArg, int expectedSourceFileCount)
+    {
+        validateNoErrorMessageWasDisplayed();
+        validateSourceFiles(pFirstSourceFileArg, expectedSourceFileCount);
+    }
+    
+    void validateNoErrorMessageWasDisplayed(void)
+    {
+        STRCMP_EQUAL("", printfSpy_GetLastOutput());
+    }
+    
     void validateSourceFiles(const char** pFirstSourceFileArg, int expectedSourceFileCount)
     {
-        LONGS_EQUAL(expectedSourceFileCount, m_CommandLine.sourceFileCount);
-        CHECK(m_CommandLine.pSourceFiles != NULL);
+        LONGS_EQUAL(expectedSourceFileCount, m_commandLine.sourceFileCount);
+        CHECK(m_commandLine.pSourceFiles != NULL);
         for (int i = 0 ; i < expectedSourceFileCount ; i++)
-            POINTERS_EQUAL(pFirstSourceFileArg[i], m_CommandLine.pSourceFiles[i]);
+            POINTERS_EQUAL(pFirstSourceFileArg[i], m_commandLine.pSourceFiles[i]);
     }
 };
 
 
 TEST(CommandLine, NoParameters)
 {
-    LONGS_EQUAL(0, CommandLine_Init(&m_CommandLine, m_argc, m_argv));
-    LONGS_EQUAL(0, m_CommandLine.sourceFileCount);
-    CHECK(m_CommandLine.pSourceFiles == NULL);
+    LONGS_EQUAL(-1, CommandLine_Init(&m_commandLine, m_argc, m_argv));
+    LONGS_EQUAL(0, m_commandLine.sourceFileCount);
+    CHECK(m_commandLine.pSourceFiles == NULL);
+    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
 }
 
 TEST(CommandLine, OneSourceFilename)
 {
     addArg("SOURCE1.S");
     
-    LONGS_EQUAL(0, CommandLine_Init(&m_CommandLine, m_argc, m_argv));
-    validateSourceFiles(m_argv, 1);
+    LONGS_EQUAL(0, CommandLine_Init(&m_commandLine, m_argc, m_argv));
+    validateSourceFilesAndNoErrorMessage(m_argv, 1);
 }
 
 TEST(CommandLine, TwoSourceFilenames)
@@ -76,6 +95,6 @@ TEST(CommandLine, TwoSourceFilenames)
     addArg("SOURCE1.S");
     addArg("SOURCE2.S");
     
-    LONGS_EQUAL(0, CommandLine_Init(&m_CommandLine, m_argc, m_argv));
-    validateSourceFiles(m_argv, 2);
+    LONGS_EQUAL(0, CommandLine_Init(&m_commandLine, m_argc, m_argv));
+    validateSourceFilesAndNoErrorMessage(m_argv, 2);
 }

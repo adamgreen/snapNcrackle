@@ -10,13 +10,19 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-#ifndef _COMMAND_LINE_TEST_H_
-#define _COMMAND_LINE_TEST_H_
+/* Default to mocks for certain functions but production code can override. */
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
 
-/* Used to redirect specific calls to stubs as necessary for testing. */
-#include <printfSpy.h>
+int (*__printf)(const char* pFormat, ...) = printf;
 
-/* Force printf() to go through function pointer so that tests can spy on it. */
-#define printf __printf
-
-#endif /* _COMMAND_LINE_TEST_H_ */
+#ifdef UNDONE
+/* Reallocs default to this routine so that the memory leak detection macros from the CppUTest code will be used. */
+static void* DefaultRealloc(void *ptr, size_t size)
+{
+    return realloc(ptr, size);
+}
+void* (*__realloc)(void *ptr, size_t size) = DefaultRealloc;
+#endif /* UNDONE */

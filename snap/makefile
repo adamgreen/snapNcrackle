@@ -30,6 +30,7 @@ SRC_DIRS = \
 
 TEST_SRC_DIRS = \
 	tests \
+	mocks \
 	
 INCLUDE_DIRS =\
   $(CPPUTEST_HOME)/include/ \
