@@ -1,8 +1,5 @@
 .DS_Store
-Debug/
-Release/
-objs/
 *_tests
-*.map
 *.o
+*.d
 *.a
