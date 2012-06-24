@@ -18,11 +18,9 @@
 
 int (*__printf)(const char* pFormat, ...) = printf;
 
-#ifdef UNDONE
-/* Reallocs default to this routine so that the memory leak detection macros from the CppUTest code will be used. */
-static void* DefaultRealloc(void *ptr, size_t size)
+/* Mallocs default to this routine so that the memory leak detection macros from the CppUTest code will be used. */
+static void* defaultMalloc(size_t size)
 {
-    return realloc(ptr, size);
+    return malloc(size);
 }
-void* (*__realloc)(void *ptr, size_t size) = DefaultRealloc;
-#endif /* UNDONE */
+void* (*__malloc)(size_t size) = defaultMalloc;

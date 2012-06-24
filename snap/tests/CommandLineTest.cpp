@@ -35,6 +35,8 @@ TEST_GROUP(CommandLine)
     
     void setup()
     {
+        clearExceptionCode();
+
         memset(m_argv, 0, sizeof(m_argv));
         memset(&m_commandLine, 0xff, sizeof(m_commandLine));
         m_argc = 0;
@@ -44,6 +46,7 @@ TEST_GROUP(CommandLine)
 
     void teardown()
     {
+        LONGS_EQUAL(noException, getExceptionCode());
         printfSpy_Destruct();
     }
 
@@ -76,17 +79,26 @@ TEST_GROUP(CommandLine)
 
 TEST(CommandLine, NoParameters)
 {
-    LONGS_EQUAL(-1, CommandLine_Init(&m_commandLine, m_argc, m_argv));
+    int exceptionThrown = FALSE;
+    
+    __try
+        CommandLine_Init(&m_commandLine, m_argc, m_argv);
+    __catch
+        exceptionThrown = TRUE;
+        
+    CHECK_TRUE(exceptionThrown);
+    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
     LONGS_EQUAL(0, m_commandLine.sourceFileCount);
     CHECK(m_commandLine.pSourceFiles == NULL);
     STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+    clearExceptionCode();
 }
 
 TEST(CommandLine, OneSourceFilename)
 {
     addArg("SOURCE1.S");
     
-    LONGS_EQUAL(0, CommandLine_Init(&m_commandLine, m_argc, m_argv));
+    CommandLine_Init(&m_commandLine, m_argc, m_argv);
     validateSourceFilesAndNoErrorMessage(m_argv, 1);
 }
 
@@ -95,6 +107,6 @@ TEST(CommandLine, TwoSourceFilenames)
     addArg("SOURCE1.S");
     addArg("SOURCE2.S");
     
-    LONGS_EQUAL(0, CommandLine_Init(&m_commandLine, m_argc, m_argv));
+    CommandLine_Init(&m_commandLine, m_argc, m_argv);
     validateSourceFilesAndNoErrorMessage(m_argv, 2);
 }

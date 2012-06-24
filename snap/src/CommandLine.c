@@ -24,18 +24,16 @@ static void displayUsage(void)
            "                command line.\n");
 }
 
-int CommandLine_Init(CommandLine* pThis, int argc, const char** argv)
+__throws void CommandLine_Init(CommandLine* pThis, int argc, const char** argv)
 {
     memset(pThis, 0, sizeof(*pThis));
     
     if (!argc)
     {
         displayUsage();
-        return -1;
+        __throw(invalidArgumentException);
     }
         
     pThis->sourceFileCount = argc;
     pThis->pSourceFiles = argv;
-    
-    return 0;
 }

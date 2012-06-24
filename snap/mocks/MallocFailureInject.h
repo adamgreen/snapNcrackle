@@ -10,18 +10,15 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-#ifndef _COMMANDLINE_H_
-#define _COMMANDLINE_H_
-
-#include "try_catch.h"
-
-typedef struct _CommandLine
-{
-    const char** pSourceFiles;
-    int          sourceFileCount;
-} CommandLine;
+/* Module for injecting allocation failures into malloc() calls from code under test. */
+#ifndef _MALLOC_FAILURE_INJECT_H_
+#define _MALLOC_FAILURE_INJECT_H_
 
 
-__throws void CommandLine_Init(CommandLine* pThis, int argc, const char** argv);
+/* Pointer to malloc routine which can intercepted by this module. */
+extern void* (*__malloc)(size_t size);
 
-#endif /* _COMMANDLINE_H_ */
+void        MallocFailureInject_Construct(unsigned int allocationToFail);
+void        MallocFailureInject_Destruct(void);
+
+#endif /* _MALLOC_FAILURE_INJECT_H_ */

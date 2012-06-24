@@ -10,18 +10,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-#ifndef _COMMANDLINE_H_
-#define _COMMANDLINE_H_
-
+/* Very rough exception handling like macros for C. */
 #include "try_catch.h"
 
-typedef struct _CommandLine
-{
-    const char** pSourceFiles;
-    int          sourceFileCount;
-} CommandLine;
-
-
-__throws void CommandLine_Init(CommandLine* pThis, int argc, const char** argv);
-
-#endif /* _COMMANDLINE_H_ */
+int g_exceptionCode;

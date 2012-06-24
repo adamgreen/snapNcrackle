@@ -10,18 +10,15 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-#ifndef _COMMANDLINE_H_
-#define _COMMANDLINE_H_
+/* Used to redirect specific calls to stubs as necessary for testing. */
+#ifndef _SYMBOL_TABLE_TEST_H_
+#define _SYMBOL_TABLE_TEST_H_
 
-#include "try_catch.h"
-
-typedef struct _CommandLine
-{
-    const char** pSourceFiles;
-    int          sourceFileCount;
-} CommandLine;
+#include <MallocFailureInject.h>
 
 
-__throws void CommandLine_Init(CommandLine* pThis, int argc, const char** argv);
+/* Force malloc() to go through function pointer so that memory failures can be injected. */
+#undef  malloc
+#define malloc __malloc
 
-#endif /* _COMMANDLINE_H_ */
+#endif /* _SYMBOL_TABLE_TEST_H_ */
