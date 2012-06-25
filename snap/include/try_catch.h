@@ -25,6 +25,7 @@
 #define exceededHardwareResourcesException  8
 #define invalidDecDigitException            9
 #define outOfMemoryException                10
+#define endOfFileException                  11
 
 extern int g_exceptionCode;
 
