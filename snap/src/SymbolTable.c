@@ -15,6 +15,15 @@
 #include "SymbolTableTest.h"
 
 
+struct SymbolTable
+{
+    Symbol**  ppBuckets;
+    size_t    bucketCount;
+    size_t    symbolCount;
+};
+
+
+
 static SymbolTable* allocateSymbolTable(void);
 static void allocateBuckets(SymbolTable* pThis, size_t bucketCount);
 __throws SymbolTable* SymbolTable_Create(size_t bucketCount)
@@ -56,7 +65,7 @@ static void allocateBuckets(SymbolTable* pThis, size_t bucketCount)
 
 
 static void freeBuckets(SymbolTable* pThis);
-static void freeBucketList(SymbolTableElement* pEntry);
+static void freeBucketList(Symbol* pEntry);
 void SymbolTable_Free(SymbolTable* pThis)
 {
     if (!pThis)
@@ -78,11 +87,11 @@ static void freeBuckets(SymbolTable* pThis)
     free(pThis->ppBuckets);
 }
 
-static void freeBucketList(SymbolTableElement* pEntry)
+static void freeBucketList(Symbol* pEntry)
 {
     while (pEntry)
     {
-        SymbolTableElement* pNext = pEntry->pNext;
+        Symbol* pNext = pEntry->pNext;
         free(pEntry);
         pEntry = pNext;;
     }
@@ -95,15 +104,15 @@ size_t SymbolTable_GetSymbolCount(SymbolTable* pThis)
 }
 
 
-static SymbolTableElement* allocateElement(const char* pKey, const void* pData);
+static Symbol* allocateSymbol(const char* pKey, const void* pData);
 static size_t hashString(const char* pString);
-SymbolTableElement* SymbolTable_Add(SymbolTable* pThis, const char* pKey, const void* pData)
+Symbol* SymbolTable_Add(SymbolTable* pThis, const char* pKey, const void* pData)
 {
-    SymbolTableElement*  pElement;
-    SymbolTableElement** ppBucket;    
+    Symbol*  pElement;
+    Symbol** ppBucket;    
     
     __try
-        pElement = allocateElement(pKey, pData);
+        pElement = allocateSymbol(pKey, pData);
     __catch
         __rethrow_and_return(NULL);
 
@@ -115,19 +124,19 @@ SymbolTableElement* SymbolTable_Add(SymbolTable* pThis, const char* pKey, const 
     return pElement;
 }
 
-static SymbolTableElement* allocateElement(const char* pKey, const void* pData)
+static Symbol* allocateSymbol(const char* pKey, const void* pData)
 {
-    SymbolTableElement* pElement = NULL;
+    Symbol* pSymbol = NULL;
     
-    pElement = malloc(sizeof(*pElement));
-    if (!pElement)
+    pSymbol = malloc(sizeof(*pSymbol));
+    if (!pSymbol)
         __throw_and_return(outOfMemoryException, NULL);
         
-    pElement->pKey = pKey;
-    pElement->pData = pData;
-    pElement->pNext = NULL;
+    pSymbol->pKey = pKey;
+    pSymbol->pData = pData;
+    pSymbol->pNext = NULL;
     
-    return pElement;
+    return pSymbol;
 }
 
 static size_t hashString(const char* pString)
@@ -143,23 +152,23 @@ static size_t hashString(const char* pString)
 }
 
 
-static SymbolTableElement* searchBucket(SymbolTableElement* pBucketHead, const char* pKey);
-SymbolTableElement* SymbolTable_Find(SymbolTable* pThis, const char* pKey)
+static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey);
+Symbol* SymbolTable_Find(SymbolTable* pThis, const char* pKey)
 {
     size_t i;
     
     for (i = 0 ; i < pThis->bucketCount ; i++)
     {
-        SymbolTableElement* pSearchResult = searchBucket(pThis->ppBuckets[i], pKey);
+        Symbol* pSearchResult = searchBucket(pThis->ppBuckets[i], pKey);
         if (pSearchResult)
             return pSearchResult;
     }
     return NULL;
 }
 
-static SymbolTableElement* searchBucket(SymbolTableElement* pBucketHead, const char* pKey)
+static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey)
 {
-    SymbolTableElement* pCurr = pBucketHead;
+    Symbol* pCurr = pBucketHead;
     
     if (!pBucketHead)
         return NULL;

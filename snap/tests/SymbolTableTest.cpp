@@ -30,15 +30,15 @@ static const char* pData2 = "bar2";
 
 TEST_GROUP(SymbolTable)
 {
-    SymbolTable*        m_pSymbolTable;
-    SymbolTableElement* m_pElem1;
-    SymbolTableElement* m_pElem2;
+    SymbolTable* m_pSymbolTable;
+    Symbol*      m_pSymbol1;
+    Symbol*      m_pSymbol2;
     
     void setup()
     {
         m_pSymbolTable = NULL;
-        m_pElem1 = NULL;
-        m_pElem2 = NULL;
+        m_pSymbol1 = NULL;
+        m_pSymbol2 = NULL;
         clearExceptionCode();
     }
 
@@ -65,13 +65,13 @@ TEST_GROUP(SymbolTable)
     
     void createTwoSymbols(void)
     {
-        m_pElem1 = SymbolTable_Add(m_pSymbolTable, pKey1, pData1);
-        m_pElem2 = SymbolTable_Add(m_pSymbolTable, pKey2, pData2);
+        m_pSymbol1 = SymbolTable_Add(m_pSymbolTable, pKey1, pData1);
+        m_pSymbol2 = SymbolTable_Add(m_pSymbolTable, pKey2, pData2);
         LONGS_EQUAL(2, SymbolTable_GetSymbolCount(m_pSymbolTable));
     
-        CHECK(NULL != m_pElem1);
-        CHECK(NULL != m_pElem2);
-        CHECK(m_pElem1 != m_pElem2);
+        CHECK(NULL != m_pSymbol1);
+        CHECK(NULL != m_pSymbol2);
+        CHECK(m_pSymbol1 != m_pSymbol2);
     }
 };
 
@@ -98,8 +98,8 @@ TEST(SymbolTable, EmptySymbolTable)
 
 TEST(SymbolTable, FailSymbolTableEntry)
 {
-    const       SymbolTableElement* pElem = NULL;
-    int         exceptionThrown = FALSE;
+    const Symbol* pElem = NULL;
+    int   exceptionThrown = FALSE;
     
     m_pSymbolTable = SymbolTable_Create(1);
     MallocFailureInject_Construct(1);
@@ -117,7 +117,7 @@ TEST(SymbolTable, FailSymbolTableEntry)
 
 TEST(SymbolTable, OneItemInSymbolTable)
 {
-    const       SymbolTableElement* pElem = NULL;
+    const Symbol* pElem = NULL;
     
     m_pSymbolTable = SymbolTable_Create(2);
     pElem = SymbolTable_Add(m_pSymbolTable, pKey1, pData1);
@@ -132,15 +132,15 @@ TEST(SymbolTable, TwoItemsInSymbolTable)
 {
     m_pSymbolTable = SymbolTable_Create(2);
     createTwoSymbols();
-    POINTERS_EQUAL(pKey1, m_pElem1->pKey);
-    POINTERS_EQUAL(pData1, m_pElem1->pData);
-    POINTERS_EQUAL(pKey2, m_pElem2->pKey);
-    POINTERS_EQUAL(pData2, m_pElem2->pData);
+    POINTERS_EQUAL(pKey1, m_pSymbol1->pKey);
+    POINTERS_EQUAL(pData1, m_pSymbol1->pData);
+    POINTERS_EQUAL(pKey2, m_pSymbol2->pKey);
+    POINTERS_EQUAL(pData2, m_pSymbol2->pData);
 }
 
 TEST(SymbolTable, AttemptToFindNonExistantItem)
 {
-    const       SymbolTableElement* pElem = NULL;
+    const Symbol* pElem = NULL;
     
     m_pSymbolTable = SymbolTable_Create(2);
     SymbolTable_Add(m_pSymbolTable, pKey1, pData1);
@@ -150,7 +150,7 @@ TEST(SymbolTable, AttemptToFindNonExistantItem)
 
 TEST(SymbolTable, FindItemWhenMultipleBuckets)
 {
-    const       SymbolTableElement* pElem = NULL;
+    const Symbol* pElem = NULL;
     
     m_pSymbolTable = SymbolTable_Create(5);
     createTwoSymbols();
@@ -162,7 +162,7 @@ TEST(SymbolTable, FindItemWhenMultipleBuckets)
 
 TEST(SymbolTable, FindFirstItemInBucket)
 {
-    const       SymbolTableElement* pElem = NULL;
+    const Symbol* pElem = NULL;
     
     m_pSymbolTable = SymbolTable_Create(1);
     createTwoSymbols();
@@ -175,7 +175,7 @@ TEST(SymbolTable, FindFirstItemInBucket)
 
 TEST(SymbolTable, FindSecondItemInBucket)
 {
-    const       SymbolTableElement* pElem = NULL;
+    const Symbol* pElem = NULL;
     
     m_pSymbolTable = SymbolTable_Create(1);
     createTwoSymbols();

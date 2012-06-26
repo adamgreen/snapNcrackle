@@ -10,18 +10,15 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-#ifndef _TEXT_FILE_H_
-#define _TEXT_FILE_H_
+#ifndef _SYMBOL_H_
+#define _SYMBOL_H_
 
-#include "try_catch.h"
+typedef struct Symbol Symbol;
+struct Symbol
+{
+    const char* pKey;
+    const void* pData;
+    Symbol*     pNext;
+};
 
-typedef struct TextFile TextFile;
-
-
-__throws TextFile* TextFile_CreateFromString(char* pText);
-__throws TextFile* TextFile_CreateFromFile(const char* pFilename);
-         void      TextFile_Free(TextFile* pThis);
-
-__throws char*     TextFile_GetNextLine(TextFile* pThis);
-
-#endif /* _TEXT_FILE_H_ */
+#endif /* _SYMBOL_H_ */

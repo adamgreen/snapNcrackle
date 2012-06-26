@@ -14,27 +14,16 @@
 #define _SYMBOL_TABLE_H_
 
 #include "try_catch.h"
-
-typedef struct SymbolTableElement SymbolTableElement;
-struct SymbolTableElement
-{
-    const char*         pKey;
-    const void*         pData;
-    SymbolTableElement* pNext;
-};
-
-typedef struct _SymbolTable
-{
-    SymbolTableElement** ppBuckets;
-    size_t               bucketCount;
-    size_t               symbolCount;
-} SymbolTable;
+#include "Symbol.h"
 
 
-__throws SymbolTable*        SymbolTable_Create(size_t bucketCount);
-         void                SymbolTable_Free(SymbolTable* pThis);
-         size_t              SymbolTable_GetSymbolCount(SymbolTable* pThis);
-__throws SymbolTableElement* SymbolTable_Add(SymbolTable* pThis, const char* pKey, const void* pData);
-         SymbolTableElement* SymbolTable_Find(SymbolTable* pThis, const char* pKey);
+typedef struct SymbolTable SymbolTable;
+
+
+__throws SymbolTable* SymbolTable_Create(size_t bucketCount);
+         void         SymbolTable_Free(SymbolTable* pThis);
+         size_t       SymbolTable_GetSymbolCount(SymbolTable* pThis);
+__throws Symbol*      SymbolTable_Add(SymbolTable* pThis, const char* pKey, const void* pData);
+         Symbol*      SymbolTable_Find(SymbolTable* pThis, const char* pKey);
 
 #endif /* _SYMBOL_TABLE_H_ */
