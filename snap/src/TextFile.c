@@ -11,11 +11,13 @@
     GNU General Public License for more details.
 */
 #include <string.h>
+#include <stdio.h>
 #include "TextFile.h"
 #include "TextFileTest.h"
 
 struct TextFile
 {
+    char* pFileBuffer;
     char* pText;
     char* pCurr;
 };
@@ -56,11 +58,95 @@ __throws static void initObject(TextFile* pThis, char* pText)
 }
 
 
+static long getTextLength(FILE* pFile);
+static long adjustFileSizeToAllowForTrailingNull(long actualFileSize);
+static char* allocateTextBuffer(long textLength);
+static void readFileContentIntoTextBufferAndNullTerminate(char* pTextBuffer, long textBufferSize, FILE* pFile);
+__throws TextFile* TextFile_CreateFromFile(const char* pFilename)
+{
+    FILE*     pFile = NULL;
+    long      textLength = -1;
+    char*     pTextBuffer = NULL;
+    TextFile* pThis = NULL;
+    
+    pFile = fopen(pFilename, "r");
+    if (!pFile)
+        __throw_and_return(fileNotFoundException, NULL);
+
+    __try
+    {
+        __throwing_func( textLength = getTextLength(pFile) );
+        __throwing_func( pTextBuffer = allocateTextBuffer(textLength) );
+        __throwing_func( readFileContentIntoTextBufferAndNullTerminate(pTextBuffer, textLength, pFile) );
+        __throwing_func( pThis = TextFile_CreateFromString(pTextBuffer) );
+        pThis->pFileBuffer = pTextBuffer;
+    }
+    __catch
+    {
+        free(pTextBuffer);
+        fclose(pFile);
+        __rethrow_and_return(NULL);
+    }
+    
+    fclose(pFile);
+    return pThis;
+}
+
+static long getTextLength(FILE* pFile)
+{
+    long fileSize;
+    int  result;
+    
+    result = fseek(pFile, 0, SEEK_END);
+    if (result != 0)
+        __throw_and_return(fileException, -1);
+        
+    fileSize = ftell(pFile);
+    if (fileSize == -1)
+        __throw_and_return(fileException, -1);
+        
+    result = fseek(pFile, 0, SEEK_SET);
+    if (result != 0)
+        __throw_and_return(fileException, -1);
+        
+    return adjustFileSizeToAllowForTrailingNull(fileSize);
+}
+
+static long adjustFileSizeToAllowForTrailingNull(long actualFileSize)
+{
+    return actualFileSize + 1;
+}
+
+static char* allocateTextBuffer(long textLength)
+{
+    char* pTextBuffer;
+    
+    pTextBuffer = malloc(textLength);
+    if (!pTextBuffer)
+        __throw_and_return(outOfMemoryException, NULL);
+        
+    return pTextBuffer;
+}
+
+static void readFileContentIntoTextBufferAndNullTerminate(char* pTextBuffer, long textBufferSize, FILE* pFile)
+{
+    int fileContentSize = textBufferSize - 1;
+    int result;
+    
+    result = fread(pTextBuffer, 1, fileContentSize, pFile);
+    if (result != fileContentSize)
+        __throw(fileException);
+        
+    pTextBuffer[textBufferSize - 1] = '\0';
+}
+
+
 void TextFile_Free(TextFile* pThis)
 {
     if (!pThis)
         return;
     
+    free(pThis->pFileBuffer);
     free(pThis);
 }
 

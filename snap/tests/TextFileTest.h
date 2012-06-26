@@ -15,10 +15,18 @@
 #define _TEXT_FILE_TEST_H_
 
 #include <MallocFailureInject.h>
+#include <FileFailureInject.h>
 
 
 /* Force malloc() to go through function pointer so that memory failures can be injected. */
 #undef  malloc
 #define malloc __malloc
+
+/* Force file I/O routines to go through hooking routines in unit tests. */
+#define fopen  hook_fopen
+#define fseek  hook_fseek
+#define ftell  hook_ftell
+#define fwrite hook_fwrite
+#define fread  hook_fread
 
 #endif /* _TEXT_FILE_TEST_H_ */

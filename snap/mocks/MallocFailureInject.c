@@ -15,8 +15,16 @@
 #include "CppUTest/TestHarness_c.h"
 
 
+static void* defaultMalloc(size_t size);
+void* (*__malloc)(size_t size) = defaultMalloc;
 unsigned int   g_allocationToFail = 0;
-void*        (*g_mallocPrevious)(size_t size) = NULL;
+
+
+/* Mallocs default to this routine so that the memory leak detection macros from the CppUTest code will be used. */
+static void* defaultMalloc(size_t size)
+{
+    return malloc(size);
+}
 
 
 static int shouldThisAllocationBeFailed(void)
@@ -38,14 +46,11 @@ static void* MallocFailureInject_malloc(size_t size)
 /********************/
 void MallocFailureInject_Construct(unsigned int allocationToFail)
 {
-    g_mallocPrevious = __malloc;
     __malloc = MallocFailureInject_malloc;
-    
     g_allocationToFail = allocationToFail;
 }
 
 void MallocFailureInject_Destruct(void)
 {
-    __malloc = g_mallocPrevious;
-    g_mallocPrevious = NULL;
+    __malloc = defaultMalloc;
 }

@@ -19,7 +19,7 @@
 
 char*   g_pBuffer = NULL;
 size_t  g_BufferSize = 0;
-int (*g_printfPrevious)(const char* pFormat, ...) = NULL;
+int (*__printf)(const char* pFormat, ...) = printf;
 
 static void _AllocateAndInitBuffer(size_t BufferSize)
 {
@@ -38,16 +38,12 @@ static void _FreeBuffer(void)
 
 static void _SetFunctionPointer(int (*pFunction)(const char*, ...))
 {
-    g_printfPrevious = __printf;
     __printf = pFunction;
 }
 
 static void _RestoreFunctionPointer(void)
 {
-    if (g_printfPrevious)
-    {
-        __printf = g_printfPrevious;
-    }
+    __printf = printf;
 }
 
 /********************/

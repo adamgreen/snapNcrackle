@@ -26,6 +26,8 @@
 #define invalidDecDigitException            9
 #define outOfMemoryException                10
 #define endOfFileException                  11
+#define fileNotFoundException               12
+#define fileException                       13
 
 extern int g_exceptionCode;
 

@@ -19,6 +19,7 @@ typedef struct TextFile TextFile;
 
 
 __throws TextFile* TextFile_CreateFromString(char* pText);
+__throws TextFile* TextFile_CreateFromFile(const char* pFilename);
          void      TextFile_Free(TextFile* pThis);
 
 __throws char*     TextFile_GetNextLine(TextFile* pThis);

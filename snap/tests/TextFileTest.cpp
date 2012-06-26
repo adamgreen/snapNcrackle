@@ -16,11 +16,14 @@ extern "C"
 {
     #include "TextFile.h"
     #include "MallocFailureInject.h"
+    #include "FileFailureInject.h"
     #include "util.h"
 }
 
 // Include C++ headers for test harness.
 #include "CppUTest/TestHarness.h"
+
+static const char* tempFilename = "TestFileTestCppBogusContent.S";
 
 TEST_GROUP(TextFile)
 {
@@ -38,6 +41,7 @@ TEST_GROUP(TextFile)
     {
         TextFile_Free(m_pTextFile);
         LONGS_EQUAL(noException, getExceptionCode());
+        remove(tempFilename);
     }
     
     void validateEndOfFileExceptionForNextLine()
@@ -60,6 +64,21 @@ TEST_GROUP(TextFile)
     
         pLine = TextFile_GetNextLine(m_pTextFile);
         STRCMP_EQUAL(" ", pLine);
+    }
+    
+    void createTestFile(const char* pTestText)
+    {
+        FILE* pFile = fopen(tempFilename, "w");
+        CHECK(pFile != NULL);
+        LONGS_EQUAL(strlen(pTestText), fwrite(pTestText, 1, strlen(pTestText), pFile));
+        fclose(pFile);
+    }
+    
+    void validateFileExceptionThrown()
+    {
+        POINTERS_EQUAL(NULL, m_pTextFile);
+        LONGS_EQUAL(fileException, getExceptionCode());
+        clearExceptionCode();
     }
 };
 
@@ -139,4 +158,75 @@ TEST(TextFile, GetLine2LinesWithCarriageReturnAndNewLineButEOFAtEndOfSecondLine)
     fetchAndValidateLineWithSingleSpace();
     fetchAndValidateLineWithSingleSpace();
     validateEndOfFileExceptionForNextLine();
+}
+
+TEST(TextFile, CreateFromFile)
+{
+    createTestFile(" \n\r \n");
+    m_pTextFile = TextFile_CreateFromFile(tempFilename);
+    fetchAndValidateLineWithSingleSpace();
+    fetchAndValidateLineWithSingleSpace();
+    validateEndOfFileExceptionForNextLine();
+}
+
+TEST(TextFile, FailTextBufferAllocation)
+{
+    createTestFile("\n\r");
+    MallocFailureInject_Construct(1);
+    m_pTextFile = TextFile_CreateFromFile(tempFilename);
+    MallocFailureInject_Destruct();
+    
+    POINTERS_EQUAL(NULL, m_pTextFile);
+    LONGS_EQUAL(outOfMemoryException, getExceptionCode());
+    clearExceptionCode();
+}
+
+TEST(TextFile, FailFOpen)
+{
+    createTestFile("\n\r");
+    fopenFail(NULL);
+    m_pTextFile = TextFile_CreateFromFile(tempFilename);
+    fopenRestore();
+
+    POINTERS_EQUAL(NULL, m_pTextFile);
+    LONGS_EQUAL(fileNotFoundException, getExceptionCode());
+    clearExceptionCode();
+}
+
+TEST(TextFile, FailFSeekToEOF)
+{
+    createTestFile("\n\r");
+    fseekSetFailureCode(-1);
+    fseekSetCallsBeforeFailure(0);
+    m_pTextFile = TextFile_CreateFromFile(tempFilename);
+    fseekRestore();
+    validateFileExceptionThrown();
+}
+
+TEST(TextFile, FailFSeekBackToStart)
+{
+    createTestFile("\n\r");
+    fseekSetFailureCode(-1);
+    fseekSetCallsBeforeFailure(1);
+    m_pTextFile = TextFile_CreateFromFile(tempFilename);
+    fseekRestore();
+    validateFileExceptionThrown();
+}
+
+TEST(TextFile, FailFTell)
+{
+    createTestFile("\n\r");
+    ftellFail(-1);
+    m_pTextFile = TextFile_CreateFromFile(tempFilename);
+    ftellRestore();
+    validateFileExceptionThrown();
+}
+
+TEST(TextFile, FailFRead)
+{
+    createTestFile("\n\r");
+    freadFail(0);
+    m_pTextFile = TextFile_CreateFromFile(tempFilename);
+    freadRestore();
+    validateFileExceptionThrown();
 }
