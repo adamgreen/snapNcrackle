@@ -18,6 +18,8 @@
 struct SymbolTable
 {
     Symbol**  ppBuckets;
+    Symbol**  ppEnumBucket;
+    Symbol*   pEnumBucketItem;
     size_t    bucketCount;
     size_t    symbolCount;
 };
@@ -181,4 +183,54 @@ static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey)
         pCurr = pCurr->pNext;
     }
     return NULL;
+}
+
+
+static void walkToNextNonEmptyBucket(SymbolTable* pThis);
+void SymbolTable_EnumStart(SymbolTable* pThis)
+{
+    pThis->ppEnumBucket = pThis->ppBuckets - 1;
+    walkToNextNonEmptyBucket(pThis);
+}
+
+static void walkToNextNonEmptyBucket(SymbolTable* pThis)
+{
+    Symbol** ppEnd = pThis->ppBuckets + pThis->bucketCount;
+    Symbol** ppCurr = pThis->ppEnumBucket;
+    
+    while (++ppCurr < ppEnd)
+    {
+        if (*ppCurr)
+        {
+            pThis->ppEnumBucket = ppCurr;
+            pThis->pEnumBucketItem = *ppCurr;
+            return;
+        }
+    }
+}
+
+
+static void walkToNextSymbol(SymbolTable* pThis);
+static int encounteredEndOfBucketList(SymbolTable* pThis);
+__throws Symbol* SymbolTable_EnumNext(SymbolTable* pThis)
+{
+    Symbol* pCurr = pThis->pEnumBucketItem;
+
+    if (!pCurr)
+        __throw_and_return(endOfListException, NULL);
+    
+    walkToNextSymbol(pThis);
+    return pCurr;
+}
+
+static void walkToNextSymbol(SymbolTable* pThis)
+{
+    pThis->pEnumBucketItem = pThis->pEnumBucketItem->pNext;
+    if (encounteredEndOfBucketList(pThis))
+        walkToNextNonEmptyBucket(pThis);
+}
+
+static int encounteredEndOfBucketList(SymbolTable* pThis)
+{
+    return pThis->pEnumBucketItem == NULL;
 }

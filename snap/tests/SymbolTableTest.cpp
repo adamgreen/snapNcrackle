@@ -63,6 +63,15 @@ TEST_GROUP(SymbolTable)
         clearExceptionCode();
     }
     
+    void createOneSymbol(void)
+    {
+        m_pSymbol1 = SymbolTable_Add(m_pSymbolTable, pKey1, pData1);
+        LONGS_EQUAL(1, SymbolTable_GetSymbolCount(m_pSymbolTable));
+    
+        CHECK(NULL != m_pSymbol1);
+        LONGS_EQUAL(noException, getExceptionCode());
+    }
+
     void createTwoSymbols(void)
     {
         m_pSymbol1 = SymbolTable_Add(m_pSymbolTable, pKey1, pData1);
@@ -72,6 +81,14 @@ TEST_GROUP(SymbolTable)
         CHECK(NULL != m_pSymbol1);
         CHECK(NULL != m_pSymbol2);
         CHECK(m_pSymbol1 != m_pSymbol2);
+    }
+    
+    void nextEnumAttemptShouldFail(void)
+    {
+        Symbol* pSymbol = SymbolTable_EnumNext(m_pSymbolTable);
+        POINTERS_EQUAL(NULL, pSymbol);
+        LONGS_EQUAL(endOfListException, getExceptionCode());
+        clearExceptionCode();
     }
 };
 
@@ -98,33 +115,33 @@ TEST(SymbolTable, EmptySymbolTable)
 
 TEST(SymbolTable, FailSymbolTableEntry)
 {
-    const Symbol* pElem = NULL;
+    const Symbol* pSymbol = NULL;
     int   exceptionThrown = FALSE;
     
     m_pSymbolTable = SymbolTable_Create(1);
     MallocFailureInject_Construct(1);
     __try
-        pElem = SymbolTable_Add(m_pSymbolTable, pKey1, pData1);
+        pSymbol = SymbolTable_Add(m_pSymbolTable, pKey1, pData1);
     __catch
         exceptionThrown = TRUE;
     MallocFailureInject_Destruct();
     
     CHECK_TRUE(exceptionThrown);
-    CHECK(NULL == pElem);
+    CHECK(NULL == pSymbol);
     LONGS_EQUAL(0, SymbolTable_GetSymbolCount(m_pSymbolTable));
     clearExceptionCode();
 }
 
 TEST(SymbolTable, OneItemInSymbolTable)
 {
-    const Symbol* pElem = NULL;
+    const Symbol* pSymbol = NULL;
     
     m_pSymbolTable = SymbolTable_Create(2);
-    pElem = SymbolTable_Add(m_pSymbolTable, pKey1, pData1);
+    pSymbol = SymbolTable_Add(m_pSymbolTable, pKey1, pData1);
     
-    CHECK(NULL != pElem);
-    POINTERS_EQUAL(pKey1, pElem->pKey);
-    POINTERS_EQUAL(pData1, pElem->pData);
+    CHECK(NULL != pSymbol);
+    POINTERS_EQUAL(pKey1, pSymbol->pKey);
+    POINTERS_EQUAL(pData1, pSymbol->pData);
     LONGS_EQUAL(1, SymbolTable_GetSymbolCount(m_pSymbolTable));
 }
 
@@ -140,48 +157,122 @@ TEST(SymbolTable, TwoItemsInSymbolTable)
 
 TEST(SymbolTable, AttemptToFindNonExistantItem)
 {
-    const Symbol* pElem = NULL;
+    const Symbol* pSymbol = NULL;
     
     m_pSymbolTable = SymbolTable_Create(2);
     SymbolTable_Add(m_pSymbolTable, pKey1, pData1);
-    pElem = SymbolTable_Find(m_pSymbolTable, "foobar");
-    POINTERS_EQUAL(NULL, pElem);
+    pSymbol = SymbolTable_Find(m_pSymbolTable, "foobar");
+    POINTERS_EQUAL(NULL, pSymbol);
 }
 
 TEST(SymbolTable, FindItemWhenMultipleBuckets)
 {
-    const Symbol* pElem = NULL;
+    const Symbol* pSymbol = NULL;
     
     m_pSymbolTable = SymbolTable_Create(5);
     createTwoSymbols();
-    pElem = SymbolTable_Find(m_pSymbolTable, pKey1);
-    CHECK(NULL != pElem);
-    POINTERS_EQUAL(pKey1, pElem->pKey);
-    POINTERS_EQUAL(pData1, pElem->pData);
+    pSymbol = SymbolTable_Find(m_pSymbolTable, pKey1);
+    CHECK(NULL != pSymbol);
+    POINTERS_EQUAL(pKey1, pSymbol->pKey);
+    POINTERS_EQUAL(pData1, pSymbol->pData);
 }
 
 TEST(SymbolTable, FindFirstItemInBucket)
 {
-    const Symbol* pElem = NULL;
+    const Symbol* pSymbol = NULL;
     
     m_pSymbolTable = SymbolTable_Create(1);
     createTwoSymbols();
 
-    pElem = SymbolTable_Find(m_pSymbolTable, pKey1);
-    CHECK(NULL != pElem);
-    POINTERS_EQUAL(pKey1, pElem->pKey);
-    POINTERS_EQUAL(pData1, pElem->pData);
+    pSymbol = SymbolTable_Find(m_pSymbolTable, pKey1);
+    CHECK(NULL != pSymbol);
+    POINTERS_EQUAL(pKey1, pSymbol->pKey);
+    POINTERS_EQUAL(pData1, pSymbol->pData);
 }
 
 TEST(SymbolTable, FindSecondItemInBucket)
 {
-    const Symbol* pElem = NULL;
+    const Symbol* pSymbol = NULL;
     
     m_pSymbolTable = SymbolTable_Create(1);
     createTwoSymbols();
 
-    pElem = SymbolTable_Find(m_pSymbolTable, pKey2);
-    CHECK(NULL != pElem);
-    POINTERS_EQUAL(pKey2, pElem->pKey);
-    POINTERS_EQUAL(pData2, pElem->pData);
+    pSymbol = SymbolTable_Find(m_pSymbolTable, pKey2);
+    CHECK(NULL != pSymbol);
+    POINTERS_EQUAL(pKey2, pSymbol->pKey);
+    POINTERS_EQUAL(pData2, pSymbol->pData);
+}
+
+TEST(SymbolTable, EnumerateEmptyList)
+{
+    m_pSymbolTable = SymbolTable_Create(1);
+    SymbolTable_EnumStart(m_pSymbolTable);
+    nextEnumAttemptShouldFail();
+}
+
+TEST(SymbolTable, EnumerateSingleItemList)
+{
+    m_pSymbolTable = SymbolTable_Create(1);
+    createOneSymbol();
+    
+    SymbolTable_EnumStart(m_pSymbolTable);
+    Symbol* pSymbol = SymbolTable_EnumNext(m_pSymbolTable);
+    CHECK(pSymbol != NULL);
+    LONGS_EQUAL(noException, getExceptionCode());
+    POINTERS_EQUAL(pKey1, pSymbol->pKey);
+
+    nextEnumAttemptShouldFail();
+}
+
+TEST(SymbolTable, EnumerateTwoItemsInOneBucket)
+{
+    m_pSymbolTable = SymbolTable_Create(1);
+    createTwoSymbols();
+    
+    SymbolTable_EnumStart(m_pSymbolTable);
+
+    Symbol* pSymbol1 = SymbolTable_EnumNext(m_pSymbolTable);
+    CHECK(pSymbol1 != NULL);
+    LONGS_EQUAL(noException, getExceptionCode());
+
+    Symbol* pSymbol2 = SymbolTable_EnumNext(m_pSymbolTable);
+    CHECK(pSymbol2 != NULL);
+    LONGS_EQUAL(noException, getExceptionCode());
+    CHECK(pSymbol1 != pSymbol2);
+
+    nextEnumAttemptShouldFail();
+}
+
+TEST(SymbolTable, EnumerateOneItemNotInFirstBucket)
+{
+    m_pSymbolTable = SymbolTable_Create(111);
+    createOneSymbol();
+    
+    SymbolTable_EnumStart(m_pSymbolTable);
+
+    Symbol* pSymbol = SymbolTable_EnumNext(m_pSymbolTable);
+    CHECK(pSymbol != NULL);
+    POINTERS_EQUAL(pKey1, pSymbol->pKey);
+    LONGS_EQUAL(noException, getExceptionCode());
+
+    nextEnumAttemptShouldFail();
+}
+
+TEST(SymbolTable, EnumerateTwoItemsInDifferentBuckets)
+{
+    m_pSymbolTable = SymbolTable_Create(111);
+    createTwoSymbols();
+    
+    SymbolTable_EnumStart(m_pSymbolTable);
+
+    Symbol* pSymbol1 = SymbolTable_EnumNext(m_pSymbolTable);
+    CHECK(pSymbol1 != NULL);
+    LONGS_EQUAL(noException, getExceptionCode());
+
+    Symbol* pSymbol2 = SymbolTable_EnumNext(m_pSymbolTable);
+    CHECK(pSymbol2 != NULL);
+    LONGS_EQUAL(noException, getExceptionCode());
+    CHECK(pSymbol1 != pSymbol2);
+
+    nextEnumAttemptShouldFail();
 }

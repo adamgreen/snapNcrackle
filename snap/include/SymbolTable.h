@@ -22,8 +22,12 @@ typedef struct SymbolTable SymbolTable;
 
 __throws SymbolTable* SymbolTable_Create(size_t bucketCount);
          void         SymbolTable_Free(SymbolTable* pThis);
+         
          size_t       SymbolTable_GetSymbolCount(SymbolTable* pThis);
 __throws Symbol*      SymbolTable_Add(SymbolTable* pThis, const char* pKey, const void* pData);
          Symbol*      SymbolTable_Find(SymbolTable* pThis, const char* pKey);
+         
+         void         SymbolTable_EnumStart(SymbolTable* pThis);
+__throws Symbol*      SymbolTable_EnumNext(SymbolTable* pThis);
 
 #endif /* _SYMBOL_TABLE_H_ */

@@ -28,6 +28,7 @@
 #define endOfFileException                  11
 #define fileNotFoundException               12
 #define fileException                       13
+#define endOfListException                  14
 
 extern int g_exceptionCode;
 
