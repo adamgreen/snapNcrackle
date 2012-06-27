@@ -15,45 +15,33 @@
 #include "ParseLine.h"
 
 
+static int isLineEmptyOrFullLineComment(char* pLine);
 static int isLineEmpty(char* pLine);
 static int isFullLineComment(char* pLine);
+static char* extractLabel(ParsedLine* pObject, char* pLine);
 static int containsLabel(char* pLine);
+static char* extractOperator(ParsedLine* pObject, char* pLine);
+static char* extractField(char** ppField, char* pLine);
+static char* skipOverWhitespace(char* pCurr);
 static int isEndOfLineOrComment(char* pLine);
 static int isStartOfComment(char* pLine);
 static char* findNextWhitespace(char* pCurr);
-static char* skipOverWhitespace(char* pCurr);
+static char* extractOperands(ParsedLine* pObject, char* pLine);
 void ParseLine(ParsedLine* pObject, char* pLine)
 {
     memset(pObject, 0, sizeof(*pObject));
     
-    if (isLineEmpty(pLine) || isFullLineComment(pLine))
+    if (isLineEmptyOrFullLineComment(pLine))
         return;
     
-    if (containsLabel(pLine))
-    {
-        pObject->pLabel = pLine;
-        pLine = findNextWhitespace(pLine);
-        if (*pLine)
-            *pLine++ = '\0';
-    }
-    
-    pLine = skipOverWhitespace(pLine);
-    if (!isEndOfLineOrComment(pLine))
-    {
-        pObject->pOperator = pLine;
-        pLine = findNextWhitespace(pLine);
-        if (*pLine)
-            *pLine++ = '\0';
-    }
+    pLine = extractLabel(pObject, pLine);
+    pLine = extractOperator(pObject, pLine);
+    pLine = extractOperands(pObject, pLine);
+}
 
-    pLine = skipOverWhitespace(pLine);
-    if (!isEndOfLineOrComment(pLine))
-    {
-        pObject->pOperands = pLine;
-        pLine = findNextWhitespace(pLine);
-        if (*pLine)
-            *pLine++ = '\0';
-    }
+static int isLineEmptyOrFullLineComment(char* pLine)
+{
+    return isLineEmpty(pLine) || isFullLineComment(pLine);
 }
 
 static int isLineEmpty(char* pLine)
@@ -66,9 +54,51 @@ static int isFullLineComment(char* pLine)
     return pLine[0] == '*';
 }
 
+static char* extractLabel(ParsedLine* pObject, char* pLine)
+{
+    if (containsLabel(pLine))
+    {
+        pObject->pLabel = pLine;
+        pLine = findNextWhitespace(pLine);
+        if (*pLine)
+            *pLine++ = '\0';
+    }
+    return pLine;
+}
+
 static int containsLabel(char* pLine)
 {
     return !isspace(pLine[0]);
+}
+
+static char* extractOperator(ParsedLine* pObject, char* pLine)
+{
+    return extractField(&pObject->pOperator, pLine);
+}
+
+static char* extractOperands(ParsedLine* pObject, char* pLine)
+{
+    return extractField(&pObject->pOperands, pLine);
+}
+
+static char* extractField(char** ppField, char* pLine)
+{
+    pLine = skipOverWhitespace(pLine);
+    if (!isEndOfLineOrComment(pLine))
+    {
+        *ppField = pLine;
+        pLine = findNextWhitespace(pLine);
+        if (*pLine)
+            *pLine++ = '\0';
+    }
+    return pLine;
+}
+
+static char* skipOverWhitespace(char* pCurr)
+{
+    while (*pCurr && isspace(*pCurr))
+        pCurr++;
+    return pCurr;
 }
 
 static int isEndOfLineOrComment(char* pLine)
@@ -84,13 +114,6 @@ static int isStartOfComment(char* pLine)
 static char* findNextWhitespace(char* pCurr)
 {
     while (*pCurr && !isspace(*pCurr))
-        pCurr++;
-    return pCurr;
-}
-
-static char* skipOverWhitespace(char* pCurr)
-{
-    while (*pCurr && isspace(*pCurr))
         pCurr++;
     return pCurr;
 }
