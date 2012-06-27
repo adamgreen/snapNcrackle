@@ -14,7 +14,7 @@
 // Include headers from C modules under test.
 extern "C"
 {
-#include "printfSpy.h"
+    #include "printfSpy.h"
 }
 
 // Include C++ headers for test harness.
@@ -42,6 +42,7 @@ TEST_GROUP(printfSpy)
     {
         LONGS_EQUAL(ExpectedLength, m_Result);
         STRCMP_EQUAL(pExpectedString, printfSpy_GetLastOutput());
+        LONGS_EQUAL(1, printfSpy_GetCallCount());
     }
 
     char* CreateCheckBuffer(size_t BufferSize)
@@ -103,4 +104,11 @@ TEST(printfSpy, WithFormatting)
     m_Result = printfSpy_printf("Hello %s\n", "World");
 
     printfCheck(12, "Hello Worl");
+}
+
+TEST(printfSpy, TwoCall)
+{
+    printfSpy_printf("Line 1\r\n");
+    printfSpy_printf("Line 2\r\n");
+    LONGS_EQUAL(2, printfSpy_GetCallCount());
 }

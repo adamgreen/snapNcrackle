@@ -212,12 +212,12 @@ static void walkToNextNonEmptyBucket(SymbolTable* pThis)
 
 static void walkToNextSymbol(SymbolTable* pThis);
 static int encounteredEndOfBucketList(SymbolTable* pThis);
-__throws Symbol* SymbolTable_EnumNext(SymbolTable* pThis)
+Symbol* SymbolTable_EnumNext(SymbolTable* pThis)
 {
     Symbol* pCurr = pThis->pEnumBucketItem;
 
     if (!pCurr)
-        __throw_and_return(endOfListException, NULL);
+        return NULL;
     
     walkToNextSymbol(pThis);
     return pCurr;

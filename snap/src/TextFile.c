@@ -155,12 +155,12 @@ static void nullTerminateLineAndAdvanceToNextLine(TextFile* pThis);
 static char* findEndOfLine(TextFile* pThis);
 static int isLineEndCharacter(char ch);
 static char* findStartOfNextLine(char* pEndOfCurrentLine);
-__throws char* TextFile_GetNextLine(TextFile* pThis)
+char* TextFile_GetNextLine(TextFile* pThis)
 {
     char* pStartOfLine = pThis->pCurr;
     
     if (*pStartOfLine == '\0')
-        __throw_and_return(endOfFileException, NULL);
+        return NULL;
     
     nullTerminateLineAndAdvanceToNextLine(pThis);
     

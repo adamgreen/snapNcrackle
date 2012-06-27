@@ -10,18 +10,18 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-/* Module for spying on printf output from code under test. */
-#ifndef _PRINTF_SPY_H_
-#define _PRINTF_SPY_H_
+#ifndef _ASSEMBLER_H_
+#define _ASSEMBLER_H_
+
+#include "try_catch.h"
 
 
-/* Pointer to printf routine which can intercepted by this module. */
-extern int (*__printf)(const char* pFormat, ...);
+typedef struct Assembler Assembler;
 
-void        printfSpy_Construct(size_t BufferSize);
-int         printfSpy_printf(const char* pFormat, ...);
-const char* printfSpy_GetLastOutput(void);
-size_t      printfSpy_GetCallCount(void);
-void        printfSpy_Destruct(void);
 
-#endif /* _PRINTF_SPY_H_ */
+__throws Assembler* Assembler_CreateFromString(char* pText);
+         void       Assembler_Free(Assembler* pThis);
+
+         void       Assembler_Run(Assembler* pThis);
+         
+#endif /* _ASSEMBLER_H_ */

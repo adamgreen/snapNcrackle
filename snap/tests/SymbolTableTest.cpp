@@ -87,8 +87,6 @@ TEST_GROUP(SymbolTable)
     {
         Symbol* pSymbol = SymbolTable_EnumNext(m_pSymbolTable);
         POINTERS_EQUAL(NULL, pSymbol);
-        LONGS_EQUAL(endOfListException, getExceptionCode());
-        clearExceptionCode();
     }
 };
 

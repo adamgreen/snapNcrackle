@@ -44,12 +44,10 @@ TEST_GROUP(TextFile)
         remove(tempFilename);
     }
     
-    void validateEndOfFileExceptionForNextLine()
+    void validateEndOfFileForNextLine()
     {
         const char* pLine = TextFile_GetNextLine(m_pTextFile);
-        LONGS_EQUAL(endOfFileException, getExceptionCode());
         POINTERS_EQUAL(NULL, pLine);
-        clearExceptionCode();
     }
     
     char* dupe(const char* pString)
@@ -104,7 +102,7 @@ TEST(TextFile, GetLineFromEmptyString)
 {
     m_pTextFile = TextFile_CreateFromString(dupe(""));
     CHECK(NULL != m_pTextFile);
-    validateEndOfFileExceptionForNextLine();
+    validateEndOfFileForNextLine();
 }
 
 TEST(TextFile, GetLineFromTextWithNoLineTerminators)
@@ -113,35 +111,35 @@ TEST(TextFile, GetLineFromTextWithNoLineTerminators)
     CHECK(NULL != m_pTextFile);
     
     fetchAndValidateLineWithSingleSpace();
-    validateEndOfFileExceptionForNextLine();
+    validateEndOfFileForNextLine();
 }
 
 TEST(TextFile, GetLineFromSingleLineWithNewline)
 {
     m_pTextFile = TextFile_CreateFromString(dupe(" \n"));
     fetchAndValidateLineWithSingleSpace();
-    validateEndOfFileExceptionForNextLine();
+    validateEndOfFileForNextLine();
 }
 
 TEST(TextFile, GetLineFromSingleLineWithCarriageReturn)
 {
     m_pTextFile = TextFile_CreateFromString(dupe(" \r"));
     fetchAndValidateLineWithSingleSpace();
-    validateEndOfFileExceptionForNextLine();
+    validateEndOfFileForNextLine();
 }
 
 TEST(TextFile, GetLineFromSingleLineWithCarriageReturnAndLineFeed)
 {
     m_pTextFile = TextFile_CreateFromString(dupe(" \r\n"));
     fetchAndValidateLineWithSingleSpace();
-    validateEndOfFileExceptionForNextLine();
+    validateEndOfFileForNextLine();
 }
 
 TEST(TextFile, GetLineFromSingleLineWithLineFeedAndCarriageReturn)
 {
     m_pTextFile = TextFile_CreateFromString(dupe(" \n\r"));
     fetchAndValidateLineWithSingleSpace();
-    validateEndOfFileExceptionForNextLine();
+    validateEndOfFileForNextLine();
 }
 
 TEST(TextFile, GetLine2LinesWithCarriageReturnAndNewLine)
@@ -149,7 +147,7 @@ TEST(TextFile, GetLine2LinesWithCarriageReturnAndNewLine)
     m_pTextFile = TextFile_CreateFromString(dupe(" \n\r \n\r"));
     fetchAndValidateLineWithSingleSpace();
     fetchAndValidateLineWithSingleSpace();
-    validateEndOfFileExceptionForNextLine();
+    validateEndOfFileForNextLine();
 }
 
 TEST(TextFile, GetLine2LinesWithCarriageReturnAndNewLineButEOFAtEndOfSecondLine)
@@ -157,7 +155,7 @@ TEST(TextFile, GetLine2LinesWithCarriageReturnAndNewLineButEOFAtEndOfSecondLine)
     m_pTextFile = TextFile_CreateFromString(dupe(" \n\r "));
     fetchAndValidateLineWithSingleSpace();
     fetchAndValidateLineWithSingleSpace();
-    validateEndOfFileExceptionForNextLine();
+    validateEndOfFileForNextLine();
 }
 
 TEST(TextFile, CreateFromFile)
@@ -166,7 +164,7 @@ TEST(TextFile, CreateFromFile)
     m_pTextFile = TextFile_CreateFromFile(tempFilename);
     fetchAndValidateLineWithSingleSpace();
     fetchAndValidateLineWithSingleSpace();
-    validateEndOfFileExceptionForNextLine();
+    validateEndOfFileForNextLine();
 }
 
 TEST(TextFile, FailTextBufferAllocation)

@@ -10,18 +10,22 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-/* Module for spying on printf output from code under test. */
-#ifndef _PRINTF_SPY_H_
-#define _PRINTF_SPY_H_
+/* Used to redirect specific calls to stubs as necessary for testing. */
+#ifndef _ASSEMBLER_TEST_H_
+#define _ASSEMBLER_TEST_H_
+
+#include <MallocFailureInject.h>
+#include <printfSpy.h>
 
 
-/* Pointer to printf routine which can intercepted by this module. */
-extern int (*__printf)(const char* pFormat, ...);
+/* Spy on printf calls in test builds. */
+#undef  printf
+#define printf printfSpy_printf
 
-void        printfSpy_Construct(size_t BufferSize);
-int         printfSpy_printf(const char* pFormat, ...);
-const char* printfSpy_GetLastOutput(void);
-size_t      printfSpy_GetCallCount(void);
-void        printfSpy_Destruct(void);
 
-#endif /* _PRINTF_SPY_H_ */
+/* Force malloc() to go through function pointer so that memory failures can be injected. */
+#undef  malloc
+#define malloc __malloc
+
+
+#endif /* _ASSEMBLER_TEST_H_ */

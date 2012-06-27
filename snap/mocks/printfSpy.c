@@ -18,13 +18,14 @@
 
 
 char*   g_pBuffer = NULL;
-size_t  g_BufferSize = 0;
+size_t  g_bufferSize = 0;
+size_t  g_callCount = 0;
 int (*__printf)(const char* pFormat, ...) = printf;
 
 static void _AllocateAndInitBuffer(size_t BufferSize)
 {
-    g_BufferSize = BufferSize + 1;
-    g_pBuffer = malloc(g_BufferSize);
+    g_bufferSize = BufferSize + 1;
+    g_pBuffer = malloc(g_bufferSize);
     CHECK_C(NULL != g_pBuffer);
     g_pBuffer[0] = '\0';
 }
@@ -33,7 +34,7 @@ static void _FreeBuffer(void)
 {
     free(g_pBuffer);
     g_pBuffer = NULL;
-    g_BufferSize = 0;
+    g_bufferSize = 0;
 }
 
 static void _SetFunctionPointer(int (*pFunction)(const char*, ...))
@@ -54,6 +55,7 @@ void printfSpy_Construct(size_t BufferSize)
     printfSpy_Destruct();
 
     _AllocateAndInitBuffer(BufferSize);
+    g_callCount = 0;
     _SetFunctionPointer(printfSpy_printf);
 }
 
@@ -70,10 +72,10 @@ int printfSpy_printf(const char* pFormat, ...)
     
     va_start(valist, pFormat);
     WrittenSize = vsnprintf(g_pBuffer,
-                            g_BufferSize,
+                            g_bufferSize,
                             pFormat,
                             valist);
-    
+    g_callCount++;
     return WrittenSize;
 }
 
@@ -82,3 +84,7 @@ const char* printfSpy_GetLastOutput(void)
     return g_pBuffer;
 }
 
+size_t printfSpy_GetCallCount(void)
+{
+    return g_callCount;
+}

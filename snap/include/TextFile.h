@@ -22,6 +22,6 @@ __throws TextFile* TextFile_CreateFromString(char* pText);
 __throws TextFile* TextFile_CreateFromFile(const char* pFilename);
          void      TextFile_Free(TextFile* pThis);
 
-__throws char*     TextFile_GetNextLine(TextFile* pThis);
+         char*     TextFile_GetNextLine(TextFile* pThis);
 
 #endif /* _TEXT_FILE_H_ */

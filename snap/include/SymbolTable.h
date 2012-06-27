@@ -28,6 +28,6 @@ __throws Symbol*      SymbolTable_Add(SymbolTable* pThis, const char* pKey, cons
          Symbol*      SymbolTable_Find(SymbolTable* pThis, const char* pKey);
          
          void         SymbolTable_EnumStart(SymbolTable* pThis);
-__throws Symbol*      SymbolTable_EnumNext(SymbolTable* pThis);
+         Symbol*      SymbolTable_EnumNext(SymbolTable* pThis);
 
 #endif /* _SYMBOL_TABLE_H_ */
