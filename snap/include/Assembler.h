@@ -13,6 +13,8 @@
 #ifndef _ASSEMBLER_H_
 #define _ASSEMBLER_H_
 
+// UNDONE: Remove CommandLine references.
+#include "CommandLine.h"
 #include "try_catch.h"
 
 
@@ -20,8 +22,13 @@ typedef struct Assembler Assembler;
 
 
 __throws Assembler* Assembler_CreateFromString(char* pText);
+__throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename);
          void       Assembler_Free(Assembler* pThis);
 
          void       Assembler_Run(Assembler* pThis);
-         
+
+// UNDONE: Move this code out into a Builder or similar module later.
+__throws Assembler* Assembler_CreateFromCommandLine(CommandLine* pCommandLine);
+__throws void       Assembler_RunMultiple(Assembler* pThis);
+
 #endif /* _ASSEMBLER_H_ */

@@ -18,42 +18,77 @@
 #include "SymbolTable.h"
 #include "ParseLine.h"
 
+
+#define NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS 511
+
+
 struct Assembler
 {
     TextFile*    pTextFile;
     SymbolTable* pSymbols;
+    /* UNDONE: Remove */
+    CommandLine* pCommandLine;
 };
 
 
-static void initObjectFromString(Assembler* pThis, char* pText);
+static Assembler* allocateObject(void);
+static void commonObjectInit(Assembler* pThis);
 __throws Assembler* Assembler_CreateFromString(char* pText)
 {
-    Assembler* pThis = malloc(sizeof(*pThis));
-    if (!pThis)
-        __throw_and_return(outOfMemoryException, NULL);
+    Assembler* pThis = NULL;
     
     __try
-        initObjectFromString(pThis, pText);
-    __catch
-        __rethrow_and_return(NULL);
-
-    return pThis;
-}
-
-static void initObjectFromString(Assembler* pThis, char* pText)
-{
-    memset(pThis, 0, sizeof(*pThis));
-    __try
     {
+        __throwing_func( pThis = allocateObject() );
+        __throwing_func( commonObjectInit(pThis) );
         __throwing_func( pThis->pTextFile = TextFile_CreateFromString(pText) );
-        __throwing_func( pThis->pSymbols = SymbolTable_Create(511) );
     }
     __catch
     {
         Assembler_Free(pThis);
-        __rethrow;
+        __rethrow_and_return(NULL);
     }
+
+    return pThis;
 }
+
+static Assembler* allocateObject(void)
+{
+    Assembler* pThis = malloc(sizeof(*pThis));
+    if (!pThis)
+        __throw_and_return(outOfMemoryException, NULL);
+    return pThis;
+}
+
+static void commonObjectInit(Assembler* pThis)
+{
+    memset(pThis, 0, sizeof(*pThis));
+    __try
+        pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
+    __catch
+        __rethrow;
+}
+
+
+__throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename)
+{
+    Assembler* pThis = NULL;
+    
+    __try
+    {
+        __throwing_func( pThis = allocateObject() );
+        __throwing_func( commonObjectInit(pThis) );
+        __throwing_func( pThis->pTextFile = TextFile_CreateFromFile(pSourceFilename) );
+    }
+    __catch
+    {
+        Assembler_Free(pThis);
+        __rethrow_and_return(NULL);
+    }
+
+    return pThis;
+}
+
 
 void Assembler_Free(Assembler* pThis)
 {
@@ -125,4 +160,75 @@ static void listOperators(Assembler* pThis)
     {
         printf("%s\r\n", pSymbol->pKey);
     }
+}
+
+
+// UNDONE: Move into Builder or similar module later.
+__throws Assembler* Assembler_CreateFromCommandLine(CommandLine* pCommandLine)
+{
+    Assembler* pThis = NULL;
+    
+    __try
+    {
+        __throwing_func( pThis = allocateObject() );
+        __throwing_func( commonObjectInit(pThis) );
+        pThis->pCommandLine = pCommandLine;
+    }
+    __catch
+    {
+        Assembler_Free(pThis);
+        __rethrow_and_return(NULL);
+    }
+
+    return pThis;
+}
+
+
+typedef struct ListNode
+{
+    TextFile*        pFileToFree;
+    struct ListNode* pNext;
+} ListNode;
+
+void Assembler_RunMultiple(Assembler* pThis)
+{
+    ListNode* pFilesToFree = NULL;
+    int       i;
+    
+    for (i = 0 ; i < pThis->pCommandLine->sourceFileCount ; i++)
+    {
+        ListNode* pNode;
+        
+        __try
+        {
+            pThis->pTextFile = TextFile_CreateFromFile(pThis->pCommandLine->pSourceFiles[i]);
+        }
+        __catch
+        {
+            printf("Failed to open %s\n", pThis->pCommandLine->pSourceFiles[i]);
+            __rethrow;
+        }
+    
+        parseSource(pThis);
+        
+        /* Using this hack to keep the symbols around across files. */
+        pNode = malloc(sizeof(*pNode));
+        pNode->pFileToFree = pThis->pTextFile;
+        pNode->pNext = pFilesToFree;
+        pFilesToFree = pNode;
+        pThis->pTextFile = NULL;
+    }
+    
+    listOperators(pThis);
+    
+    /* Free up all of the files now that we are done with their symbols. */
+    while (pFilesToFree)
+    {
+        ListNode* pNext = pFilesToFree->pNext;
+        TextFile_Free(pFilesToFree->pFileToFree);
+        free(pFilesToFree);
+        pFilesToFree = pNext;
+    }
+    
+    return;
 }
