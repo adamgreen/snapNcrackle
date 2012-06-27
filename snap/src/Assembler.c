@@ -69,10 +69,11 @@ void Assembler_Free(Assembler* pThis)
 static void parseSource(Assembler* pThis);
 static void parseLine(Assembler* pThis, char* pLine);
 static void rememberNewOperators(Assembler* pThis, const char* pOperator);
+static void listOperators(Assembler* pThis);
 void Assembler_Run(Assembler* pThis)
 {
-    printf("Operators encountered in this assembly language file.\r\n");
-    parseSource(pThis);    
+    parseSource(pThis);
+    listOperators(pThis);
     return;
 }
 
@@ -112,5 +113,16 @@ static void rememberNewOperators(Assembler* pThis, const char* pOperator)
         SymbolTable_Add(pThis->pSymbols, pOperator, NULL);
     __catch
         __rethrow;
-    printf("%s\r\n", pOperator);
+}
+
+static void listOperators(Assembler* pThis)
+{
+    Symbol* pSymbol;
+    
+    printf("Operators encountered in this assembly language file.\r\n");
+    SymbolTable_EnumStart(pThis->pSymbols);
+    while (NULL != (pSymbol = SymbolTable_EnumNext(pThis->pSymbols)))
+    {
+        printf("%s\r\n", pSymbol->pKey);
+    }
 }
