@@ -20,7 +20,7 @@
 
 /* Force malloc() to go through function pointer so that memory failures can be injected. */
 #undef  malloc
-#define malloc __malloc
+#define malloc hook_malloc
 
 /* Force file I/O routines to go through hooking routines in unit tests. */
 #define fopen  hook_fopen

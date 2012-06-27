@@ -85,12 +85,12 @@ TEST(TextFile, FailInitAllocation)
 {
     int exceptionThrown = FALSE;
     
-    MallocFailureInject_Construct(1);
+    MallocFailureInject_FailAllocation(1);
     __try
         m_pTextFile = TextFile_CreateFromString(dupe(""));
     __catch
         exceptionThrown = TRUE;
-    MallocFailureInject_Destruct();
+    MallocFailureInject_Restore();
     
     CHECK_TRUE(exceptionThrown);
     LONGS_EQUAL(outOfMemoryException, getExceptionCode());
@@ -170,9 +170,9 @@ TEST(TextFile, CreateFromFile)
 TEST(TextFile, FailTextBufferAllocation)
 {
     createTestFile("\n\r");
-    MallocFailureInject_Construct(1);
+    MallocFailureInject_FailAllocation(1);
     m_pTextFile = TextFile_CreateFromFile(tempFilename);
-    MallocFailureInject_Destruct();
+    MallocFailureInject_Restore();
     
     POINTERS_EQUAL(NULL, m_pTextFile);
     LONGS_EQUAL(outOfMemoryException, getExceptionCode());

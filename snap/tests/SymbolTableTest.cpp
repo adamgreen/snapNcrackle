@@ -93,16 +93,16 @@ TEST_GROUP(SymbolTable)
 
 TEST(SymbolTable, InitAndFailFirstAlloc)
 {
-    MallocFailureInject_Construct(1);
+    MallocFailureInject_FailAllocation(1);
     makeFailingInitCall();
-    MallocFailureInject_Destruct();
+    MallocFailureInject_Restore();
 }
 
 TEST(SymbolTable, InitAndFailSecondAlloc)
 {
-    MallocFailureInject_Construct(2);
+    MallocFailureInject_FailAllocation(2);
     makeFailingInitCall();
-    MallocFailureInject_Destruct();
+    MallocFailureInject_Restore();
 }
 
 TEST(SymbolTable, EmptySymbolTable)
@@ -117,12 +117,12 @@ TEST(SymbolTable, FailSymbolTableEntry)
     int   exceptionThrown = FALSE;
     
     m_pSymbolTable = SymbolTable_Create(1);
-    MallocFailureInject_Construct(1);
+    MallocFailureInject_FailAllocation(1);
     __try
         pSymbol = SymbolTable_Add(m_pSymbolTable, pKey1, pData1);
     __catch
         exceptionThrown = TRUE;
-    MallocFailureInject_Destruct();
+    MallocFailureInject_Restore();
     
     CHECK_TRUE(exceptionThrown);
     CHECK(NULL == pSymbol);

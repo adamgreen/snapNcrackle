@@ -41,13 +41,13 @@ TEST_GROUP(CommandLine)
         memset(&m_commandLine, 0xff, sizeof(m_commandLine));
         m_argc = 0;
 
-        printfSpy_Construct(strlen(g_usageString));
+        printfSpy_Hook(strlen(g_usageString));
     }
 
     void teardown()
     {
         LONGS_EQUAL(noException, getExceptionCode());
-        printfSpy_Destruct();
+        printfSpy_Unhook();
     }
 
     void addArg(const char* pArg)

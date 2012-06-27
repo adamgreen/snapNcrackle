@@ -16,9 +16,9 @@
 
 
 /* Pointer to malloc routine which can intercepted by this module. */
-extern void* (*__malloc)(size_t size);
+extern void* (*hook_malloc)(size_t size);
 
-void        MallocFailureInject_Construct(unsigned int allocationToFail);
-void        MallocFailureInject_Destruct(void);
+void        MallocFailureInject_FailAllocation(unsigned int allocationToFail);
+void        MallocFailureInject_Restore(void);
 
 #endif /* _MALLOC_FAILURE_INJECT_H_ */

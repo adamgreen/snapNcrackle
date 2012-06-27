@@ -38,14 +38,14 @@ TEST_GROUP(Assembler)
     void setup()
     {
         clearExceptionCode();
-        printfSpy_Construct(128);
+        printfSpy_Hook(128);
         m_pAssembler = NULL;
     }
 
     void teardown()
     {
-        MallocFailureInject_Destruct();
-        printfSpy_Destruct();
+        MallocFailureInject_Restore();
+        printfSpy_Unhook();
         Assembler_Free(m_pAssembler);
         remove(g_sourceFilename);
         LONGS_EQUAL(noException, getExceptionCode());
@@ -96,28 +96,28 @@ TEST_GROUP(Assembler)
 
 TEST(Assembler, FailFirstInitAllocation)
 {
-    MallocFailureInject_Construct(1);
+    MallocFailureInject_FailAllocation(1);
     m_pAssembler = Assembler_CreateFromString(dupe(""));
     validateOutOfMemoryExceptionThrown();
 }
 
 TEST(Assembler, FailSecondInitAllocation)
 {
-    MallocFailureInject_Construct(2);
+    MallocFailureInject_FailAllocation(2);
     m_pAssembler = Assembler_CreateFromString(dupe(""));
     validateOutOfMemoryExceptionThrown();
 }
 
 TEST(Assembler, FailThirdInitAllocation)
 {
-    MallocFailureInject_Construct(3);
+    MallocFailureInject_FailAllocation(3);
     m_pAssembler = Assembler_CreateFromString(dupe(""));
     validateOutOfMemoryExceptionThrown();
 }
 
 TEST(Assembler, FailFourthInitAllocation)
 {
-    MallocFailureInject_Construct(4);
+    MallocFailureInject_FailAllocation(4);
     m_pAssembler = Assembler_CreateFromString(dupe(""));
     validateOutOfMemoryExceptionThrown();
 }
@@ -169,7 +169,7 @@ TEST(Assembler, SameOperatorTwice)
 
 TEST(Assembler, FailSymbolAllocation)
 {
-    MallocFailureInject_Construct(5);
+    MallocFailureInject_FailAllocation(5);
     m_pAssembler = Assembler_CreateFromString(dupe(" ORG $800\r\n"));
     CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
@@ -195,7 +195,7 @@ TEST(Assembler, InitFromNonExistantFile)
 TEST(Assembler, FailFirstAllocationDuringFileInit)
 {
     createSourceFile(" ORG $800\r\n");
-    MallocFailureInject_Construct(1);
+    MallocFailureInject_FailAllocation(1);
     m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
     validateOutOfMemoryExceptionThrown();
 }
@@ -203,7 +203,7 @@ TEST(Assembler, FailFirstAllocationDuringFileInit)
 TEST(Assembler, FailSecondAllocationDuringFileInit)
 {
     createSourceFile(" ORG $800\r\n");
-    MallocFailureInject_Construct(2);
+    MallocFailureInject_FailAllocation(2);
     m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
     validateOutOfMemoryExceptionThrown();
 }
@@ -211,7 +211,7 @@ TEST(Assembler, FailSecondAllocationDuringFileInit)
 TEST(Assembler, FailThirdAllocationDuringFileInit)
 {
     createSourceFile(" ORG $800\r\n");
-    MallocFailureInject_Construct(3);
+    MallocFailureInject_FailAllocation(3);
     m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
     validateOutOfMemoryExceptionThrown();
 }
@@ -219,7 +219,7 @@ TEST(Assembler, FailThirdAllocationDuringFileInit)
 TEST(Assembler, FailFourthAllocationDuringFileInit)
 {
     createSourceFile(" ORG $800\r\n");
-    MallocFailureInject_Construct(4);
+    MallocFailureInject_FailAllocation(4);
     m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
     validateOutOfMemoryExceptionThrown();
 }
@@ -227,7 +227,7 @@ TEST(Assembler, FailFourthAllocationDuringFileInit)
 TEST(Assembler, FailFifthAllocationDuringFileInit)
 {
     createSourceFile(" ORG $800\r\n");
-    MallocFailureInject_Construct(5);
+    MallocFailureInject_FailAllocation(5);
     m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
     validateOutOfMemoryExceptionThrown();
 }
@@ -251,7 +251,7 @@ TEST(Assembler, FailFirstAllocationDuringCommandLineInit)
     addArg(g_sourceFilename);
     CommandLine_Init(&m_commandLine, m_argc, m_argv);
 
-    MallocFailureInject_Construct(1);
+    MallocFailureInject_FailAllocation(1);
     m_pAssembler = Assembler_CreateFromCommandLine(&m_commandLine);
     validateOutOfMemoryExceptionThrown();
 }

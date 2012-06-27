@@ -20,12 +20,12 @@
 
 /* Spy on printf calls in test builds. */
 #undef  printf
-#define printf printfSpy_printf
+#define printf hook_printf
 
 
 /* Force malloc() to go through function pointer so that memory failures can be injected. */
 #undef  malloc
-#define malloc __malloc
+#define malloc hook_malloc
 
 
 #endif /* _ASSEMBLER_TEST_H_ */

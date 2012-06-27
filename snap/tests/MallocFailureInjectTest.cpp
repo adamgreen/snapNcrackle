@@ -29,27 +29,27 @@ TEST_GROUP(MallocFailureInject)
 
     void teardown()
     {
-        MallocFailureInject_Destruct();
+        MallocFailureInject_Restore();
     }
 };
 
 
 TEST(MallocFailureInject, FailFirstMalloc)
 {
-    MallocFailureInject_Construct(1);
+    MallocFailureInject_FailAllocation(1);
     
-    void* pTest = __malloc(10);
+    void* pTest = hook_malloc(10);
     POINTERS_EQUAL(NULL, pTest);
 }
 
 TEST(MallocFailureInject, FailSecondMalloc)
 {
-    MallocFailureInject_Construct(2);
+    MallocFailureInject_FailAllocation(2);
     
-    void* pFirstMalloc = __malloc(10);
+    void* pFirstMalloc = hook_malloc(10);
     CHECK(NULL != pFirstMalloc);
     
-    void* pSecondMalloc = __malloc(20);
+    void* pSecondMalloc = hook_malloc(20);
     POINTERS_EQUAL(NULL, pSecondMalloc);
     
     free(pFirstMalloc);

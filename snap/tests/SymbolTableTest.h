@@ -19,6 +19,6 @@
 
 /* Force malloc() to go through function pointer so that memory failures can be injected. */
 #undef  malloc
-#define malloc __malloc
+#define malloc hook_malloc
 
 #endif /* _SYMBOL_TABLE_TEST_H_ */

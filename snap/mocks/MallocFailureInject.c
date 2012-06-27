@@ -16,7 +16,7 @@
 
 
 static void* defaultMalloc(size_t size);
-void* (*__malloc)(size_t size) = defaultMalloc;
+void* (*hook_malloc)(size_t size) = defaultMalloc;
 unsigned int   g_allocationToFail = 0;
 
 
@@ -44,13 +44,13 @@ static void* MallocFailureInject_malloc(size_t size)
 /********************/
 /* Public routines. */
 /********************/
-void MallocFailureInject_Construct(unsigned int allocationToFail)
+void MallocFailureInject_FailAllocation(unsigned int allocationToFail)
 {
-    __malloc = MallocFailureInject_malloc;
+    hook_malloc = MallocFailureInject_malloc;
     g_allocationToFail = allocationToFail;
 }
 
-void MallocFailureInject_Destruct(void)
+void MallocFailureInject_Restore(void)
 {
-    __malloc = defaultMalloc;
+    hook_malloc = defaultMalloc;
 }

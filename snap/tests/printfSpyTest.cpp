@@ -35,7 +35,7 @@ TEST_GROUP(printfSpy)
 
     void teardown()
     {
-        printfSpy_Destruct();
+        printfSpy_Unhook();
     }
   
     void printfCheck(int ExpectedLength, const char* pExpectedString)
@@ -60,8 +60,8 @@ TEST_GROUP(printfSpy)
 
     void printfCheckHelloWorldWithBufferOfSize(size_t BufferSize)
     {
-        printfSpy_Construct(BufferSize);
-        m_Result = printfSpy_printf(g_HelloWorld);
+        printfSpy_Hook(BufferSize);
+        m_Result = hook_printf(g_HelloWorld);
 
         char* pCheckString = CreateCheckBuffer(BufferSize);
 
@@ -100,15 +100,16 @@ TEST(printfSpy, BufferSizePlus1)
 
 TEST(printfSpy, WithFormatting)
 {
-    printfSpy_Construct(10);
-    m_Result = printfSpy_printf("Hello %s\n", "World");
+    printfSpy_Hook(10);
+    m_Result = hook_printf("Hello %s\n", "World");
 
     printfCheck(12, "Hello Worl");
 }
 
 TEST(printfSpy, TwoCall)
 {
-    printfSpy_printf("Line 1\r\n");
-    printfSpy_printf("Line 2\r\n");
+    printfSpy_Hook(10);
+    hook_printf("Line 1\r\n");
+    hook_printf("Line 2\r\n");
     LONGS_EQUAL(2, printfSpy_GetCallCount());
 }
