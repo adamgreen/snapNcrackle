@@ -17,11 +17,10 @@
 
 static void displayUsage(void)
 {
-    printf("Usage: snap sourceFilename ...\n"
-           "Where:\n"
-           "       sourceFilename is the name of an input assembly language file.\n"
-           "         Note: You can provide more than one sourceFilename on the\n"
-           "                command line.\n");
+    printf("Usage: snap sourceFilename ...\n\n"
+           "Where: sourceFilename is the name of an input assembly language file.\n"
+           "       Note: You can provide more than one sourceFilename on the\n"
+           "             command line.\n");
 }
 
 __throws void CommandLine_Init(CommandLine* pThis, int argc, const char** argv)
