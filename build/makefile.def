@@ -1,0 +1,257 @@
+# Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# Environment variables that can be set in a user's shell to customize the type
+# of build created by this makefile:
+# CFG - Selects the build configuration.  It can be set to:
+#       Debug : No optimizations and debug code such as asserts enabled.
+#       Release: Optimizations enabled and debug code disabled.
+#       Defaults to Debug.
+#
+# Variables that can be set in user's SOURCES file.
+# SOURCES - Must be set to a space separated file of .c / .cpp files to be compiled.
+# TARGET - Must be set to specify the name of the binary being built.
+# APPTYPE - Must be set to EXE or LIB, indicating whether to build an executable or static library.
+# INCLUDES - Used to specify space separated list of directories to be included in the INCLUDE path using during
+#            compilation.
+# Build Type - Defaults to Debug build if not specified by user.
+ifndef CFG
+CFG:=Debug
+endif
+
+# Set variables as needed for debug and release builds.
+# Can be overridden by user makefile in SOURCES.
+ifeq "$(CFG)" "Debug"
+CDEFINES:=$(CDEFINES) -D_DEBUG -D_DBG=1
+WARNING_FLAGS:=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-missing-field-initializers
+WARNING_OBJC_FLAGS:=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-missing-field-initializers
+OPTIMIZATIONFLAGS:=-O0 -fno-inline
+CFLAGS:=-I. -fmessage-length=0 -pipe -fasm-blocks -g
+CPPFLAGS:=-I. -fmessage-length=0 -pipe -fasm-blocks -fvisibility-inlines-hidden -g -fno-rtti -Wno-non-virtual-dtor
+MFLAGS:=-I. -fmessage-length=0 -pipe -fasm-blocks -g
+MMFLAGS:=-I. -fmessage-length=0 -pipe -fasm-blocks -fvisibility-inlines-hidden -g
+OUTDIR:=./Debug
+LINKFLAGS:=
+LIBFLAGS:=
+ASFLAGS:=-gstabs
+
+else ifeq "$(CFG)" "Release"
+CDEFINES:=$(CDEFINES) -DNDEBUG -D_DBG=0
+WARNING_FLAGS:=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-missing-field-initializers
+WARNING_OBJC_FLAGS:=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-missing-field-initializers
+OPTIMIZATIONFLAGS:=-O2
+CFLAGS:=-I. -g
+CPPFLAGS:=-I. -g -Wno-non-virtual-dtor
+OUTDIR:=./Release
+LINKFLAGS:= 
+LIBFLAGS:=
+ASFLAGS:=-gstabs
+
+else
+$(error CFG not set to Debug or Release)
+
+endif
+
+OBJDIR:=$(OUTDIR)\
+
+
+
+# Include user's files to indicate what should be built for this directory
+-include SOURCES
+-include DIRS
+
+
+
+# Build the project in this directory if the SOURCES variable was set by the user files
+ifdef SOURCES
+
+# Define the full name of the build tools
+ifndef GCC
+GCC:=gcc
+endif
+
+ifndef GPP
+GPP:=g++
+endif
+
+ifndef GCCLINK
+GCCLINK:=g++
+endif
+
+ifndef LIBMAN
+LIBMAN:=ar
+endif
+
+
+# Make sure that the required variables were setup by SOURCES file
+ifndef TARGET
+$(error TARGET variable not defined)
+endif
+
+ifndef APPTYPE
+$(error APPTYPE not defined.  Should be EXE or LIB)
+endif
+ifneq "$(APPTYPE)" "EXE"
+ifneq "$(APPTYPE)" "LIB"
+$(error APPTYPE must be EXE or LIB)
+endif
+endif
+
+
+# Compiler flags used to enable creation of header dependencies.
+DEPFLAGS = -MMD -MP
+
+# Build up the complete flags
+CFLAGS:=$(CFLAGS) $(OPTIMIZATIONFLAGS) $(USER_C_FLAGS) $(WARNING_FLAGS) $(DEPFLAGS)
+CPPFLAGS:=$(CPPFLAGS) $(OPTIMIZATIONFLAGS)$(USER_CPP_FLAGS) $(WARNING_FLAGS) $(DEPFLAGS)
+MFLAGS:=$(MFLAGS) $(OPTIMIZATIONFLAGS) $(USER_M_FLAGS) $(WARNING_OBJC_FLAGS) $(DEPFLAGS)
+MMFLAGS:=$(MMFLAGS) $(OPTIMIZATIONFLAGS) $(USER_MM_FLAGS) $(WARNING_OBJC_FLAGS) $(DEPFLAGS)
+LINK_FLAGS:=$(LINKFLAGS) $(USER_LINK_FLAGS)
+LIB_FLAGS:=$(LIBFLAGS)
+
+# Replace each subsequent INCLUDES path delimiter with a -I option specifier
+ifneq "$(INCLUDES)" ""
+INCLUDES:=-I $(subst ;, -I ,$(INCLUDES))
+endif
+
+# Add in the C defines now
+CDEFINES:=$(CDEFINES) $(USER_CDEFINES)
+CFLAGS:=$(CFLAGS) $(INCLUDES) $(CDEFINES)
+CPPFLAGS:=$(CPPFLAGS) $(INCLUDES) $(CDEFINES)
+MFLAGS:=$(MFLAGS) $(INCLUDES) $(CDEFINES)
+MMFLAGS:=$(MMFLAGS) $(INCLUDES) $(CDEFINES)
+
+
+# Build rules
+CFILES=$(patsubst %.c,$(OUTDIR)/%.o,$(filter %.c,$(SOURCES)))
+CPPFILES=$(patsubst %.cpp,$(OUTDIR)/%.o,$(filter %.cpp,$(SOURCES)))
+CXXFILES=$(patsubst %.cxx,$(OUTDIR)/%.o,$(filter %.cxx,$(SOURCES)))
+MFILES=$(patsubst %.m,$(OUTDIR)/%.o,$(filter %.m,$(SOURCES)))
+MMFILES=$(patsubst %.mm,$(OUTDIR)/%.o,$(filter %.mm,$(SOURCES)))
+PCHFILE=$(filter %.pch,$(SOURCES))
+
+OBJECTS=$(CFILES) $(CPPFILES) $(CXXFILES) $(MFILES) $(MMFILES)
+
+# List of the header dependency files, one per object file.
+DEPFILES = $(patsubst %.o,%.d,$(OBJECTS))
+
+# Need to build a precompiled header for each type of file in the project (.c, .cpp, .m, .mm)
+PCH_OUT:=
+C_PCH:=
+CPP_PCH:=
+M_PCH:=
+MM_PCH:=
+
+ifneq "$(PCHFILE)" ""
+ifneq "$(CFILES)" ""
+PCH_OUT:=$(PCH_OUT) $(OUTDIR)/__c.pch.gch
+C_PCH:=-include $(OUTDIR)/__c.pch
+endif
+
+ifneq "$(CPPFILES)" ""
+PCH_OUT:=$(PCH_OUT) $(OUTDIR)/__cpp.pch.gch
+CPP_PCH:=-include $(OUTDIR)/__cpp.pch
+endif
+
+ifneq "$(MFILES)" ""
+PCH_OUT:=$(PCH_OUT) $(OUTDIR)/__m.pch.gch
+M_PCH:=-include $(OUTDIR)/__m.pch
+endif
+
+ifneq "$(MMFILES)" ""
+PCH_OUT:=$(PCH_OUT) $(OUTDIR)/__mm.pch.gch
+MM_PCH:=-include $(OUTDIR)/__mm.pch
+endif
+endif
+
+.PHONY : GEN_OUTDIR
+.PHONY : all
+
+
+ifeq "$(APPTYPE)" "LIB"
+all : GEN_OUTDIR $(PCH_OUT) $(OUTDIR)/$(TARGET).a
+else
+all : GEN_OUTDIR $(PCH_OUT) $(OUTDIR)/$(TARGET)
+endif
+
+GEN_OUTDIR :
+	-@mkdir $(OUTDIR) > /dev/null 2>&1 ; exit 0
+
+$(OUTDIR)/%.o : %.c
+	$(GCC) $(C_PCH) -x c -c $(CFLAGS) -o $@ $<
+
+$(OUTDIR)/%.o : %.cpp
+	$(GPP) $(CPP_PCH) -x c++ -c $(CPPFLAGS) -o $@ $<
+
+$(OUTDIR)/%.o : %.cxx
+	$(GPP) $(CPP_PCH) -x c++ -c $(CPPFLAGS) -o $@ $<
+
+$(OUTDIR)/%.o : %.m
+	$(GCC) $(M_PCH) -x objective-c -c $(MFLAGS) -o $@ $<
+
+$(OUTDIR)/%.o : %.mm
+	$(GPP) $(MM_PCH) -x objective-c++ -c $(MMFLAGS) -o $@ $<
+
+$(OUTDIR)/__c.pch.gch : $(PCHFILE)
+	$(GCC) -x c-header -c $(CFLAGS) -o $@ $<
+
+$(OUTDIR)/__cpp.pch.gch : $(PCHFILE)
+	$(GPP) -x c++-header -c $(CPPFLAGS) -o $@ $<
+
+$(OUTDIR)/__m.pch.gch : $(PCHFILE)
+	$(GCC) -x objective-c-header -c $(MFLAGS) -o $@ $<
+
+$(OUTDIR)/__mm.pch.gch : $(PCHFILE)
+	$(GPP) -x objective-c++-header -c $(MMFLAGS) -o $@ $<
+
+
+$(OUTDIR)/$(TARGET).a : $(OBJECTS)
+	$(LIBMAN) $(LIB_FLAGS) -rc $@ $?
+
+
+$(OUTDIR)/$(TARGET) : $(OBJECTS) $(LIBS)
+	$(GCCLINK) $(LINK_FLAGS) -o $@ $(OBJECTS) $(LIBS)
+
+
+.PHONY : clean
+clean:
+	@echo Cleaning out $(OUTDIR) ...
+	-@rm $(OBJECTS) > /dev/null 2>&1 ; exit 0
+	-@rm $(DEPFILES) > /dev/null 2>&1 ; exit 0
+	-@rm $(PCH_OUT) > /dev/null 2>&1 ; exit 0
+	-@rm $(OUTDIR)/$(TARGET) > /dev/null 2>&1 ; exit 0
+	-@rm $(OUTDIR)/$(TARGET).a > /dev/null 2>&1 ; exit 0
+
+
+# Include the header dependency file(s) from previous build if they exist.
+-include $(DEPFILES)
+
+
+
+# Include a makefile.inc if the user has one
+-include makefile.inc
+
+
+
+# Process subdirectories if the DIRS variable was specified
+else ifdef DIRS
+
+.PHONY: subdirs $(DIRS)
+
+subdirs: $(DIRS)
+
+$(DIRS):
+	$(MAKE) $(MAKECMDGOALS) -C $@
+
+clean: $(DIRS)
+
+endif # ifdef DIRS
