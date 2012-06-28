@@ -64,6 +64,16 @@ TEST(LineParser, FullLineComment)
     POINTERS_EQUAL(NULL, m_parsedLine.pOperands);
 }
 
+TEST(LineParser, AlternativeFullLineComment)
+{
+    static const char* pCommentLine = "; Other Comment";
+    
+    ParseLine(&m_parsedLine, dupe(pCommentLine));
+    POINTERS_EQUAL(NULL, m_parsedLine.pLabel);
+    POINTERS_EQUAL(NULL, m_parsedLine.pOperator);
+    POINTERS_EQUAL(NULL, m_parsedLine.pOperands);
+}
+
 TEST(LineParser, LabelOnly)
 {
     static const char* pLabelLine = ":Label";

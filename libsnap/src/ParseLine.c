@@ -51,7 +51,7 @@ static int isLineEmpty(char* pLine)
 
 static int isFullLineComment(char* pLine)
 {
-    return pLine[0] == '*';
+    return pLine[0] == '*' || pLine[0] == ';';
 }
 
 static char* extractLabel(ParsedLine* pObject, char* pLine)
