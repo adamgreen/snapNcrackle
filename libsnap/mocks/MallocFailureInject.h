@@ -18,6 +18,9 @@
 /* Pointer to malloc routine which can intercepted by this module. */
 extern void* (*hook_malloc)(size_t size);
 
+/* Provide a hook for free as well so that production code can skip leak detection. */
+extern void  (*hook_free)(void* ptr);
+
 void        MallocFailureInject_FailAllocation(unsigned int allocationToFail);
 void        MallocFailureInject_Restore(void);
 

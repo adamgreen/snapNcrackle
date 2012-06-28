@@ -16,7 +16,11 @@
 
 
 static void* defaultMalloc(size_t size);
+static void  defaultFree(void* ptr);
+
 void* (*hook_malloc)(size_t size) = defaultMalloc;
+void  (*hook_free)(void* ptr) = defaultFree;
+
 unsigned int   g_allocationToFail = 0;
 
 
@@ -26,6 +30,10 @@ static void* defaultMalloc(size_t size)
     return malloc(size);
 }
 
+static void defaultFree(void* ptr)
+{
+    free(ptr);
+}
 
 static int shouldThisAllocationBeFailed(void)
 {
