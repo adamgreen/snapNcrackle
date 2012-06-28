@@ -6,4 +6,6 @@
 *.gcda
 *.gcno
 gcov/
+Debug/
+Release/
 snap_tests.txt
