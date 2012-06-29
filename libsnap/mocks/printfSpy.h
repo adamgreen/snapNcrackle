@@ -15,13 +15,15 @@
 #define _PRINTF_SPY_H_
 
 
-/* Pointer to printf routine which can intercepted by this module. */
+/* Pointer to *printf routines which can intercepted by this module. */
 extern int (*hook_printf)(const char* pFormat, ...);
+extern int (*hook_fprintf)(FILE* pFile, const char* pFormat, ...);
 
 void        printfSpy_Hook(size_t BufferSize);
-// UNDONE: int         printfSpy_printf(const char* pFormat, ...);
-const char* printfSpy_GetLastOutput(void);
-size_t      printfSpy_GetCallCount(void);
 void        printfSpy_Unhook(void);
+
+const char* printfSpy_GetLastOutput(void);
+FILE*       printfSpy_GetLastFile(void);
+size_t      printfSpy_GetCallCount(void);
 
 #endif /* _PRINTF_SPY_H_ */

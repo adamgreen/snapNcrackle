@@ -43,6 +43,7 @@ TEST_GROUP(printfSpy)
         LONGS_EQUAL(ExpectedLength, m_Result);
         STRCMP_EQUAL(pExpectedString, printfSpy_GetLastOutput());
         LONGS_EQUAL(1, printfSpy_GetCallCount());
+        POINTERS_EQUAL(stdout, printfSpy_GetLastFile());
     }
 
     char* CreateCheckBuffer(size_t BufferSize)
@@ -112,4 +113,12 @@ TEST(printfSpy, TwoCall)
     hook_printf("Line 1\r\n");
     hook_printf("Line 2\r\n");
     LONGS_EQUAL(2, printfSpy_GetCallCount());
+}
+
+TEST(printfSpy, SendToStdErr)
+{
+    printfSpy_Hook(10);
+    POINTERS_EQUAL(NULL, printfSpy_GetLastFile());
+    hook_fprintf(stderr, "Line 1\r\n");
+    POINTERS_EQUAL(stderr, printfSpy_GetLastFile());
 }

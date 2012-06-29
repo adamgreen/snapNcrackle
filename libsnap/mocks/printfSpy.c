@@ -20,7 +20,9 @@
 char*   g_pBuffer = NULL;
 size_t  g_bufferSize = 0;
 size_t  g_callCount = 0;
+FILE*   g_pFile = NULL;
 int (*hook_printf)(const char* pFormat, ...) = printf;
+int (*hook_fprintf)(FILE* pFile, const char* pFormat, ...) = fprintf;
 
 static void _AllocateAndInitBuffer(size_t BufferSize)
 {
@@ -28,6 +30,7 @@ static void _AllocateAndInitBuffer(size_t BufferSize)
     g_pBuffer = malloc(g_bufferSize);
     CHECK_C(NULL != g_pBuffer);
     g_pBuffer[0] = '\0';
+    g_pFile = NULL;
 }
 
 static void _FreeBuffer(void)
@@ -35,31 +38,48 @@ static void _FreeBuffer(void)
     free(g_pBuffer);
     g_pBuffer = NULL;
     g_bufferSize = 0;
+    g_pFile = NULL;
 }
 
-int mock_printf(const char* pFormat, ...)
+static int mock_common(FILE* pFile, const char* pFormat, va_list valist)
 {
     int     WrittenSize = -1;
-    va_list valist;
     
-    va_start(valist, pFormat);
     WrittenSize = vsnprintf(g_pBuffer,
                             g_bufferSize,
                             pFormat,
                             valist);
     g_callCount++;
+    g_pFile = pFile;
     return WrittenSize;
 }
 
-static void _SetFunctionPointer(int (*pFunction)(const char*, ...))
+static int mock_printf(const char* pFormat, ...)
 {
-    hook_printf = pFunction;
+    va_list valist;
+    va_start(valist, pFormat);
+    return mock_common(stdout, pFormat, valist);
 }
 
-static void _RestoreFunctionPointer(void)
+static int mock_fprintf(FILE* pFile, const char* pFormat, ...)
+{
+    va_list valist;
+    va_start(valist, pFormat);
+    return mock_common(pFile, pFormat, valist);
+}
+
+static void setHookFunctionPointers(void)
+{
+    hook_printf = mock_printf;
+    hook_fprintf = mock_fprintf;
+}
+
+static void restoreHookFunctionPointers(void)
 {
     hook_printf = printf;
+    hook_fprintf = fprintf;
 }
+
 
 /********************/
 /* Public routines. */
@@ -70,18 +90,23 @@ void printfSpy_Hook(size_t BufferSize)
 
     _AllocateAndInitBuffer(BufferSize);
     g_callCount = 0;
-    _SetFunctionPointer(mock_printf);
+    setHookFunctionPointers();
 }
 
 void printfSpy_Unhook(void)
 {
-    _RestoreFunctionPointer();
+    restoreHookFunctionPointers();
     _FreeBuffer();
 }
 
 const char* printfSpy_GetLastOutput(void)
 {
     return g_pBuffer;
+}
+
+FILE* printfSpy_GetLastFile(void)
+{
+    return g_pFile;
 }
 
 size_t printfSpy_GetCallCount(void)
