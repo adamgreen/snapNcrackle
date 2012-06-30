@@ -15,8 +15,9 @@
 #define _MALLOC_FAILURE_INJECT_H_
 
 
-/* Pointer to malloc routine which can intercepted by this module. */
+/* Pointer to malloc routine which can be intercepted by this module. */
 extern void* (*hook_malloc)(size_t size);
+extern void* (*hook_realloc)(void* ptr, size_t size);
 
 /* Provide a hook for free as well so that production code can skip leak detection. */
 extern void  (*hook_free)(void* ptr);
