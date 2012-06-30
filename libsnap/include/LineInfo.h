@@ -19,12 +19,12 @@ typedef struct LineInfo
 {
     char*          pLineText;
     size_t         lineTextSize;
-//    size_t         machineCodeSize;
-//    unsigned int   validBitmask;
+    size_t         machineCodeSize;
+    int            validSymbol;
     unsigned int   lineNumber;
-//    unsigned short address;
-//    unsigned short symbolValue;
-//    unsigned char  machineCode[3];
+    unsigned short address;
+    unsigned short symbolValue;
+    unsigned char  machineCode[3];
 } LineInfo;
 
 

@@ -34,6 +34,7 @@ __throws ListFile* ListFile_Create(FILE* pOutputFile)
         ListFile_Free(pThis);
         __rethrow_and_return(NULL);
     }
+    pThis->pFile = pOutputFile;
     
     return pThis;
 }
@@ -63,15 +64,23 @@ void ListFile_Free(ListFile* pThis)
 void ListFile_OutputLine(ListFile* pThis, LineInfo* pLineInfo)
 {
     char address[4+1] = "    ";
-    char machineCode1[2+1] = "  ";
-    char machineCode2[2+1] = "  ";
-    char symbolValue[4+1] = "";
+    char machineCodeOrSymbol[8+1] = "        ";
     
-    fprintf(stdout, "%4s: %2s %2s % 4s % 5d %s\n", 
+    if (pLineInfo->machineCodeSize > 0)
+        sprintf(address, "%04X", pLineInfo->address);
+
+    if (pLineInfo->validSymbol)
+        sprintf(machineCodeOrSymbol, "   =%04X", pLineInfo->symbolValue);
+    else if (pLineInfo->machineCodeSize == 1)
+        sprintf(machineCodeOrSymbol, "%02X      ", pLineInfo->machineCode[0]);
+    else if (pLineInfo->machineCodeSize == 2)
+        sprintf(machineCodeOrSymbol, "%02X %02X   ", pLineInfo->machineCode[0], pLineInfo->machineCode[1]);
+    else if (pLineInfo->machineCodeSize == 3)
+        sprintf(machineCodeOrSymbol, "%02X %02X %02X", pLineInfo->machineCode[0], pLineInfo->machineCode[1], pLineInfo->machineCode[2]);
+    
+    fprintf(pThis->pFile, "%4s: %8s % 5d %s\n", 
             address,
-            machineCode1,
-            machineCode2,
-            symbolValue, 
+            machineCodeOrSymbol,
             pLineInfo->lineNumber, 
             pLineInfo->pLineText);
 }
