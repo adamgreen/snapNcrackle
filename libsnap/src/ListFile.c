@@ -16,22 +16,18 @@
 
 struct ListFile
 {
-    FILE*   pFile;
-    char*   pLineText;
-    size_t  lineTextSize;
+    FILE*    pFile;
 };
 
 
 static ListFile* allocateAndZeroObject(void);
-static void growLineTextBufferIfNecessary(ListFile* pThis, size_t lineTextSize);
 __throws ListFile* ListFile_Create(FILE* pOutputFile)
 {
     ListFile* pThis = NULL;
     
     __try
     {
-        __throwing_func( pThis = allocateAndZeroObject() );
-        __throwing_func( growLineTextBufferIfNecessary(pThis, 256) );
+        pThis = allocateAndZeroObject();
     }
     __catch
     {
@@ -54,37 +50,28 @@ static ListFile* allocateAndZeroObject(void)
     return pThis;
 }
 
-static void growLineTextBufferIfNecessary(ListFile* pThis, size_t lineTextSize)
-{
-    char* pRealloc = NULL;
-    
-    if (pThis->lineTextSize >= lineTextSize)
-        return;
-        
-    pRealloc = realloc(pThis->pLineText, lineTextSize);
-    if (!pRealloc)
-        __throw(outOfMemoryException);
-    pThis->pLineText = pRealloc;
-    pThis->lineTextSize = lineTextSize;
-    
-}
 
 void ListFile_Free(ListFile* pThis)
 {
     if (!pThis)
         return;
     
-    free(pThis->pLineText);
     free(pThis);
 }
 
-__throws void ListFile_SaveLineText(ListFile* pThis, const char* pLineText)
-{
-    growLineTextBufferIfNecessary(pThis, strlen(pLineText) + 1);
-    strcpy(pThis->pLineText, pLineText);
-}
 
-__throws void ListFile_OutputLine(ListFile* pThis)
+void ListFile_OutputLine(ListFile* pThis, LineInfo* pLineInfo)
 {
-    fprintf(stdout, "%04X: %02X %02X % 4s % 5d %s\n", 0, 0, 0, "", 1, pThis->pLineText);
+    char address[4+1] = "    ";
+    char machineCode1[2+1] = "  ";
+    char machineCode2[2+1] = "  ";
+    char symbolValue[4+1] = "";
+    
+    fprintf(stdout, "%4s: %2s %2s % 4s % 5d %s\n", 
+            address,
+            machineCode1,
+            machineCode2,
+            symbolValue, 
+            pLineInfo->lineNumber, 
+            pLineInfo->pLineText);
 }

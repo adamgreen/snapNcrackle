@@ -14,6 +14,7 @@
 #define _LIST_FILE_H_
 
 #include <stdio.h>
+#include "LineInfo.h"
 #include "try_catch.h"
 
 
@@ -23,7 +24,6 @@ typedef struct ListFile ListFile;
 __throws ListFile* ListFile_Create(FILE* pOutputFile);
          void      ListFile_Free(ListFile* pThis);
          
-__throws void      ListFile_SaveLineText(ListFile* pThis, const char* pLineText);
-__throws void      ListFile_OutputLine(ListFile* pThis);
+         void      ListFile_OutputLine(ListFile* pThis, LineInfo* pLineInfo);
 
 #endif /* _LIST_FILE_H_ */

@@ -26,18 +26,21 @@ extern "C"
 TEST_GROUP(ListFile)
 {
     ListFile* m_pListFile;
+    LineInfo  m_lineInfo;
     
     void setup()
     {
         clearExceptionCode();
         printfSpy_Hook(128);
         m_pListFile = NULL;
+        LineInfo_Init(&m_lineInfo);
     }
 
     void teardown()
     {
         MallocFailureInject_Restore();
         ListFile_Free(m_pListFile);
+        LineInfo_Free(&m_lineInfo);
         LONGS_EQUAL(noException, getExceptionCode());
         printfSpy_Unhook();
     }
@@ -53,31 +56,23 @@ TEST(ListFile, FailFirstAllocDuringCreate)
     clearExceptionCode();
 }
 
-IGNORE_TEST(ListFile, FailSecondAllocDuringCreate)
+TEST(ListFile, OutputLineWithOnlyLineNumberAndText)
 {
-    MallocFailureInject_FailAllocation(2);
     m_pListFile = ListFile_Create(stdout);
-    CHECK(m_pListFile != NULL);
-    LONGS_EQUAL(outOfMemoryException, getExceptionCode());
-    clearExceptionCode();
-}
 
-TEST(ListFile, SaveLineText)
-{
-    m_pListFile = ListFile_Create(stdout);
-    ListFile_SaveLineText(m_pListFile, "* Full line comment.");
-}
+    LineInfo_SaveLineText(&m_lineInfo, "* Full line comment.");
+    m_lineInfo.lineNumber = 1;
+    ListFile_OutputLine(m_pListFile, &m_lineInfo);
 
-TEST(ListFile, OutputLine)
-{
-    m_pListFile = ListFile_Create(stdout);
-    ListFile_SaveLineText(m_pListFile, "* Full line comment.");
-    ListFile_OutputLine(m_pListFile);
     POINTERS_EQUAL(stdout, printfSpy_GetLastFile());
-    STRCMP_EQUAL("0000: 00 00          1 * Full line comment.\n", printfSpy_GetLastOutput());
+    STRCMP_EQUAL("    :                1 * Full line comment.\n", printfSpy_GetLastOutput());
 }
 
 /*
-    Treat all lines as comments.
     XXXX: XX XX XXXX NNNNN Text
+    - Nothing valid except for line number and text.
+    Only symbol valid.
+    Address and machine code 1 valid.
+    Address and machine code 1/2 valid.
+    Address and symbol valid.
 */
