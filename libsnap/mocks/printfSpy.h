@@ -14,6 +14,8 @@
 #ifndef _PRINTF_SPY_H_
 #define _PRINTF_SPY_H_
 
+#include <stdio.h>
+
 
 /* Pointer to *printf routines which can intercepted by this module. */
 extern int (*hook_printf)(const char* pFormat, ...);
