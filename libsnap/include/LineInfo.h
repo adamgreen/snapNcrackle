@@ -17,8 +17,7 @@
 
 typedef struct LineInfo
 {
-    char*          pLineText;
-    size_t         lineTextSize;
+    const char*    pLineText;
     size_t         machineCodeSize;
     int            validSymbol;
     unsigned int   lineNumber;
@@ -26,11 +25,5 @@ typedef struct LineInfo
     unsigned short symbolValue;
     unsigned char  machineCode[3];
 } LineInfo;
-
-
-__throws void LineInfo_Init(LineInfo* pThis);
-         void LineInfo_Free(LineInfo* pThis);
-
-__throws void LineInfo_SaveLineText(LineInfo* pThis, const char* pLineText);
 
 #endif /* _LINE_INFO_H_ */

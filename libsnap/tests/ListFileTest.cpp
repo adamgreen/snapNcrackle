@@ -33,14 +33,12 @@ TEST_GROUP(ListFile)
         clearExceptionCode();
         printfSpy_Hook(128);
         m_pListFile = NULL;
-        LineInfo_Init(&m_lineInfo);
     }
 
     void teardown()
     {
         MallocFailureInject_Restore();
         ListFile_Free(m_pListFile);
-        LineInfo_Free(&m_lineInfo);
         LONGS_EQUAL(noException, getExceptionCode());
         printfSpy_Unhook();
     }
@@ -60,7 +58,7 @@ TEST(ListFile, OutputLineWithOnlyLineNumberAndText)
 {
     m_pListFile = ListFile_Create(stdout);
 
-    LineInfo_SaveLineText(&m_lineInfo, "* Full line comment.");
+    m_lineInfo.pLineText = "* Full line comment.";
     m_lineInfo.lineNumber = 1;
     ListFile_OutputLine(m_pListFile, &m_lineInfo);
 
@@ -72,7 +70,7 @@ TEST(ListFile, OutputLineWithSymbol)
 {
     m_pListFile = ListFile_Create(stdout);
 
-    LineInfo_SaveLineText(&m_lineInfo, "LABEL EQU $FFFF");
+    m_lineInfo.pLineText = "LABEL EQU $FFFF";
     m_lineInfo.lineNumber = 2;
     m_lineInfo.symbolValue = 0xFFFF;
     m_lineInfo.validSymbol = 1;
@@ -86,7 +84,7 @@ TEST(ListFile, OutputLineWithAddressAndOneMachineCodeByte)
 {
     m_pListFile = ListFile_Create(stderr);
 
-    LineInfo_SaveLineText(&m_lineInfo, " DEX");
+    m_lineInfo.pLineText = " DEX";
     m_lineInfo.lineNumber = 3;
     m_lineInfo.address = 0x0800;
     m_lineInfo.machineCodeSize = 1;
@@ -101,7 +99,7 @@ TEST(ListFile, OutputLineWithAddressAndTwoMachineCodeBytes)
 {
     m_pListFile = ListFile_Create(stderr);
 
-    LineInfo_SaveLineText(&m_lineInfo, " LDA $2C");
+    m_lineInfo.pLineText = " LDA $2C";
     m_lineInfo.lineNumber = 4;
     m_lineInfo.address = 0x0801;
     m_lineInfo.machineCodeSize = 2;
@@ -117,7 +115,7 @@ TEST(ListFile, OutputLineWithAddressAndThreeMachineCodeBytes)
 {
     m_pListFile = ListFile_Create(stdout);
 
-    LineInfo_SaveLineText(&m_lineInfo, " LDA $C008");
+    m_lineInfo.pLineText = " LDA $C008";
     m_lineInfo.lineNumber = 5;
     m_lineInfo.address = 0x0803;
     m_lineInfo.machineCodeSize = 3;
