@@ -209,6 +209,37 @@ TEST(Assembler, InitAndRunFromShortFile)
     LONGS_EQUAL(3, printfSpy_GetCallCount());
 }
 
+TEST(Assembler, FailAllocationOnLongLine)
+{
+    char longLine[257];
+    
+    memset(longLine, ' ', sizeof(longLine));
+    longLine[ARRAYSIZE(longLine)-1] = '\0';
+    createSourceFile(longLine);
+    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
+    CHECK(m_pAssembler != NULL);
+
+    MallocFailureInject_FailAllocation(1);
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(0, printfSpy_GetCallCount());
+    LONGS_EQUAL(outOfMemoryException, getExceptionCode());
+    clearExceptionCode();
+}
+
+TEST(Assembler, RunOnLongLine)
+{
+    char longLine[257];
+    
+    memset(longLine, ' ', sizeof(longLine));
+    longLine[ARRAYSIZE(longLine)-1] = '\0';
+    createSourceFile(longLine);
+    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
+    CHECK(m_pAssembler != NULL);
+
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(1, printfSpy_GetCallCount());
+}
+
 TEST(Assembler, CommentLine)
 {
     createSourceFile("*  boot\n");
