@@ -27,8 +27,5 @@ __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename);
 
          void       Assembler_Run(Assembler* pThis);
 
-// UNDONE: Move this code out into a Builder or similar module later.
-__throws Assembler* Assembler_CreateFromCommandLine(CommandLine* pCommandLine);
-__throws void       Assembler_RunMultiple(Assembler* pThis);
 
 #endif /* _ASSEMBLER_H_ */

@@ -122,61 +122,19 @@ TEST(Assembler, FailFourthInitAllocation)
     validateOutOfMemoryExceptionThrown();
 }
 
+TEST(Assembler, FailFifthInitAllocation)
+{
+    MallocFailureInject_FailAllocation(5);
+    m_pAssembler = Assembler_CreateFromString(dupe(""));
+    validateOutOfMemoryExceptionThrown();
+}
+
 TEST(Assembler, EmptyString)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(""));
     CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(1, printfSpy_GetCallCount());
-}
-
-TEST(Assembler, OneOperator)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" ORG $800\r\n"));
-    CHECK(m_pAssembler != NULL);
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(2, printfSpy_GetCallCount());
-    STRCMP_EQUAL("ORG\r\n", printfSpy_GetLastOutput());
-}
-
-TEST(Assembler, TwoOperators)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" ORG $800\r\n"
-                                                   " INX\r\n"));
-    CHECK(m_pAssembler != NULL);
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(3, printfSpy_GetCallCount());
-}
-
-TEST(Assembler, LinesWithAndWithoutOperators)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" ORG $800\r\n"
-                                                   " INX\r\n"
-                                                   "* Comment\r\n"));
-    CHECK(m_pAssembler != NULL);
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(3, printfSpy_GetCallCount());
-}
-
-TEST(Assembler, SameOperatorTwice)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" INX\r\n"
-                                                   " INX\r\n"));
-    CHECK(m_pAssembler != NULL);
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(2, printfSpy_GetCallCount());
-}
-
-TEST(Assembler, FailSymbolAllocation)
-{
-    MallocFailureInject_FailAllocation(5);
-    m_pAssembler = Assembler_CreateFromString(dupe(" ORG $800\r\n"));
-    CHECK(m_pAssembler != NULL);
-    Assembler_Run(m_pAssembler);
-
-    LONGS_EQUAL(outOfMemoryException, getExceptionCode());
-    LONGS_EQUAL(1, printfSpy_GetCallCount());
-    clearExceptionCode();
+    LONGS_EQUAL(0, printfSpy_GetCallCount());
 }
 
 TEST(Assembler, InitFromEmptyFile)
@@ -232,6 +190,14 @@ TEST(Assembler, FailFifthAllocationDuringFileInit)
     validateOutOfMemoryExceptionThrown();
 }
 
+TEST(Assembler, FailSixthAllocationDuringFileInit)
+{
+    createSourceFile(" ORG $800\r\n");
+    MallocFailureInject_FailAllocation(6);
+    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
+    validateOutOfMemoryExceptionThrown();
+}
+
 TEST(Assembler, InitAndRunFromShortFile)
 {
     createSourceFile(" ORG $800\r\n"
@@ -243,67 +209,11 @@ TEST(Assembler, InitAndRunFromShortFile)
     LONGS_EQUAL(3, printfSpy_GetCallCount());
 }
 
-TEST(Assembler, FailFirstAllocationDuringCommandLineInit)
+TEST(Assembler, CommentLine)
 {
-    createSourceFile(" ORG $800\r\n"
-                     " INX\r\n"
-                     "* Comment\r\n");
-    addArg(g_sourceFilename);
-    CommandLine_Init(&m_commandLine, m_argc, m_argv);
-
-    MallocFailureInject_FailAllocation(1);
-    m_pAssembler = Assembler_CreateFromCommandLine(&m_commandLine);
-    validateOutOfMemoryExceptionThrown();
-}
-
-TEST(Assembler, InitAndRunFromCommandLineWithNonExistentFile)
-{
-    addArg("foo.noexist.bar");
-    CommandLine_Init(&m_commandLine, m_argc, m_argv);
-    
-    m_pAssembler = Assembler_CreateFromCommandLine(&m_commandLine);
-    CHECK(m_pAssembler != NULL);
-
-    Assembler_RunMultiple(m_pAssembler);
+    createSourceFile("*  boot\n");
+    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
+    Assembler_Run(m_pAssembler);
     LONGS_EQUAL(1, printfSpy_GetCallCount());
-    CHECK(NULL != strstr(printfSpy_GetLastOutput(), "Failed to open "));
-    LONGS_EQUAL(fileNotFoundException, getExceptionCode());
-    clearExceptionCode();
-}
-
-TEST(Assembler, InitAndRunFromCommandLineWithSingleFile)
-{
-    createSourceFile(" ORG $800\r\n"
-                     " INX\r\n"
-                     "* Comment\r\n");
-    addArg(g_sourceFilename);
-    CommandLine_Init(&m_commandLine, m_argc, m_argv);
-    
-    m_pAssembler = Assembler_CreateFromCommandLine(&m_commandLine);
-    CHECK(m_pAssembler != NULL);
-
-    Assembler_RunMultiple(m_pAssembler);
-    LONGS_EQUAL(3, printfSpy_GetCallCount());
-}
-
-TEST(Assembler, InitAndRunFromCommandLineWithTwoFiles)
-{
-    static const char* secondFilename = "AssemblerTest2.S";
-    createSourceFile(" ORG $800\r\n"
-                     " INX\r\n"
-                     "* Comment\r\n");
-    createThisSourceFile(secondFilename, "* Start of Program\n"
-                                         "\tORG\t$800\n"
-                                         "\tINY\n");
-    addArg(g_sourceFilename);
-    addArg(secondFilename);
-    CommandLine_Init(&m_commandLine, m_argc, m_argv);
-    
-    m_pAssembler = Assembler_CreateFromCommandLine(&m_commandLine);
-    CHECK(m_pAssembler != NULL);
-
-    Assembler_RunMultiple(m_pAssembler);
-    LONGS_EQUAL(4, printfSpy_GetCallCount());
-
-    remove(secondFilename);
+    STRCMP_EQUAL("    :              1 *  boot\n", printfSpy_GetLastOutput());
 }

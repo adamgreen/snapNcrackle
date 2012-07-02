@@ -15,8 +15,10 @@
 #include "Assembler.h"
 #include "AssemblerTest.h"
 #include "TextFile.h"
-#include "SymbolTable.h"
+//#include "SymbolTable.h"
 #include "ParseLine.h"
+#include "ListFile.h"
+#include "LineBuffer.h"
 
 
 #define NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS 511
@@ -24,14 +26,15 @@
 
 struct Assembler
 {
-    TextFile*    pTextFile;
-    SymbolTable* pSymbols;
-    /* UNDONE: Remove */
-    CommandLine* pCommandLine;
+    TextFile*     pTextFile;
+//    SymbolTable* pSymbols;
+    ListFile*     pListFile;
+    LineBuffer*   pLineText;
+    LineInfo      lineInfo;
 };
 
 
-static Assembler* allocateObject(void);
+static Assembler* allocateAndZeroObject(void);
 static void commonObjectInit(Assembler* pThis);
 __throws Assembler* Assembler_CreateFromString(char* pText)
 {
@@ -39,7 +42,7 @@ __throws Assembler* Assembler_CreateFromString(char* pText)
     
     __try
     {
-        __throwing_func( pThis = allocateObject() );
+        __throwing_func( pThis = allocateAndZeroObject() );
         __throwing_func( commonObjectInit(pThis) );
         __throwing_func( pThis->pTextFile = TextFile_CreateFromString(pText) );
     }
@@ -52,11 +55,13 @@ __throws Assembler* Assembler_CreateFromString(char* pText)
     return pThis;
 }
 
-static Assembler* allocateObject(void)
+static Assembler* allocateAndZeroObject(void)
 {
     Assembler* pThis = malloc(sizeof(*pThis));
     if (!pThis)
         __throw_and_return(outOfMemoryException, NULL);
+    memset(pThis, 0, sizeof(*pThis));
+    
     return pThis;
 }
 
@@ -64,9 +69,16 @@ static void commonObjectInit(Assembler* pThis)
 {
     memset(pThis, 0, sizeof(*pThis));
     __try
-        pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
+    {
+        // UNDONE: Take list file location.
+        __throwing_func( pThis->pListFile = ListFile_Create(stdout) );
+        __throwing_func( pThis->pLineText = LineBuffer_Create() );
+//        pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
+    }
     __catch
+    {
         __rethrow;
+    }
 }
 
 
@@ -76,7 +88,7 @@ __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename)
     
     __try
     {
-        __throwing_func( pThis = allocateObject() );
+        __throwing_func( pThis = allocateAndZeroObject() );
         __throwing_func( commonObjectInit(pThis) );
         __throwing_func( pThis->pTextFile = TextFile_CreateFromFile(pSourceFilename) );
     }
@@ -95,7 +107,9 @@ void Assembler_Free(Assembler* pThis)
     if (!pThis)
         return;
     
-    SymbolTable_Free(pThis->pSymbols);
+    LineBuffer_Free(pThis->pLineText);
+    ListFile_Free(pThis->pListFile);
+//    SymbolTable_Free(pThis->pSymbols);
     TextFile_Free(pThis->pTextFile);
     free(pThis);
 }
@@ -103,12 +117,10 @@ void Assembler_Free(Assembler* pThis)
 
 static void parseSource(Assembler* pThis);
 static void parseLine(Assembler* pThis, char* pLine);
-static void rememberNewOperators(Assembler* pThis, const char* pOperator);
-static void listOperators(Assembler* pThis);
+static void listLine(Assembler* pThis);
 void Assembler_Run(Assembler* pThis)
 {
     parseSource(pThis);
-    listOperators(pThis);
     return;
 }
 
@@ -129,10 +141,33 @@ static void parseLine(Assembler* pThis, char* pLine)
 {
     ParsedLine parsedLine;
 
-    ParseLine(&parsedLine, pLine);
-    rememberNewOperators(pThis, parsedLine.pOperator);
+    __try
+    {
+        __throwing_func( LineBuffer_Set(pThis->pLineText, pLine) );
+        ParseLine(&parsedLine, pLine);
+        listLine(pThis);
+    }
+    __catch
+    {
+        __rethrow;
+    }
 }
 
+static void listLine(Assembler* pThis)
+{
+    pThis->lineInfo.pLineText = LineBuffer_Get(pThis->pLineText);
+    pThis->lineInfo.lineNumber++;
+    ListFile_OutputLine(pThis->pListFile, &pThis->lineInfo);
+}
+
+
+
+
+
+
+
+
+#ifdef UNDONE
 static void rememberNewOperators(Assembler* pThis, const char* pOperator)
 {
     Symbol* pSymbol;
@@ -163,7 +198,6 @@ static void listOperators(Assembler* pThis)
 }
 
 
-// UNDONE: Move into Builder or similar module later.
 __throws Assembler* Assembler_CreateFromCommandLine(CommandLine* pCommandLine)
 {
     Assembler* pThis = NULL;
@@ -232,3 +266,5 @@ void Assembler_RunMultiple(Assembler* pThis)
     
     return;
 }
+
+#endif /* UNDONE */
