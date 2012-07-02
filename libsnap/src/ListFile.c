@@ -19,6 +19,7 @@ struct ListFile
     FILE*    pFile;
 };
 
+#define LINE_ENDING "\n"
 
 static ListFile* allocateAndZeroObject(void);
 __throws ListFile* ListFile_Create(FILE* pOutputFile)
@@ -78,7 +79,7 @@ void ListFile_OutputLine(ListFile* pThis, LineInfo* pLineInfo)
     else if (pLineInfo->machineCodeSize == 3)
         sprintf(machineCodeOrSymbol, "%02X %02X %02X", pLineInfo->machineCode[0], pLineInfo->machineCode[1], pLineInfo->machineCode[2]);
     
-    fprintf(pThis->pFile, "%4s: %8s % 5d %s\n", 
+    fprintf(pThis->pFile, "%4s: %8s % 5d %s" LINE_ENDING, 
             address,
             machineCodeOrSymbol,
             pLineInfo->lineNumber, 
