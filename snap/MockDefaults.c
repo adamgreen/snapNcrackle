@@ -16,8 +16,10 @@
 
 /* Not using my test mocks in production so point hooks to Standard CRT functions. */
 void*  (*hook_malloc)(size_t size) = malloc;
+void*  (*hook_realloc)(void* ptr, size_t size) = realloc;
 void   (*hook_free)(void* ptr) = free;
 int    (*hook_printf)(const char* pFormat, ...) = printf;
+int    (*hook_fprintf)(FILE* pFile, const char* pFormat, ...) = fprintf;
 FILE*  (*hook_fopen)(const char* filename, const char* mode) = fopen;
 int    (*hook_fseek)(FILE* stream, long offset, int whence) = fseek;
 long   (*hook_ftell)(FILE* stream) = ftell;

@@ -22,8 +22,8 @@ int main(int argc, const char** argv)
     __try
     {
         __throwing_func( CommandLine_Init(&commandLine, argc-1, argv+1) );
-        __throwing_func( pAssembler = Assembler_CreateFromCommandLine(&commandLine) );
-        __throwing_func( Assembler_RunMultiple(pAssembler) );
+        __throwing_func( pAssembler = Assembler_CreateFromFile(commandLine.pSourceFiles[0]) );
+        __throwing_func( Assembler_Run(pAssembler) );
     }
     __catch
     {
