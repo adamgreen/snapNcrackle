@@ -44,7 +44,7 @@ TEST_GROUP(LineBuffer)
 
 TEST(LineBuffer, Init)
 {
-    m_pLineBuffer = LineBuffer_Init();
+    m_pLineBuffer = LineBuffer_Create();
     CHECK(m_pLineBuffer);
     STRCMP_EQUAL("", LineBuffer_Get(m_pLineBuffer));
 }
@@ -52,7 +52,7 @@ TEST(LineBuffer, Init)
 TEST(LineBuffer, FailFirstAllocationInInit)
 {
     MallocFailureInject_FailAllocation(1);
-    m_pLineBuffer = LineBuffer_Init();
+    m_pLineBuffer = LineBuffer_Create();
     POINTERS_EQUAL(NULL, m_pLineBuffer);
     LONGS_EQUAL(outOfMemoryException, getExceptionCode());
     clearExceptionCode();
@@ -61,7 +61,7 @@ TEST(LineBuffer, FailFirstAllocationInInit)
 TEST(LineBuffer, FailSecondAllocationInInit)
 {
     MallocFailureInject_FailAllocation(2);
-    m_pLineBuffer = LineBuffer_Init();
+    m_pLineBuffer = LineBuffer_Create();
     POINTERS_EQUAL(NULL, m_pLineBuffer);
     LONGS_EQUAL(outOfMemoryException, getExceptionCode());
     clearExceptionCode();
@@ -70,7 +70,7 @@ TEST(LineBuffer, FailSecondAllocationInInit)
 TEST(LineBuffer, SetSmallText)
 {
     const char* testLine = "Hello\r\n";
-    m_pLineBuffer = LineBuffer_Init();
+    m_pLineBuffer = LineBuffer_Create();
     LineBuffer_Set(m_pLineBuffer, testLine);
     STRCMP_EQUAL(testLine, LineBuffer_Get(m_pLineBuffer));
     CHECK(testLine != LineBuffer_Get(m_pLineBuffer));
@@ -79,7 +79,7 @@ TEST(LineBuffer, SetSmallText)
 TEST(LineBuffer, SetLargeText)
 {
     char testLine[257];
-    m_pLineBuffer = LineBuffer_Init();
+    m_pLineBuffer = LineBuffer_Create();
     memset(testLine, ' ', sizeof(testLine));
     testLine[ARRAYSIZE(testLine)-1] = '\0';
     LineBuffer_Set(m_pLineBuffer, testLine);
@@ -90,7 +90,7 @@ TEST(LineBuffer, SetLargeText)
 TEST(LineBuffer, FailAllocationDuringLargeTextSet)
 {
     char testLine[257];
-    m_pLineBuffer = LineBuffer_Init();
+    m_pLineBuffer = LineBuffer_Create();
     memset(testLine, ' ', sizeof(testLine));
     testLine[ARRAYSIZE(testLine)-1] = '\0';
     MallocFailureInject_FailAllocation(1);

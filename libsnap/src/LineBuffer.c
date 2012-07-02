@@ -23,7 +23,7 @@ struct LineBuffer
 
 static LineBuffer* allocAndZero(void);
 static void growLineTextBufferIfTooSmall(LineBuffer* pThis, size_t textSize);
-__throws LineBuffer* LineBuffer_Init(void)
+__throws LineBuffer* LineBuffer_Create(void)
 {
     LineBuffer* pThis = NULL;
     

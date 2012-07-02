@@ -18,7 +18,7 @@
 typedef struct LineBuffer LineBuffer;
 
 
-__throws LineBuffer* LineBuffer_Init(void);
+__throws LineBuffer* LineBuffer_Create(void);
          void        LineBuffer_Free(LineBuffer* pThis);
 
 __throws void        LineBuffer_Set(LineBuffer* pThis, const char* pString);
