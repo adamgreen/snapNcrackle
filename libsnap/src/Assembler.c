@@ -128,6 +128,8 @@ static void firstPassAssembleLine(Assembler* pThis);
 static void handleEQU(Assembler* pThis);
 static unsigned short evaluateExpression(Assembler* pThis);
 static int isHexValue(const char* pValue);
+static void ignoreOperator(Assembler* pThis);
+static void handleInvalidOperator(Assembler* pThis);
 static void listLine(Assembler* pThis);
 void Assembler_Run(Assembler* pThis)
 {
@@ -183,7 +185,8 @@ static void firstPassAssembleLine(Assembler* pThis)
     } operatorHandlers[] =
     {
         {"=", handleEQU},
-        {"EQU", handleEQU}
+        {"EQU", handleEQU},
+        {"LST", ignoreOperator}
     };
     
     
@@ -195,9 +198,11 @@ static void firstPassAssembleLine(Assembler* pThis)
         if (0 == strcasecmp(pThis->parsedLine.pOperator, operatorHandlers[i].pOperator))
         {
             operatorHandlers[i].handler(pThis);
-            break;
+            return;
         }
     }
+    
+    handleInvalidOperator(pThis);
 }
 
 static void handleEQU(Assembler* pThis)
@@ -232,6 +237,15 @@ static unsigned short evaluateExpression(Assembler* pThis)
 static int isHexValue(const char* pValue)
 {
     return *pValue == '$';
+}
+
+static void ignoreOperator(Assembler* pThis)
+{
+}
+
+static void handleInvalidOperator(Assembler* pThis)
+{
+    LOG_ERROR("'%s' is not a recongized directive, mnemonic, or macro.", pThis->parsedLine.pOperator);
 }
 
 static void listLine(Assembler* pThis)

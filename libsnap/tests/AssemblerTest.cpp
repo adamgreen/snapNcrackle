@@ -215,7 +215,8 @@ TEST(Assembler, FailSixthAllocationDuringFileInit)
     validateOutOfMemoryExceptionThrown();
 }
 
-TEST(Assembler, InitAndRunFromShortFile)
+// UNDONE: Turn this test back on once ORG and INX are supported.
+IGNORE_TEST(Assembler, InitAndRunFromShortFile)
 {
     createSourceFile(" ORG $800\r\n"
                      " INX\r\n"
@@ -262,6 +263,21 @@ TEST(Assembler, CommentLine)
     runAssemblerAndValidateOutputIs("    :              1 *  boot\n");
 }
 
+TEST(Assembler, InvalidOperatorFromStringSource)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" foo bar\n"));
+    runAssemblerAndValidateFailure("filename:1: error: 'foo' is not a recongized directive, mnemonic, or macro.\n", 
+                                   "    :              1  foo bar\n");
+}
+
+TEST(Assembler, InvalidOperatorFromFileSource)
+{
+    createSourceFile(" foo bar\n");
+    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
+    runAssemblerAndValidateFailure("AssemblerTest.S:1: error: 'foo' is not a recongized directive, mnemonic, or macro.\n", 
+                                   "    :              1  foo bar\n");
+}
+
 TEST(Assembler, EqualSignDirective)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("org = $800\n"));
@@ -283,9 +299,13 @@ TEST(Assembler, NotHexExpression)
 
 TEST(Assembler, PERIODinExpression)
 {
-    createSourceFile("CHECKEND = *-CHECKER\n");
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
-    runAssemblerAndValidateFailure("AssemblerTest.S:1: error: Unexpected prefix in '*-CHECKER' expression.\n", 
+    m_pAssembler = Assembler_CreateFromString(dupe("CHECKEND = *-CHECKER\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '*-CHECKER' expression.\n", 
                                    "    :              1 CHECKEND = *-CHECKER\n");
 }
 
+TEST(Assembler, IgnoreLSTDirective)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lst off\n"));
+    runAssemblerAndValidateOutputIs("    :              1  lst off\n");
+}
