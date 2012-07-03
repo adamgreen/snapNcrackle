@@ -60,6 +60,10 @@ extern int g_exceptionCode;
 
 #define __rethrow_and_return(RETURN) return RETURN
 
+#define __nothrow { clearExceptionCode(); return; }
+
+#define __nothrow_and_return(RETURN) return (clearExceptionCode(), (RETURN))
+
 static inline int getExceptionCode(void)
 {
     return g_exceptionCode;
