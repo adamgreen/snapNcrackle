@@ -22,6 +22,8 @@
 #undef  printf
 #define printf hook_printf
 
+#undef fprintf
+#define fprintf hook_fprintf
 
 /* Force malloc() to go through function pointer so that memory failures can be injected. */
 #undef  malloc

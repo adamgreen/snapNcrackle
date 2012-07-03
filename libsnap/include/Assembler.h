@@ -26,6 +26,7 @@ __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename);
          void       Assembler_Free(Assembler* pThis);
 
          void       Assembler_Run(Assembler* pThis);
+         unsigned int Assembler_GetErrorCount(Assembler* pThis);
 
 
 #endif /* _ASSEMBLER_H_ */

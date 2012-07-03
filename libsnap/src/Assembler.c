@@ -19,6 +19,7 @@
 #include "ParseLine.h"
 #include "ListFile.h"
 #include "LineBuffer.h"
+#include "util.h"
 
 
 #define NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS 511
@@ -26,11 +27,14 @@
 
 struct Assembler
 {
+    const char*   pSourceFilename;
     TextFile*     pTextFile;
 //    SymbolTable* pSymbols;
     ListFile*     pListFile;
     LineBuffer*   pLineText;
+    ParsedLine    parsedLine;
     LineInfo      lineInfo;
+    unsigned int  errorCount;
 };
 
 
@@ -45,6 +49,7 @@ __throws Assembler* Assembler_CreateFromString(char* pText)
         __throwing_func( pThis = allocateAndZeroObject() );
         __throwing_func( commonObjectInit(pThis) );
         __throwing_func( pThis->pTextFile = TextFile_CreateFromString(pText) );
+        pThis->pSourceFilename = "filename";
     }
     __catch
     {
@@ -70,7 +75,7 @@ static void commonObjectInit(Assembler* pThis)
     memset(pThis, 0, sizeof(*pThis));
     __try
     {
-        // UNDONE: Take list file location.
+        // UNDONE: Take list file location as parameter.
         __throwing_func( pThis->pListFile = ListFile_Create(stdout) );
         __throwing_func( pThis->pLineText = LineBuffer_Create() );
 //        pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
@@ -91,6 +96,7 @@ __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename)
         __throwing_func( pThis = allocateAndZeroObject() );
         __throwing_func( commonObjectInit(pThis) );
         __throwing_func( pThis->pTextFile = TextFile_CreateFromFile(pSourceFilename) );
+        pThis->pSourceFilename = pSourceFilename;
     }
     __catch
     {
@@ -117,6 +123,11 @@ void Assembler_Free(Assembler* pThis)
 
 static void parseSource(Assembler* pThis);
 static void parseLine(Assembler* pThis, char* pLine);
+static void prepareLineInfoForThisLine(Assembler* pThis);
+static void firstPassAssembleLine(Assembler* pThis);
+static void handleEQU(Assembler* pThis);
+static unsigned short evaluateExpression(Assembler* pThis);
+static int isHexValue(const char* pValue);
 static void listLine(Assembler* pThis);
 void Assembler_Run(Assembler* pThis)
 {
@@ -139,12 +150,12 @@ static void parseSource(Assembler* pThis)
 
 static void parseLine(Assembler* pThis, char* pLine)
 {
-    ParsedLine parsedLine;
-
     __try
     {
         __throwing_func( LineBuffer_Set(pThis->pLineText, pLine) );
-        ParseLine(&parsedLine, pLine);
+        prepareLineInfoForThisLine(pThis);
+        ParseLine(&pThis->parsedLine, pLine);
+        firstPassAssembleLine(pThis);
         listLine(pThis);
     }
     __catch
@@ -153,13 +164,86 @@ static void parseLine(Assembler* pThis, char* pLine)
     }
 }
 
+static void prepareLineInfoForThisLine(Assembler* pThis)
+{
+    unsigned int lineNumber = pThis->lineInfo.lineNumber;
+    
+    memset(&pThis->lineInfo, 0, sizeof(pThis->lineInfo));
+    pThis->lineInfo.lineNumber = lineNumber + 1;
+    pThis->lineInfo.pLineText = LineBuffer_Get(pThis->pLineText);
+}
+
+static void firstPassAssembleLine(Assembler* pThis)
+{
+    size_t i;
+    struct
+    {
+        const char* pOperator;
+        void (*handler)(Assembler* pThis);
+    } operatorHandlers[] =
+    {
+        {"=", handleEQU},
+        {"EQU", handleEQU}
+    };
+    
+    
+    if (pThis->parsedLine.pOperator == NULL)
+        return;
+    
+    for (i = 0 ; i < ARRAYSIZE(operatorHandlers) ; i++)
+    {
+        if (0 == strcasecmp(pThis->parsedLine.pOperator, operatorHandlers[i].pOperator))
+        {
+            operatorHandlers[i].handler(pThis);
+            break;
+        }
+    }
+}
+
+static void handleEQU(Assembler* pThis)
+{
+    __try
+        pThis->lineInfo.symbolValue = evaluateExpression(pThis);
+    __catch
+        __nothrow;
+
+    pThis->lineInfo.validSymbol = 1;
+}
+
+#define LOG_ERROR(FORMAT, ...) fprintf(stderr, \
+                                       "%s:%d: error: " FORMAT LINE_ENDING, \
+                                       pThis->pSourceFilename, \
+                                       pThis->lineInfo.lineNumber, \
+                                       __VA_ARGS__), pThis->errorCount++;
+                                       
+static unsigned short evaluateExpression(Assembler* pThis)
+{
+    if (isHexValue(pThis->parsedLine.pOperands))
+    {
+        return strtoul(&pThis->parsedLine.pOperands[1], NULL, 16);
+    }
+    else
+    {
+        LOG_ERROR("Unexpected prefix in '%s' expression.", pThis->parsedLine.pOperands);
+        __throw_and_return(invalidArgumentException, 0);
+    }
+}
+
+static int isHexValue(const char* pValue)
+{
+    return *pValue == '$';
+}
+
 static void listLine(Assembler* pThis)
 {
-    pThis->lineInfo.pLineText = LineBuffer_Get(pThis->pLineText);
-    pThis->lineInfo.lineNumber++;
     ListFile_OutputLine(pThis->pListFile, &pThis->lineInfo);
 }
 
+
+unsigned int Assembler_GetErrorCount(Assembler* pThis)
+{
+    return pThis->errorCount;
+}
 
 
 

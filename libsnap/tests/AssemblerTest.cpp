@@ -91,6 +91,23 @@ TEST_GROUP(Assembler)
         LONGS_EQUAL(expectedException, getExceptionCode());
         clearExceptionCode();
     }
+    
+    void runAssemblerAndValidateOutputIs(const char* pExpectedOutput)
+    {
+        Assembler_Run(m_pAssembler);
+        LONGS_EQUAL(1, printfSpy_GetCallCount());
+        STRCMP_EQUAL(pExpectedOutput, printfSpy_GetLastOutput());
+        LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
+    }
+    
+    void runAssemblerAndValidateFailure(const char* pExpectedFailureMessage, const char* pExpectedListOutput)
+    {
+        Assembler_Run(m_pAssembler);
+        LONGS_EQUAL(2, printfSpy_GetCallCount());
+        STRCMP_EQUAL(pExpectedFailureMessage, printfSpy_GetPreviousOutput());
+        STRCMP_EQUAL(pExpectedListOutput, printfSpy_GetLastOutput());
+        LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler) );
+    }
 };
 
 
@@ -215,8 +232,7 @@ TEST(Assembler, FailAllocationOnLongLine)
     
     memset(longLine, ' ', sizeof(longLine));
     longLine[ARRAYSIZE(longLine)-1] = '\0';
-    createSourceFile(longLine);
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
+    m_pAssembler = Assembler_CreateFromString(longLine);
     CHECK(m_pAssembler != NULL);
 
     MallocFailureInject_FailAllocation(1);
@@ -232,19 +248,44 @@ TEST(Assembler, RunOnLongLine)
     
     memset(longLine, ' ', sizeof(longLine));
     longLine[ARRAYSIZE(longLine)-1] = '\0';
-    createSourceFile(longLine);
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
+    m_pAssembler = Assembler_CreateFromString(longLine);
     CHECK(m_pAssembler != NULL);
 
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(1, printfSpy_GetCallCount());
+    LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
 }
 
 TEST(Assembler, CommentLine)
 {
-    createSourceFile("*  boot\n");
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(1, printfSpy_GetCallCount());
-    STRCMP_EQUAL("    :              1 *  boot\n", printfSpy_GetLastOutput());
+    m_pAssembler = Assembler_CreateFromString(dupe("*  boot\n"));
+    runAssemblerAndValidateOutputIs("    :              1 *  boot\n");
 }
+
+TEST(Assembler, EqualSignDirective)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("org = $800\n"));
+    runAssemblerAndValidateOutputIs("    :    =0800     1 org = $800\n");
+}
+
+TEST(Assembler, EQUDirective)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("org EQU $800\n"));
+    runAssemblerAndValidateOutputIs("    :    =0800     1 org EQU $800\n");
+}
+
+TEST(Assembler, NotHexExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("org EQU 800\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '800' expression.\n", 
+                                   "    :              1 org EQU 800\n");
+}
+
+TEST(Assembler, PERIODinExpression)
+{
+    createSourceFile("CHECKEND = *-CHECKER\n");
+    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
+    runAssemblerAndValidateFailure("AssemblerTest.S:1: error: Unexpected prefix in '*-CHECKER' expression.\n", 
+                                   "    :              1 CHECKEND = *-CHECKER\n");
+}
+
