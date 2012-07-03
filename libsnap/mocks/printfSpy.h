@@ -25,6 +25,7 @@ void        printfSpy_Hook(size_t BufferSize);
 void        printfSpy_Unhook(void);
 
 const char* printfSpy_GetLastOutput(void);
+const char* printfSpy_GetPreviousOutput(void);
 FILE*       printfSpy_GetLastFile(void);
 size_t      printfSpy_GetCallCount(void);
 

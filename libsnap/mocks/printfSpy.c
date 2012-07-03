@@ -13,30 +13,37 @@
 /* Module for spying on printf output from code under test. */
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 #include "printfSpy.h"
 #include "CppUTest/TestHarness_c.h"
 
 
-char*   g_pBuffer = NULL;
+char*   g_pLastOutput = NULL;
+char*   g_pPreviousOutput = NULL;
 size_t  g_bufferSize = 0;
 size_t  g_callCount = 0;
 FILE*   g_pFile = NULL;
 int (*hook_printf)(const char* pFormat, ...) = printf;
 int (*hook_fprintf)(FILE* pFile, const char* pFormat, ...) = fprintf;
 
-static void _AllocateAndInitBuffer(size_t BufferSize)
+static void _AllocateAndInitBuffers(size_t BufferSize)
 {
     g_bufferSize = BufferSize + 1;
-    g_pBuffer = malloc(g_bufferSize);
-    CHECK_C(NULL != g_pBuffer);
-    g_pBuffer[0] = '\0';
+    g_pLastOutput = malloc(g_bufferSize);
+    CHECK_C(NULL != g_pLastOutput);
+    g_pPreviousOutput = malloc(g_bufferSize);
+    CHECK_C(NULL != g_pPreviousOutput);
+    g_pLastOutput[0] = '\0';
+    g_pPreviousOutput[0] = '\0';
     g_pFile = NULL;
 }
 
 static void _FreeBuffer(void)
 {
-    free(g_pBuffer);
-    g_pBuffer = NULL;
+    free(g_pPreviousOutput);
+    free(g_pLastOutput);
+    g_pLastOutput = NULL;
+    g_pPreviousOutput = NULL;
     g_bufferSize = 0;
     g_pFile = NULL;
 }
@@ -45,7 +52,8 @@ static int mock_common(FILE* pFile, const char* pFormat, va_list valist)
 {
     int     WrittenSize = -1;
     
-    WrittenSize = vsnprintf(g_pBuffer,
+    strcpy(g_pPreviousOutput, g_pLastOutput);
+    WrittenSize = vsnprintf(g_pLastOutput,
                             g_bufferSize,
                             pFormat,
                             valist);
@@ -88,7 +96,7 @@ void printfSpy_Hook(size_t BufferSize)
 {
     printfSpy_Unhook();
 
-    _AllocateAndInitBuffer(BufferSize);
+    _AllocateAndInitBuffers(BufferSize);
     g_callCount = 0;
     setHookFunctionPointers();
 }
@@ -101,7 +109,12 @@ void printfSpy_Unhook(void)
 
 const char* printfSpy_GetLastOutput(void)
 {
-    return g_pBuffer;
+    return g_pLastOutput;
+}
+
+const char* printfSpy_GetPreviousOutput(void)
+{
+    return g_pPreviousOutput;
 }
 
 FILE* printfSpy_GetLastFile(void)
