@@ -13,13 +13,12 @@
 #include <string.h>
 #include "ListFile.h"
 #include "ListFileTest.h"
+#include "util.h"
 
 struct ListFile
 {
     FILE*    pFile;
 };
-
-#define LINE_ENDING "\n"
 
 static ListFile* allocateAndZeroObject(void);
 __throws ListFile* ListFile_Create(FILE* pOutputFile)

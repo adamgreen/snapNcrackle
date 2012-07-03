@@ -18,4 +18,6 @@
 #define TRUE  1
 #define FALSE 0
 
+#define LINE_ENDING "\n"
+
 #endif /* _UTIL_H_ */
