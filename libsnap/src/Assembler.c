@@ -15,7 +15,7 @@
 #include "Assembler.h"
 #include "AssemblerTest.h"
 #include "TextFile.h"
-//#include "SymbolTable.h"
+#include "SymbolTable.h"
 #include "ParseLine.h"
 #include "ListFile.h"
 #include "LineBuffer.h"
@@ -27,14 +27,15 @@
 
 struct Assembler
 {
-    const char*   pSourceFilename;
-    TextFile*     pTextFile;
-//    SymbolTable* pSymbols;
-    ListFile*     pListFile;
-    LineBuffer*   pLineText;
-    ParsedLine    parsedLine;
-    LineInfo      lineInfo;
-    unsigned int  errorCount;
+    const char*    pSourceFilename;
+    TextFile*      pTextFile;
+    SymbolTable* pSymbols;
+    ListFile*      pListFile;
+    LineBuffer*    pLineText;
+    ParsedLine     parsedLine;
+    LineInfo       lineInfo;
+    unsigned int   errorCount;
+    unsigned short programCounter;
 };
 
 
@@ -78,7 +79,7 @@ static void commonObjectInit(Assembler* pThis)
         // UNDONE: Take list file location as parameter.
         __throwing_func( pThis->pListFile = ListFile_Create(stdout) );
         __throwing_func( pThis->pLineText = LineBuffer_Create() );
-//        pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
+        pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
     }
     __catch
     {
@@ -115,7 +116,7 @@ void Assembler_Free(Assembler* pThis)
     
     LineBuffer_Free(pThis->pLineText);
     ListFile_Free(pThis->pListFile);
-//    SymbolTable_Free(pThis->pSymbols);
+    SymbolTable_Free(pThis->pSymbols);
     TextFile_Free(pThis->pTextFile);
     free(pThis);
 }
@@ -128,8 +129,14 @@ static void firstPassAssembleLine(Assembler* pThis);
 static void handleEQU(Assembler* pThis);
 static unsigned short evaluateExpression(Assembler* pThis);
 static int isHexValue(const char* pValue);
+static void attemptToAddSymbol(Assembler* pThis);
 static void ignoreOperator(Assembler* pThis);
 static void handleInvalidOperator(Assembler* pThis);
+static void handleHEX(Assembler* pThis);
+static unsigned char getNextHexByte(const char* pStart, const char** ppNext);
+static unsigned char hexCharToNibble(char value);
+static void logHexParseError(Assembler* pThis);
+static void handleORG(Assembler* pThis);
 static void listLine(Assembler* pThis);
 void Assembler_Run(Assembler* pThis)
 {
@@ -173,6 +180,7 @@ static void prepareLineInfoForThisLine(Assembler* pThis)
     memset(&pThis->lineInfo, 0, sizeof(pThis->lineInfo));
     pThis->lineInfo.lineNumber = lineNumber + 1;
     pThis->lineInfo.pLineText = LineBuffer_Get(pThis->pLineText);
+    pThis->lineInfo.address = pThis->programCounter;
 }
 
 static void firstPassAssembleLine(Assembler* pThis)
@@ -186,7 +194,9 @@ static void firstPassAssembleLine(Assembler* pThis)
     {
         {"=", handleEQU},
         {"EQU", handleEQU},
-        {"LST", ignoreOperator}
+        {"LST", ignoreOperator},
+        {"HEX", handleHEX},
+        {"ORG", handleORG}
     };
     
     
@@ -208,24 +218,37 @@ static void firstPassAssembleLine(Assembler* pThis)
 static void handleEQU(Assembler* pThis)
 {
     __try
-        pThis->lineInfo.symbolValue = evaluateExpression(pThis);
+    {
+        __throwing_func( pThis->lineInfo.symbolValue = evaluateExpression(pThis) );
+        __throwing_func( attemptToAddSymbol(pThis) );
+    }
     __catch
+    {
         __nothrow;
+    }
 
     pThis->lineInfo.validSymbol = 1;
+    
 }
 
 #define LOG_ERROR(FORMAT, ...) fprintf(stderr, \
                                        "%s:%d: error: " FORMAT LINE_ENDING, \
                                        pThis->pSourceFilename, \
                                        pThis->lineInfo.lineNumber, \
-                                       __VA_ARGS__), pThis->errorCount++;
+                                       __VA_ARGS__), pThis->errorCount++
                                        
+// UNDONE: Refactor.
 static unsigned short evaluateExpression(Assembler* pThis)
 {
+    Symbol* pSymbol = NULL;
+    
     if (isHexValue(pThis->parsedLine.pOperands))
     {
         return strtoul(&pThis->parsedLine.pOperands[1], NULL, 16);
+    }
+    else if (NULL != (pSymbol = SymbolTable_Find(pThis->pSymbols, pThis->parsedLine.pOperands)))
+    {
+        return pSymbol->value;
     }
     else
     {
@@ -239,6 +262,29 @@ static int isHexValue(const char* pValue)
     return *pValue == '$';
 }
 
+static void attemptToAddSymbol(Assembler* pThis)
+{
+    Symbol* pSymbol = NULL;
+    
+    if (SymbolTable_Find(pThis->pSymbols, pThis->parsedLine.pLabel))
+    {
+        LOG_ERROR("'%s' symbol has already been defined.", pThis->parsedLine.pLabel);
+        __throw(invalidArgumentException);
+    }
+    
+    __try
+    {
+        pSymbol = SymbolTable_Add(pThis->pSymbols, pThis->parsedLine.pLabel);
+    }
+    __catch
+    {
+        LOG_ERROR("Failed to allocate space for '%s' symbol.", pThis->parsedLine.pLabel);
+        __rethrow;
+    }
+    
+    pSymbol->value = pThis->lineInfo.symbolValue;
+}
+
 static void ignoreOperator(Assembler* pThis)
 {
 }
@@ -246,6 +292,85 @@ static void ignoreOperator(Assembler* pThis)
 static void handleInvalidOperator(Assembler* pThis)
 {
     LOG_ERROR("'%s' is not a recongized directive, mnemonic, or macro.", pThis->parsedLine.pOperator);
+}
+
+static void handleHEX(Assembler* pThis)
+{
+    const char* pCurr = pThis->parsedLine.pOperands;
+    size_t      i = 0;
+
+    while (*pCurr && i < sizeof(pThis->lineInfo.machineCode))
+    {
+        __try
+        {
+            unsigned int byte;
+            const char*  pNext;
+
+            __throwing_func( byte = getNextHexByte(pCurr, &pNext) );
+            pThis->lineInfo.machineCode[i++] = byte;
+            pCurr = pNext;
+        }
+        __catch
+        {
+            logHexParseError(pThis);
+            __nothrow;
+        }
+    }
+    
+    if (*pCurr)
+    {
+        LOG_ERROR("'%s' contains more than 32 values.", pThis->parsedLine.pOperands);
+        return;
+    }
+    pThis->lineInfo.machineCodeSize = i;
+}
+
+static unsigned char getNextHexByte(const char* pStart, const char** ppNext)
+{
+    const char*   pCurr = pStart;
+    unsigned char value;
+    
+    __try
+    {
+        __throwing_func( value = hexCharToNibble(*pCurr++) << 4 );
+        if (*pCurr == '\0')
+            __throw_and_return(invalidArgumentException, 0);
+        __throwing_func( value |= hexCharToNibble(*pCurr++) );
+
+        if (*pCurr == ',')
+            pCurr++;
+    }
+    __catch
+    {
+        __rethrow_and_return(0);
+    }
+
+    *ppNext = pCurr;
+    return value;
+}
+
+static unsigned char hexCharToNibble(char value)
+{
+    if (value >= '0' && value <= '9')
+        return value - '0';
+    if (value >= 'a' && value <= 'f')
+        return value - 'a' + 10;
+    if (value >= 'A' && value <= 'F')
+        return value - 'a' + 10;
+    __throw_and_return(invalidHexDigitException, 0);
+}
+
+static void logHexParseError(Assembler* pThis)
+{
+    if (getExceptionCode() == invalidArgumentException)
+        LOG_ERROR("'%s' doesn't contain an even number of hex digits.", pThis->parsedLine.pOperands);
+    else if (getExceptionCode() == invalidHexDigitException)
+        LOG_ERROR("'%s' contains an invalid hex digit.", pThis->parsedLine.pOperands);
+}
+
+static void handleORG(Assembler* pThis)
+{
+    pThis->programCounter = evaluateExpression(pThis);
 }
 
 static void listLine(Assembler* pThis)

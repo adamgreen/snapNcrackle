@@ -13,8 +13,6 @@
 #ifndef _ASSEMBLER_H_
 #define _ASSEMBLER_H_
 
-// UNDONE: Remove CommandLine references.
-#include "CommandLine.h"
 #include "try_catch.h"
 
 

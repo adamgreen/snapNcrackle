@@ -100,10 +100,24 @@ TEST_GROUP(Assembler)
         LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
     }
     
-    void runAssemblerAndValidateFailure(const char* pExpectedFailureMessage, const char* pExpectedListOutput)
+    void runAssemblerAndValidateOutputIsTwoLinesOf(const char* pExpectedOutput1, const char* pExpectedOutput2)
     {
         Assembler_Run(m_pAssembler);
         LONGS_EQUAL(2, printfSpy_GetCallCount());
+        STRCMP_EQUAL(pExpectedOutput1, printfSpy_GetPreviousOutput());
+        STRCMP_EQUAL(pExpectedOutput2, printfSpy_GetLastOutput());
+        LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
+    }
+    
+    void runAssemblerAndValidateFailure(const char* pExpectedFailureMessage, const char* pExpectedListOutput)
+    {
+        runAssemblerAndValidateFailure(pExpectedFailureMessage, pExpectedListOutput, 2);
+    }
+
+    void runAssemblerAndValidateFailure(const char* pExpectedFailureMessage, const char* pExpectedListOutput, long expectedPrintfCalls)
+    {
+        Assembler_Run(m_pAssembler);
+        LONGS_EQUAL(expectedPrintfCalls, printfSpy_GetCallCount());
         STRCMP_EQUAL(pExpectedFailureMessage, printfSpy_GetPreviousOutput());
         STRCMP_EQUAL(pExpectedListOutput, printfSpy_GetLastOutput());
         LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler) );
@@ -215,12 +229,11 @@ TEST(Assembler, FailSixthAllocationDuringFileInit)
     validateOutOfMemoryExceptionThrown();
 }
 
-// UNDONE: Turn this test back on once ORG and INX are supported.
-IGNORE_TEST(Assembler, InitAndRunFromShortFile)
+TEST(Assembler, InitAndRunFromShortFile)
 {
-    createSourceFile(" ORG $800\r\n"
-                     " INX\r\n"
-                     "* Comment\r\n");
+    createSourceFile("* Symbols\n"
+                     "SYM1 = $1\n"
+                     "SYM2 EQU $2\n");
     m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
     CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
@@ -290,6 +303,22 @@ TEST(Assembler, EQUDirective)
     runAssemblerAndValidateOutputIs("    :    =0800     1 org EQU $800\n");
 }
 
+TEST(Assembler, MultipleDefinedSymbolFailure)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("org = $800\n"
+                                                   "org EQU $900\n"));
+    runAssemblerAndValidateFailure("filename:2: error: 'org' symbol has already been defined.\n", 
+                                   "    :              2 org EQU $900\n", 3);
+}
+
+TEST(Assembler, FailAllocationDuringSymbolCreation)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("org = $800\n"));
+    MallocFailureInject_FailAllocation(1);
+    runAssemblerAndValidateFailure("filename:1: error: Failed to allocate space for 'org' symbol.\n", 
+                                   "    :              1 org = $800\n");
+}
+
 TEST(Assembler, NotHexExpression)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("org EQU 800\n"));
@@ -297,7 +326,7 @@ TEST(Assembler, NotHexExpression)
                                    "    :              1 org EQU 800\n");
 }
 
-TEST(Assembler, PERIODinExpression)
+TEST(Assembler, AsteriskinExpression)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("CHECKEND = *-CHECKER\n"));
     runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '*-CHECKER' expression.\n", 
@@ -308,4 +337,99 @@ TEST(Assembler, IgnoreLSTDirective)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" lst off\n"));
     runAssemblerAndValidateOutputIs("    :              1  lst off\n");
+}
+
+TEST(Assembler, HEXDirectiveWithSingleValue)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01\n"));
+    runAssemblerAndValidateOutputIs("0000: 01           1  hex 01\n");
+}
+
+TEST(Assembler, HEXDirectiveWithThreeValuesAndCommas)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0e,0c,0a\n"));
+    runAssemblerAndValidateOutputIs("0000: 0E 0C 0A     1  hex 0e,0c,0a\n");
+}
+
+TEST(Assembler, HEXDirectiveWithThreeValues)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0e0c0a\n"));
+    runAssemblerAndValidateOutputIs("0000: 0E 0C 0A     1  hex 0e0c0a\n");
+}
+
+TEST(Assembler, HEXDirectiveWithFourValues)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01,02,03,04\n"));
+    runAssemblerAndValidateOutputIsTwoLinesOf("0000: 01 02 03     1  hex 01,02,03,04\n",
+                                              "0003: 04      \n");
+}
+
+TEST(Assembler, HEXDirectiveWithSixValues)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01,02,03,04,05,06\n"));
+    runAssemblerAndValidateOutputIsTwoLinesOf("0000: 01 02 03     1  hex 01,02,03,04,05,06\n",
+                                              "0003: 04 05 06\n");
+}
+
+TEST(Assembler, HEXDirectiveWithMaximumOf32Value)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20\n"));
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
+    LONGS_EQUAL(11, printfSpy_GetCallCount());
+    STRCMP_EQUAL("001B: 1C 1D 1E\n", printfSpy_GetPreviousOutput());
+    STRCMP_EQUAL("001E: 1F 20   \n", printfSpy_GetLastOutput());
+}
+
+TEST(Assembler, HEXDirectiveWith33Values_1MoreThanSupported)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021\n"));
+    runAssemblerAndValidateFailure("filename:1: error: '0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021' contains more than 32 values.\n", 
+                                   "    :              1  hex 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021\n");
+}
+
+TEST(Assembler, HEXDirectiveWithUpperCaseHex)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex FA\n"));
+    runAssemblerAndValidateOutputIs("0000: FA           1  hex FA\n");
+}
+
+TEST(Assembler, HEXDirectiveWithLowerCaseHex)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex fa\n"));
+    runAssemblerAndValidateOutputIs("0000: FA           1  hex fa\n");
+}
+
+TEST(Assembler, HEXDirectiveWithOddDigitCount)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex fa0\n"));
+    runAssemblerAndValidateFailure("filename:1: error: 'fa0' doesn't contain an even number of hex digits.\n",
+                                   "    :              1  hex fa0\n");
+}
+
+TEST(Assembler, HEXDirectiveWithInvalidDigit)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex fg\n"));
+    runAssemblerAndValidateFailure("filename:1: error: 'fg' contains an invalid hex digit.\n",
+                                   "    :              1  hex fg\n");
+}
+
+TEST(Assembler, ORGDirectiveWithLiteralValue)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $900\n"
+                                                   " hex 01\n"));
+    runAssemblerAndValidateOutputIsTwoLinesOf("    :              1  org $900\n", 
+                                              "0900: 01           2  hex 01\n");
+}
+
+TEST(Assembler, ORGDirectiveWithSymbolValue)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("org = $800\n"
+                                                   " org org\n"
+                                                   " hex 01\n"));
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(3, printfSpy_GetCallCount());
+    STRCMP_EQUAL("    :              2  org org\n", printfSpy_GetPreviousOutput());
+    STRCMP_EQUAL("0800: 01           3  hex 01\n", printfSpy_GetLastOutput());
+    LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
 }

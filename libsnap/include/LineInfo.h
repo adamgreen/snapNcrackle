@@ -23,7 +23,7 @@ typedef struct LineInfo
     unsigned int   lineNumber;
     unsigned short address;
     unsigned short symbolValue;
-    unsigned char  machineCode[3];
+    unsigned char  machineCode[32];
 } LineInfo;
 
 #endif /* _LINE_INFO_H_ */
