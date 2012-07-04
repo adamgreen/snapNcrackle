@@ -17,7 +17,10 @@
 
 struct ListFile
 {
-    FILE*    pFile;
+    FILE*          pFile;
+    unsigned char* pMachineCode;
+    size_t         machineCodeSize;
+    unsigned short address;
 };
 
 static ListFile* allocateAndZeroObject(void);
@@ -61,26 +64,81 @@ void ListFile_Free(ListFile* pThis)
 }
 
 
+static void initMachineCodeFields(ListFile* pThis, LineInfo* pLineInfo);
+static void fillAddressBuffer(LineInfo* pLineInfo, char* pOutputBuffer);
+static void fillMachineCodeOrSymbolBuffer(ListFile* pThis, LineInfo* pLineInfo, char* pOutputBuffer);
+static void fillMachineCodeBuffer(ListFile* pThis, char* pOutputBuffer);
+static void listOverflowMachineCodeLine(ListFile* pThis);
 void ListFile_OutputLine(ListFile* pThis, LineInfo* pLineInfo)
 {
-    char address[4+1] = "    ";
-    char machineCodeOrSymbol[8+1] = "        ";
+    char           addressString[4+1] = "    ";
+    char           machineCodeOrSymbol[8+1] = "        ";
     
-    if (pLineInfo->machineCodeSize > 0)
-        sprintf(address, "%04X", pLineInfo->address);
-
-    if (pLineInfo->validSymbol)
-        sprintf(machineCodeOrSymbol, "   =%04X", pLineInfo->symbolValue);
-    else if (pLineInfo->machineCodeSize == 1)
-        sprintf(machineCodeOrSymbol, "%02X      ", pLineInfo->machineCode[0]);
-    else if (pLineInfo->machineCodeSize == 2)
-        sprintf(machineCodeOrSymbol, "%02X %02X   ", pLineInfo->machineCode[0], pLineInfo->machineCode[1]);
-    else if (pLineInfo->machineCodeSize == 3)
-        sprintf(machineCodeOrSymbol, "%02X %02X %02X", pLineInfo->machineCode[0], pLineInfo->machineCode[1], pLineInfo->machineCode[2]);
-    
+    initMachineCodeFields(pThis, pLineInfo);
+    fillAddressBuffer(pLineInfo, addressString);
+    fillMachineCodeOrSymbolBuffer(pThis, pLineInfo, machineCodeOrSymbol);
     fprintf(pThis->pFile, "%4s: %8s % 5d %s" LINE_ENDING, 
-            address,
+            addressString,
             machineCodeOrSymbol,
             pLineInfo->lineNumber, 
             pLineInfo->pLineText);
+            
+    while (pThis->machineCodeSize > 0)
+        listOverflowMachineCodeLine(pThis);
+}
+
+static void initMachineCodeFields(ListFile* pThis, LineInfo* pLineInfo)
+{
+    pThis->address = pLineInfo->address;
+    pThis->pMachineCode = pLineInfo->machineCode;
+    pThis->machineCodeSize = pLineInfo->machineCodeSize;
+}
+
+static void fillAddressBuffer(LineInfo* pLineInfo, char* pOutputBuffer)
+{
+    if (pLineInfo->machineCodeSize > 0)
+        sprintf(pOutputBuffer, "%04X", pLineInfo->address);
+}
+
+static void fillMachineCodeOrSymbolBuffer(ListFile* pThis, LineInfo* pLineInfo, char* pOutputBuffer)
+{
+    if (pLineInfo->validSymbol)
+        sprintf(pOutputBuffer, "   =%04X", pLineInfo->symbolValue);
+    else if (pLineInfo->machineCodeSize > 0)
+        fillMachineCodeBuffer(pThis, pOutputBuffer);
+}
+
+static void fillMachineCodeBuffer(ListFile* pThis, char* pOutputBuffer)
+{
+    size_t bytesUsed = 0;
+    
+    if (pThis->machineCodeSize == 1)
+    {
+        sprintf(pOutputBuffer, "%02X      ", pThis->pMachineCode[0]);
+        bytesUsed = 1;
+    }
+    else if (pThis->machineCodeSize == 2)
+    {
+        sprintf(pOutputBuffer, "%02X %02X   ", pThis->pMachineCode[0], pThis->pMachineCode[1]);
+        bytesUsed = 2;
+    }
+    else if (pThis->machineCodeSize >= 3)
+    {
+        sprintf(pOutputBuffer, "%02X %02X %02X", pThis->pMachineCode[0], pThis->pMachineCode[1], pThis->pMachineCode[2]);
+        bytesUsed = 3;
+    }
+
+    pThis->pMachineCode += bytesUsed;
+    pThis->machineCodeSize -= bytesUsed;
+}
+
+static void listOverflowMachineCodeLine(ListFile* pThis)
+{
+    char machineCodeBuffer[8+1] = "        ";
+
+    pThis->address += 3;
+    fillMachineCodeBuffer(pThis, machineCodeBuffer);
+    fprintf(pThis->pFile, "%04X: %8s" LINE_ENDING, 
+            pThis->address,
+            machineCodeBuffer);
 }
