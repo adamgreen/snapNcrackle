@@ -166,6 +166,7 @@ static void parseLine(Assembler* pThis, char* pLine)
         ParseLine(&pThis->parsedLine, pLine);
         firstPassAssembleLine(pThis);
         listLine(pThis);
+        pThis->programCounter += pThis->lineInfo.machineCodeSize;
     }
     __catch
     {

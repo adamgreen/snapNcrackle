@@ -388,6 +388,14 @@ TEST(Assembler, HEXDirectiveWith33Values_1MoreThanSupported)
                                    "    :              1  hex 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021\n");
 }
 
+TEST(Assembler, HEXDirectiveOnTwoLines)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01\n"
+                                                   " hex 02\n"));
+    runAssemblerAndValidateOutputIsTwoLinesOf("0000: 01           1  hex 01\n",
+                                              "0001: 02           2  hex 02\n");
+}
+
 TEST(Assembler, HEXDirectiveWithUpperCaseHex)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex FA\n"));
