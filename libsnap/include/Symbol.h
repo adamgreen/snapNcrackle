@@ -16,9 +16,9 @@
 typedef struct Symbol Symbol;
 struct Symbol
 {
-    const char* pKey;
-    const void* pData;
-    Symbol*     pNext;
+    const char*    pKey;
+    unsigned short value;
+    Symbol*        pNext;
 };
 
 #endif /* _SYMBOL_H_ */

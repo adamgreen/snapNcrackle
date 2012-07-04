@@ -106,15 +106,15 @@ size_t SymbolTable_GetSymbolCount(SymbolTable* pThis)
 }
 
 
-static Symbol* allocateSymbol(const char* pKey, const void* pData);
+static Symbol* allocateSymbol(const char* pKey);
 static size_t hashString(const char* pString);
-Symbol* SymbolTable_Add(SymbolTable* pThis, const char* pKey, const void* pData)
+Symbol* SymbolTable_Add(SymbolTable* pThis, const char* pKey)
 {
     Symbol*  pElement;
     Symbol** ppBucket;    
     
     __try
-        pElement = allocateSymbol(pKey, pData);
+        pElement = allocateSymbol(pKey);
     __catch
         __rethrow_and_return(NULL);
 
@@ -126,7 +126,7 @@ Symbol* SymbolTable_Add(SymbolTable* pThis, const char* pKey, const void* pData)
     return pElement;
 }
 
-static Symbol* allocateSymbol(const char* pKey, const void* pData)
+static Symbol* allocateSymbol(const char* pKey)
 {
     Symbol* pSymbol = NULL;
     
@@ -135,7 +135,7 @@ static Symbol* allocateSymbol(const char* pKey, const void* pData)
         __throw_and_return(outOfMemoryException, NULL);
         
     pSymbol->pKey = pKey;
-    pSymbol->pData = pData;
+    pSymbol->value = 0;
     pSymbol->pNext = NULL;
     
     return pSymbol;
