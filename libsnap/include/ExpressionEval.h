@@ -19,7 +19,8 @@
 typedef enum ExpressionType
 {
     TYPE_ABSOLUTE = 0,
-    TYPE_IMMEDIATE = 1
+    TYPE_ZEROPAGE_ABSOLUTE,
+    TYPE_IMMEDIATE
 } ExpressionType;
 
 
@@ -30,5 +31,6 @@ typedef struct Expression
 } Expression;
 
 __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands);
+         Expression ExpressionEval_CreateAbsoluteExpression(unsigned short value);
 
 #endif /* _EXPRESSION_EVAL_H_ */

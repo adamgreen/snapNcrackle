@@ -31,7 +31,7 @@ struct Assembler
 {
     const char*    pSourceFilename;
     TextFile*      pTextFile;
-    SymbolTable* pSymbols;
+    SymbolTable*   pSymbols;
     ListFile*      pListFile;
     LineBuffer*    pLineText;
     ParsedLine     parsedLine;

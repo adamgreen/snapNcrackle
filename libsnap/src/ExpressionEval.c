@@ -27,9 +27,7 @@ __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
     
     if (isHexValue(pOperands))
     {
-        expression.value = strtoul(&pOperands[1], NULL, 16);
-        expression.type = TYPE_ABSOLUTE;
-        return expression;
+        return ExpressionEval_CreateAbsoluteExpression(strtoul(&pOperands[1], NULL, 16));
     }
     else if (isImmediateValue(pOperands))
     {
@@ -62,4 +60,17 @@ static int isHexValue(const char* pValue)
 static int isImmediateValue(const char* pValue)
 {
     return *pValue == '#';
+}
+
+
+Expression ExpressionEval_CreateAbsoluteExpression(unsigned short value)
+{
+    Expression expression;
+    
+    expression.value = value;
+    if (value <= 0xff)
+        expression.type = TYPE_ZEROPAGE_ABSOLUTE;
+    else
+        expression.type = TYPE_ABSOLUTE;
+    return expression;
 }

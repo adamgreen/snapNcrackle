@@ -20,4 +20,7 @@
 
 #define LINE_ENDING "\n"
 
+#define LO_BYTE(X) ((X) & 0xFF)
+#define HI_BYTE(X) (((X) >> 8) &0xFF)
+
 #endif /* _UTIL_H_ */

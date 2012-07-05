@@ -15,13 +15,16 @@
 
 #include "Symbol.h"
 
+#define LINEINFO_FLAG_WAS_EQU 1
+
 typedef struct LineInfo
 {
     const char*    pLineText;
+    Symbol*        pSymbol;
     size_t         machineCodeSize;
     unsigned int   lineNumber;
+    unsigned int   flags;
     unsigned short address;
-    Symbol*        pSymbol;
     unsigned char  machineCode[32];
 } LineInfo;
 

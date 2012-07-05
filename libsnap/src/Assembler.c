@@ -111,7 +111,16 @@ static unsigned char getNextHexByte(const char* pStart, const char** ppNext);
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
 static void handleORG(Assembler* pThis);
+static int isTypeAbsolute(Expression* pExpression);
 static void handleLDA(Assembler* pThis);
+static void logInvalidAddressingMode(Assembler* pThis);
+static void handleSTA(Assembler* pThis);
+static void emitSTAAbsolute(Assembler* pThis, Expression* pExpression);
+static void emitSTAZeroPageAbsolute(Assembler* pThis, Expression* pExpression);
+static void rememberLabel(Assembler* pThis);
+static int isLabelToRemember(Assembler* pThis);
+static int doesLineContainALabel(Assembler* pThis);
+static int wasEQUDirective(Assembler* pThis);
 static void listLine(Assembler* pThis);
 void Assembler_Run(Assembler* pThis)
 {
@@ -140,6 +149,7 @@ static void parseLine(Assembler* pThis, char* pLine)
         prepareLineInfoForThisLine(pThis);
         ParseLine(&pThis->parsedLine, pLine);
         firstPassAssembleLine(pThis);
+        rememberLabel(pThis);
         listLine(pThis);
         pThis->programCounter += pThis->lineInfo.machineCodeSize;
     }
@@ -173,7 +183,8 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"LST", ignoreOperator},
         {"HEX", handleHEX},
         {"ORG", handleORG},
-        {"LDA", handleLDA}
+        {"LDA", handleLDA},
+        {"STA", handleSTA}
     };
     
     
@@ -199,6 +210,7 @@ static void handleEQU(Assembler* pThis)
         Symbol*    pSymbol = NULL;
         Expression expression;
         
+        pThis->lineInfo.flags |= LINEINFO_FLAG_WAS_EQU;
         __throwing_func( expression = ExpressionEval(pThis, pThis->parsedLine.pOperands) );
         __throwing_func( pSymbol = attemptToAddSymbol(pThis) );
         pSymbol->expression = expression;
@@ -323,13 +335,23 @@ static void handleORG(Assembler* pThis)
     __try
     {
         __throwing_func( expression = ExpressionEval(pThis, pThis->parsedLine.pOperands) );
-        /* UNDONE: Should check to make sure that it is literal value. */
+        if (!isTypeAbsolute(&expression))
+        {
+            LOG_ERROR(pThis, "'%s' doesn't specify an absolute address.", pThis->parsedLine.pOperands);
+            return;
+        }
         pThis->programCounter = expression.value;
     }
     __catch
     {
         __nothrow;
     }
+}
+
+static int isTypeAbsolute(Expression* pExpression)
+{
+    return pExpression->type == TYPE_ZEROPAGE_ABSOLUTE ||
+           pExpression->type == TYPE_ABSOLUTE;
 }
 
 static void handleLDA(Assembler* pThis)
@@ -343,13 +365,90 @@ static void handleLDA(Assembler* pThis)
     
     if (expression.type != TYPE_IMMEDIATE)
     {
-        LOG_ERROR(pThis, "'%s' Only immediate addressing is supported at this time.", pThis->parsedLine.pOperands);
+        logInvalidAddressingMode(pThis);
         return;
     }
     
     pThis->lineInfo.machineCode[0] = 0xa9;
     pThis->lineInfo.machineCode[1] = expression.value;
     pThis->lineInfo.machineCodeSize = 2;
+}
+
+static void logInvalidAddressingMode(Assembler* pThis)
+{
+    LOG_ERROR(pThis, "'%s' specifies invalid addressing mode for this instruction.", pThis->parsedLine.pOperands);
+}
+
+static void handleSTA(Assembler* pThis)
+{
+    Expression expression;
+    
+    __try
+        expression = ExpressionEval(pThis, pThis->parsedLine.pOperands);
+    __catch
+        __nothrow;
+    
+    if (expression.type == TYPE_ZEROPAGE_ABSOLUTE)
+    {
+        emitSTAZeroPageAbsolute(pThis, &expression);
+    }
+    else if (expression.type == TYPE_ABSOLUTE)
+    {
+        emitSTAAbsolute(pThis, &expression);
+    }
+    else
+    {
+        logInvalidAddressingMode(pThis);
+        return;
+    }
+}
+
+static void emitSTAAbsolute(Assembler* pThis, Expression* pExpression)
+{
+    pThis->lineInfo.machineCode[0] = 0x8d;
+    pThis->lineInfo.machineCode[1] = LO_BYTE(pExpression->value);
+    pThis->lineInfo.machineCode[2] = HI_BYTE(pExpression->value);
+    pThis->lineInfo.machineCodeSize = 3;
+}
+
+static void emitSTAZeroPageAbsolute(Assembler* pThis, Expression* pExpression)
+{
+    pThis->lineInfo.machineCode[0] = 0x85;
+    pThis->lineInfo.machineCode[1] = LO_BYTE(pExpression->value);
+    pThis->lineInfo.machineCodeSize = 2;
+}
+
+static void rememberLabel(Assembler* pThis)
+{
+    if (isLabelToRemember(pThis))
+    {
+        __try
+        {
+            Symbol*    pSymbol = NULL;
+        
+            __throwing_func( pSymbol = attemptToAddSymbol(pThis) );
+            pSymbol->expression = ExpressionEval_CreateAbsoluteExpression(pThis->programCounter);
+        }
+        __catch
+        {
+            __nothrow;
+        }
+    }
+}
+
+static int isLabelToRemember(Assembler* pThis)
+{
+    return doesLineContainALabel(pThis) && !wasEQUDirective(pThis);
+}
+
+static int doesLineContainALabel(Assembler* pThis)
+{
+    return pThis->parsedLine.pLabel != NULL;
+}
+
+static int wasEQUDirective(Assembler* pThis)
+{
+    return pThis->lineInfo.flags & LINEINFO_FLAG_WAS_EQU;
 }
 
 static void listLine(Assembler* pThis)

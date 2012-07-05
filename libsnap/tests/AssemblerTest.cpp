@@ -94,8 +94,13 @@ TEST_GROUP(Assembler)
     
     void runAssemblerAndValidateOutputIs(const char* pExpectedOutput)
     {
+        runAssemblerAndValidateLastLineIs(pExpectedOutput, 1);
+    }
+    
+    void runAssemblerAndValidateLastLineIs(const char* pExpectedOutput, int expectedPrintfCalls)
+    {
         Assembler_Run(m_pAssembler);
-        LONGS_EQUAL(1, printfSpy_GetCallCount());
+        LONGS_EQUAL(expectedPrintfCalls, printfSpy_GetCallCount());
         STRCMP_EQUAL(pExpectedOutput, printfSpy_GetLastOutput());
         LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
     }
@@ -449,6 +454,13 @@ TEST(Assembler, ORGDirectiveWithSymbolValue)
     LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
 }
 
+TEST(Assembler, ORGDirectiveWithInvalidImmediate)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org #$00\n"));
+    runAssemblerAndValidateFailure("filename:1: error: '#$00' doesn't specify an absolute address.\n",
+                                   "    :              1  org #$00\n");
+}
+
 TEST(Assembler, LDAImmediate)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" lda #$60\n"));
@@ -465,6 +477,56 @@ TEST(Assembler, LDAInvalidImmediateValue)
 TEST(Assembler, LDAAbsoluteNotYetImplemented)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" lda $900\n"));
-    runAssemblerAndValidateFailure("filename:1: error: '$900' Only immediate addressing is supported at this time.\n",
+    runAssemblerAndValidateFailure("filename:1: error: '$900' specifies invalid addressing mode for this instruction.\n",
                                    "    :              1  lda $900\n");
 }
+
+TEST(Assembler, STAAbsolute)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta $4fb\n"));
+    runAssemblerAndValidateOutputIs("0000: 8D FB 04     1  sta $4fb\n");
+}
+
+TEST(Assembler, STAZeroPageAbsolute)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta $fb\n"));
+    runAssemblerAndValidateOutputIs("0000: 85 FB        1  sta $fb\n");
+}
+
+TEST(Assembler, STAAbsoluteViaLabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   "entry lda #$60\n"
+                                                   " sta entry\n"));
+    runAssemblerAndValidateLastLineIs("0802: 8D 00 08     3  sta entry\n", 3);
+}
+
+TEST(Assembler, STAZeroPageAbsoluteViaLabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("entry lda #$60\n"
+                                                   " sta entry\n"));
+    runAssemblerAndValidateLastLineIs("0002: 85 00        2  sta entry\n", 2);
+}
+
+TEST(Assembler, STAInvalidImmediateValue)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta #$ff\n"));
+    runAssemblerAndValidateFailure("filename:1: error: '#$ff' specifies invalid addressing mode for this instruction.\n",
+                                   "    :              1  sta #$ff\n");
+}
+
+TEST(Assembler, STAInvalidInvalidExpress)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta @ff\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '@ff' expression.\n",
+                                   "    :              1  sta @ff\n");
+}
+
+TEST(Assembler, SpecifySameLabelTwice)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("entry lda #$60\n"
+                                                   "entry lda #$61\n"));
+    runAssemblerAndValidateFailure("filename:2: error: 'entry' symbol has already been defined.\n",
+                                   "0002: A9 61        2 entry lda #$61\n", 3);
+}
+
