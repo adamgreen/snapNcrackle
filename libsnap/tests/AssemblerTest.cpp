@@ -628,3 +628,23 @@ TEST(Assembler, LSRNotYetImplementedAddressMode)
     runAssemblerAndValidateFailure("filename:1: error: '$5c' specifies invalid addressing mode for this instruction.\n",
                                    "    :              1  lsr $5c\n");
 }
+
+TEST(Assembler, ORAImmediate)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ora #$c0\n"));
+    runAssemblerAndValidateOutputIs("0000: 09 C0        1  ora #$c0\n");
+}
+
+TEST(Assembler, ORAWithInvalidExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ora @ff\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '@ff' expression.\n",
+                                   "    :              1  ora @ff\n");
+}
+
+TEST(Assembler, ORANotYetImplementedAddressMode)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ora $c0\n"));
+    runAssemblerAndValidateFailure("filename:1: error: '$c0' specifies invalid addressing mode for this instruction.\n",
+                                   "    :              1  ora $c0\n");
+}

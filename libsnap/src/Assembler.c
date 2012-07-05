@@ -114,6 +114,7 @@ static void handleORG(Assembler* pThis);
 static int isTypeAbsolute(Expression* pExpression);
 static void handleLDA(Assembler* pThis);
 static void logInvalidAddressingMode(Assembler* pThis);
+static void emitImmediateInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression);
 static void handleSTA(Assembler* pThis);
 static void emitAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression);
 static void emitZeroPageAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression);
@@ -122,6 +123,7 @@ static void handleLDX(Assembler* pThis);
 static void handleTXA(Assembler* pThis);
 static void emitImpliedInstruction(Assembler* pThis, unsigned char opCode);
 static void handleLSR(Assembler* pThis);
+static void handleORA(Assembler* pThis);
 static void rememberLabel(Assembler* pThis);
 static int isLabelToRemember(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
@@ -193,7 +195,8 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"JSR", handleJSR},
         {"LDX", handleLDX},
         {"TXA", handleTXA},
-        {"LSR", handleLSR}
+        {"LSR", handleLSR},
+        {"ORA", handleORA}
     };
     
     
@@ -378,14 +381,19 @@ static void handleLDA(Assembler* pThis)
         return;
     }
     
-    pThis->lineInfo.machineCode[0] = 0xa9;
-    pThis->lineInfo.machineCode[1] = expression.value;
-    pThis->lineInfo.machineCodeSize = 2;
+    emitImmediateInstruction(pThis, 0xa9, &expression);
 }
 
 static void logInvalidAddressingMode(Assembler* pThis)
 {
     LOG_ERROR(pThis, "'%s' specifies invalid addressing mode for this instruction.", pThis->parsedLine.pOperands);
+}
+
+static void emitImmediateInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression)
+{
+    pThis->lineInfo.machineCode[0] = opCode;
+    pThis->lineInfo.machineCode[1] = LO_BYTE(pExpression->value);
+    pThis->lineInfo.machineCodeSize = 2;
 }
 
 static void handleSTA(Assembler* pThis)
@@ -489,6 +497,24 @@ static void handleLSR(Assembler* pThis)
         return;
     }
     emitImpliedInstruction(pThis, 0x4a);
+}
+
+static void handleORA(Assembler* pThis)
+{
+    Expression expression;
+    
+    __try
+        expression = ExpressionEval(pThis, pThis->parsedLine.pOperands);
+    __catch
+        __nothrow;
+    
+    if (expression.type != TYPE_IMMEDIATE)
+    {
+        logInvalidAddressingMode(pThis);
+        return;
+    }
+    
+    emitImmediateInstruction(pThis, 0x09, &expression);
 }
 
 static void rememberLabel(Assembler* pThis)
