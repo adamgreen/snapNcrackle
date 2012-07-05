@@ -102,8 +102,8 @@ static void fillAddressBuffer(LineInfo* pLineInfo, char* pOutputBuffer)
 
 static void fillMachineCodeOrSymbolBuffer(ListFile* pThis, LineInfo* pLineInfo, char* pOutputBuffer)
 {
-    if (pLineInfo->validSymbol)
-        sprintf(pOutputBuffer, "   =%04X", pLineInfo->symbolValue);
+    if (pLineInfo->pSymbol)
+        sprintf(pOutputBuffer, "   =%04X", pLineInfo->pSymbol->expression.value);
     else if (pLineInfo->machineCodeSize > 0)
         fillMachineCodeBuffer(pThis, pOutputBuffer);
 }

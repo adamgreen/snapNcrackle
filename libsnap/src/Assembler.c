@@ -11,32 +11,8 @@
     GNU General Public License for more details.
 */
 #include <string.h>
-#include <stdio.h>
-#include "Assembler.h"
-#include "AssemblerTest.h"
-#include "TextFile.h"
-#include "SymbolTable.h"
-#include "ParseLine.h"
-#include "ListFile.h"
-#include "LineBuffer.h"
-#include "util.h"
-
-
-#define NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS 511
-
-
-struct Assembler
-{
-    const char*    pSourceFilename;
-    TextFile*      pTextFile;
-    SymbolTable* pSymbols;
-    ListFile*      pListFile;
-    LineBuffer*    pLineText;
-    ParsedLine     parsedLine;
-    LineInfo       lineInfo;
-    unsigned int   errorCount;
-    unsigned short programCounter;
-};
+#include "AssemblerPriv.h"
+#include "ExpressionEval.h"
 
 
 static Assembler* allocateAndZeroObject(void);
@@ -127,9 +103,7 @@ static void parseLine(Assembler* pThis, char* pLine);
 static void prepareLineInfoForThisLine(Assembler* pThis);
 static void firstPassAssembleLine(Assembler* pThis);
 static void handleEQU(Assembler* pThis);
-static unsigned short evaluateExpression(Assembler* pThis);
-static int isHexValue(const char* pValue);
-static void attemptToAddSymbol(Assembler* pThis);
+static Symbol* attemptToAddSymbol(Assembler* pThis);
 static void ignoreOperator(Assembler* pThis);
 static void handleInvalidOperator(Assembler* pThis);
 static void handleHEX(Assembler* pThis);
@@ -137,6 +111,7 @@ static unsigned char getNextHexByte(const char* pStart, const char** ppNext);
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
 static void handleORG(Assembler* pThis);
+static void handleLDA(Assembler* pThis);
 static void listLine(Assembler* pThis);
 void Assembler_Run(Assembler* pThis)
 {
@@ -197,7 +172,8 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"EQU", handleEQU},
         {"LST", ignoreOperator},
         {"HEX", handleHEX},
-        {"ORG", handleORG}
+        {"ORG", handleORG},
+        {"LDA", handleLDA}
     };
     
     
@@ -220,70 +196,41 @@ static void handleEQU(Assembler* pThis)
 {
     __try
     {
-        __throwing_func( pThis->lineInfo.symbolValue = evaluateExpression(pThis) );
-        __throwing_func( attemptToAddSymbol(pThis) );
+        Symbol*    pSymbol = NULL;
+        Expression expression;
+        
+        __throwing_func( expression = ExpressionEval(pThis, pThis->parsedLine.pOperands) );
+        __throwing_func( pSymbol = attemptToAddSymbol(pThis) );
+        pSymbol->expression = expression;
+        pThis->lineInfo.pSymbol = pSymbol;
     }
     __catch
     {
         __nothrow;
     }
-
-    pThis->lineInfo.validSymbol = 1;
-    
 }
 
-#define LOG_ERROR(FORMAT, ...) fprintf(stderr, \
-                                       "%s:%d: error: " FORMAT LINE_ENDING, \
-                                       pThis->pSourceFilename, \
-                                       pThis->lineInfo.lineNumber, \
-                                       __VA_ARGS__), pThis->errorCount++
-                                       
-// UNDONE: Refactor.
-static unsigned short evaluateExpression(Assembler* pThis)
-{
-    Symbol* pSymbol = NULL;
-    
-    if (isHexValue(pThis->parsedLine.pOperands))
-    {
-        return strtoul(&pThis->parsedLine.pOperands[1], NULL, 16);
-    }
-    else if (NULL != (pSymbol = SymbolTable_Find(pThis->pSymbols, pThis->parsedLine.pOperands)))
-    {
-        return pSymbol->value;
-    }
-    else
-    {
-        LOG_ERROR("Unexpected prefix in '%s' expression.", pThis->parsedLine.pOperands);
-        __throw_and_return(invalidArgumentException, 0);
-    }
-}
-
-static int isHexValue(const char* pValue)
-{
-    return *pValue == '$';
-}
-
-static void attemptToAddSymbol(Assembler* pThis)
+static Symbol* attemptToAddSymbol(Assembler* pThis)
 {
     Symbol* pSymbol = NULL;
     
     if (SymbolTable_Find(pThis->pSymbols, pThis->parsedLine.pLabel))
     {
-        LOG_ERROR("'%s' symbol has already been defined.", pThis->parsedLine.pLabel);
-        __throw(invalidArgumentException);
+        LOG_ERROR(pThis, "'%s' symbol has already been defined.", pThis->parsedLine.pLabel);
+        __throw_and_return(invalidArgumentException, NULL);
     }
     
     __try
     {
-        pSymbol = SymbolTable_Add(pThis->pSymbols, pThis->parsedLine.pLabel);
+        __throwing_func( pSymbol = SymbolTable_Add(pThis->pSymbols, pThis->parsedLine.pLabel) );
     }
     __catch
     {
-        LOG_ERROR("Failed to allocate space for '%s' symbol.", pThis->parsedLine.pLabel);
-        __rethrow;
+        LOG_ERROR(pThis, "Failed to allocate space for '%s' symbol.", pThis->parsedLine.pLabel);
+        __rethrow_and_return(NULL);
     }
     
-    pSymbol->value = pThis->lineInfo.symbolValue;
+    return pSymbol;
 }
 
 static void ignoreOperator(Assembler* pThis)
@@ -292,7 +239,7 @@ static void ignoreOperator(Assembler* pThis)
 
 static void handleInvalidOperator(Assembler* pThis)
 {
-    LOG_ERROR("'%s' is not a recongized directive, mnemonic, or macro.", pThis->parsedLine.pOperator);
+    LOG_ERROR(pThis, "'%s' is not a recongized directive, mnemonic, or macro.", pThis->parsedLine.pOperator);
 }
 
 static void handleHEX(Assembler* pThis)
@@ -320,7 +267,7 @@ static void handleHEX(Assembler* pThis)
     
     if (*pCurr)
     {
-        LOG_ERROR("'%s' contains more than 32 values.", pThis->parsedLine.pOperands);
+        LOG_ERROR(pThis, "'%s' contains more than 32 values.", pThis->parsedLine.pOperands);
         return;
     }
     pThis->lineInfo.machineCodeSize = i;
@@ -364,14 +311,45 @@ static unsigned char hexCharToNibble(char value)
 static void logHexParseError(Assembler* pThis)
 {
     if (getExceptionCode() == invalidArgumentException)
-        LOG_ERROR("'%s' doesn't contain an even number of hex digits.", pThis->parsedLine.pOperands);
+        LOG_ERROR(pThis, "'%s' doesn't contain an even number of hex digits.", pThis->parsedLine.pOperands);
     else if (getExceptionCode() == invalidHexDigitException)
-        LOG_ERROR("'%s' contains an invalid hex digit.", pThis->parsedLine.pOperands);
+        LOG_ERROR(pThis, "'%s' contains an invalid hex digit.", pThis->parsedLine.pOperands);
 }
 
 static void handleORG(Assembler* pThis)
 {
-    pThis->programCounter = evaluateExpression(pThis);
+    Expression expression;
+    
+    __try
+    {
+        __throwing_func( expression = ExpressionEval(pThis, pThis->parsedLine.pOperands) );
+        /* UNDONE: Should check to make sure that it is literal value. */
+        pThis->programCounter = expression.value;
+    }
+    __catch
+    {
+        __nothrow;
+    }
+}
+
+static void handleLDA(Assembler* pThis)
+{
+    Expression expression;
+    
+    __try
+        expression = ExpressionEval(pThis, pThis->parsedLine.pOperands);
+    __catch
+        __nothrow;
+    
+    if (expression.type != TYPE_IMMEDIATE)
+    {
+        LOG_ERROR(pThis, "'%s' Only immediate addressing is supported at this time.", pThis->parsedLine.pOperands);
+        return;
+    }
+    
+    pThis->lineInfo.machineCode[0] = 0xa9;
+    pThis->lineInfo.machineCode[1] = expression.value;
+    pThis->lineInfo.machineCodeSize = 2;
 }
 
 static void listLine(Assembler* pThis)
@@ -383,6 +361,12 @@ static void listLine(Assembler* pThis)
 unsigned int Assembler_GetErrorCount(Assembler* pThis)
 {
     return pThis->errorCount;
+}
+
+
+Symbol* Assembler_FindSymbol(Assembler* pThis, const char* pKey)
+{
+    return SymbolTable_Find(pThis->pSymbols, pKey);
 }
 
 

@@ -430,6 +430,13 @@ TEST(Assembler, ORGDirectiveWithLiteralValue)
                                               "0900: 01           2  hex 01\n");
 }
 
+TEST(Assembler, ORGDirectiveWithInvalidExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org 900\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '900' expression.\n",
+                                   "    :              1  org 900\n");
+}
+
 TEST(Assembler, ORGDirectiveWithSymbolValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("org = $800\n"
@@ -440,4 +447,24 @@ TEST(Assembler, ORGDirectiveWithSymbolValue)
     STRCMP_EQUAL("    :              2  org org\n", printfSpy_GetPreviousOutput());
     STRCMP_EQUAL("0800: 01           3  hex 01\n", printfSpy_GetLastOutput());
     LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
+}
+
+TEST(Assembler, LDAImmediate)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #$60\n"));
+    runAssemblerAndValidateOutputIs("0000: A9 60        1  lda #$60\n");
+}
+
+TEST(Assembler, LDAInvalidImmediateValue)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #$100\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Immediate expression '#$100' doesn't fit in 8-bits.\n",
+                                   "    :              1  lda #$100\n");
+}
+
+TEST(Assembler, LDAAbsoluteNotYetImplemented)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda $900\n"));
+    runAssemblerAndValidateFailure("filename:1: error: '$900' Only immediate addressing is supported at this time.\n",
+                                   "    :              1  lda $900\n");
 }

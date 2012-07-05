@@ -27,12 +27,14 @@ TEST_GROUP(ListFile)
 {
     ListFile* m_pListFile;
     LineInfo  m_lineInfo;
+    Symbol    m_symbol;
     
     void setup()
     {
         clearExceptionCode();
         printfSpy_Hook(128);
         m_pListFile = NULL;
+        memset(&m_symbol, 0, sizeof(m_symbol));
     }
 
     void teardown()
@@ -72,8 +74,8 @@ TEST(ListFile, OutputLineWithSymbol)
 
     m_lineInfo.pLineText = "LABEL EQU $FFFF";
     m_lineInfo.lineNumber = 2;
-    m_lineInfo.symbolValue = 0xFFFF;
-    m_lineInfo.validSymbol = 1;
+    m_symbol.expression.value = 0xFFFF;
+    m_lineInfo.pSymbol = &m_symbol;
     ListFile_OutputLine(m_pListFile, &m_lineInfo);
 
     POINTERS_EQUAL(stdout, printfSpy_GetLastFile());

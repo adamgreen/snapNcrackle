@@ -13,11 +13,14 @@
 #ifndef _SYMBOL_H_
 #define _SYMBOL_H_
 
+#include "ExpressionEval.h"
+
+
 typedef struct Symbol Symbol;
 struct Symbol
 {
     const char*    pKey;
-    unsigned short value;
+    Expression     expression;
     Symbol*        pNext;
 };
 

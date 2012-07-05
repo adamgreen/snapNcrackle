@@ -10,19 +10,25 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-#ifndef _LINE_INFO_H_
-#define _LINE_INFO_H_
+#ifndef _EXPRESSION_EVAL_H_
+#define _EXPRESSION_EVAL_H_
 
-#include "Symbol.h"
+#include "try_catch.h"
+#include "Assembler.h"
 
-typedef struct LineInfo
+typedef enum ExpressionType
 {
-    const char*    pLineText;
-    size_t         machineCodeSize;
-    unsigned int   lineNumber;
-    unsigned short address;
-    Symbol*        pSymbol;
-    unsigned char  machineCode[32];
-} LineInfo;
+    TYPE_ABSOLUTE = 0,
+    TYPE_IMMEDIATE = 1
+} ExpressionType;
 
-#endif /* _LINE_INFO_H_ */
+
+typedef struct Expression
+{
+    ExpressionType type;
+    unsigned short value;
+} Expression;
+
+__throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands);
+
+#endif /* _EXPRESSION_EVAL_H_ */

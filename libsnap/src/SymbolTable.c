@@ -135,8 +135,8 @@ static Symbol* allocateSymbol(const char* pKey)
         __throw_and_return(outOfMemoryException, NULL);
         
     pSymbol->pKey = pKey;
-    pSymbol->value = 0;
     pSymbol->pNext = NULL;
+    memset(&pSymbol->expression, 0, sizeof(pSymbol->expression));
     
     return pSymbol;
 }
