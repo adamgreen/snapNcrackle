@@ -119,6 +119,9 @@ static void emitAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expr
 static void emitZeroPageAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression);
 static void handleJSR(Assembler* pThis);
 static void handleLDX(Assembler* pThis);
+static void handleTXA(Assembler* pThis);
+static void emitImpliedInstruction(Assembler* pThis, unsigned char opCode);
+static void handleLSR(Assembler* pThis);
 static void rememberLabel(Assembler* pThis);
 static int isLabelToRemember(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
@@ -188,7 +191,9 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"LDA", handleLDA},
         {"STA", handleSTA},
         {"JSR", handleJSR},
-        {"LDX", handleLDX}
+        {"LDX", handleLDX},
+        {"TXA", handleTXA},
+        {"LSR", handleLSR}
     };
     
     
@@ -463,6 +468,27 @@ static void handleLDX(Assembler* pThis)
         logInvalidAddressingMode(pThis);
         return;
     }
+}
+
+static void handleTXA(Assembler* pThis)
+{
+    emitImpliedInstruction(pThis, 0x8a);
+}
+
+static void emitImpliedInstruction(Assembler* pThis, unsigned char opCode)
+{
+    pThis->lineInfo.machineCode[0] = opCode;
+    pThis->lineInfo.machineCodeSize = 1;
+}
+
+static void handleLSR(Assembler* pThis)
+{
+    if (pThis->parsedLine.pOperands)
+    {
+        logInvalidAddressingMode(pThis);
+        return;
+    }
+    emitImpliedInstruction(pThis, 0x4a);
 }
 
 static void rememberLabel(Assembler* pThis)

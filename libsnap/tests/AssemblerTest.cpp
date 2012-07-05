@@ -602,3 +602,29 @@ TEST(Assembler, LDXWithInvalidAddressingMode)
     runAssemblerAndValidateFailure("filename:1: error: '#$5c' specifies invalid addressing mode for this instruction.\n",
                                    "    :              1  ldx #$5c\n");
 }
+
+TEST(Assembler, TXA)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" txa\n"));
+    runAssemblerAndValidateOutputIs("0000: 8A           1  txa\n");
+}
+
+TEST(Assembler, LSRAccumulator)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lsr\n"));
+    runAssemblerAndValidateOutputIs("0000: 4A           1  lsr\n");
+}
+
+TEST(Assembler, LSRInvalidAddressMode)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lsr #$5c\n"));
+    runAssemblerAndValidateFailure("filename:1: error: '#$5c' specifies invalid addressing mode for this instruction.\n",
+                                   "    :              1  lsr #$5c\n");
+}
+
+TEST(Assembler, LSRNotYetImplementedAddressMode)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lsr $5c\n"));
+    runAssemblerAndValidateFailure("filename:1: error: '$5c' specifies invalid addressing mode for this instruction.\n",
+                                   "    :              1  lsr $5c\n");
+}
