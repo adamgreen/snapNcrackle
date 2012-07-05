@@ -549,7 +549,6 @@ TEST(Assembler, JSRToAbsoluteEQU)
     runAssemblerAndValidateLastLineIs("0000: 20 2F FB     2  jsr text\n", 2);
 }
 
-
 TEST(Assembler, JSRWithInvalidAddressingMode)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" jsr #$5c\n"));
@@ -562,4 +561,44 @@ TEST(Assembler, JSRWithInvalidExpression)
     m_pAssembler = Assembler_CreateFromString(dupe(" jsr @ff\n"));
     runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '@ff' expression.\n",
                                    "    :              1  jsr @ff\n");
+}
+
+TEST(Assembler, LDXAbsolute)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ldx $100\n"));
+    runAssemblerAndValidateOutputIs("0000: AE 00 01     1  ldx $100\n");
+}
+
+TEST(Assembler, LDXZeroPageAbsolute)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ldx $2b\n"));
+    runAssemblerAndValidateOutputIs("0000: A6 2B        1  ldx $2b\n");
+}
+
+TEST(Assembler, LDXAbsoluteSymbol)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("label equ $100\n"
+                                                   " ldx label\n"));
+    runAssemblerAndValidateLastLineIs("0000: AE 00 01     2  ldx label\n", 2);
+}
+
+TEST(Assembler, LDXZeroPageAbsoluteSymbol)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("SLOT = $2b\n"
+                                                   " ldx SLOT\n"));
+    runAssemblerAndValidateLastLineIs("0000: A6 2B        2  ldx SLOT\n", 2);
+}
+
+TEST(Assembler, LDXWithInvalidExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ldx @ff\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '@ff' expression.\n",
+                                   "    :              1  ldx @ff\n");
+}
+
+TEST(Assembler, LDXWithInvalidAddressingMode)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ldx #$5c\n"));
+    runAssemblerAndValidateFailure("filename:1: error: '#$5c' specifies invalid addressing mode for this instruction.\n",
+                                   "    :              1  ldx #$5c\n");
 }

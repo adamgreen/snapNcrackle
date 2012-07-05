@@ -118,6 +118,7 @@ static void handleSTA(Assembler* pThis);
 static void emitAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression);
 static void emitZeroPageAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression);
 static void handleJSR(Assembler* pThis);
+static void handleLDX(Assembler* pThis);
 static void rememberLabel(Assembler* pThis);
 static int isLabelToRemember(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
@@ -186,7 +187,8 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"ORG", handleORG},
         {"LDA", handleLDA},
         {"STA", handleSTA},
-        {"JSR", handleJSR}
+        {"JSR", handleJSR},
+        {"LDX", handleLDX}
     };
     
     
@@ -390,16 +392,15 @@ static void handleSTA(Assembler* pThis)
     __catch
         __nothrow;
     
-    if (expression.type == TYPE_ZEROPAGE_ABSOLUTE)
+    switch (expression.type)
     {
+    case TYPE_ZEROPAGE_ABSOLUTE:
         emitZeroPageAbsoluteInstruction(pThis, 0x85, &expression);
-    }
-    else if (expression.type == TYPE_ABSOLUTE)
-    {
+        return;
+    case TYPE_ABSOLUTE:
         emitAbsoluteInstruction(pThis, 0x8d, &expression);
-    }
-    else
-    {
+        return;
+    default:
         logInvalidAddressingMode(pThis);
         return;
     }
@@ -434,6 +435,29 @@ static void handleJSR(Assembler* pThis)
     case TYPE_ZEROPAGE_ABSOLUTE:
     case TYPE_ABSOLUTE:
         emitAbsoluteInstruction(pThis, 0x20, &expression);
+        return;
+    default:
+        logInvalidAddressingMode(pThis);
+        return;
+    }
+}
+
+static void handleLDX(Assembler* pThis)
+{
+    Expression expression;
+    
+    __try
+        expression = ExpressionEval(pThis, pThis->parsedLine.pOperands);
+    __catch
+        __nothrow;
+    
+    switch (expression.type)
+    {
+    case TYPE_ZEROPAGE_ABSOLUTE:
+        emitZeroPageAbsoluteInstruction(pThis, 0xa6, &expression);
+        return;
+    case TYPE_ABSOLUTE:
+        emitAbsoluteInstruction(pThis, 0xae, &expression);
         return;
     default:
         logInvalidAddressingMode(pThis);
