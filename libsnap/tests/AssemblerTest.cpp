@@ -530,3 +530,36 @@ TEST(Assembler, SpecifySameLabelTwice)
                                    "0002: A9 61        2 entry lda #$61\n", 3);
 }
 
+TEST(Assembler, JSRAbsolute)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" jsr $180\n"));
+    runAssemblerAndValidateOutputIs("0000: 20 80 01     1  jsr $180\n");
+}
+
+TEST(Assembler, JSRAbsoluteToPageZeroWhichIsStillAbsolute)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" jsr $005c\n"));
+    runAssemblerAndValidateOutputIs("0000: 20 5C 00     1  jsr $005c\n");
+}
+
+TEST(Assembler, JSRToAbsoluteEQU)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("text = $fb2f\n"
+                                                   " jsr text\n"));
+    runAssemblerAndValidateLastLineIs("0000: 20 2F FB     2  jsr text\n", 2);
+}
+
+
+TEST(Assembler, JSRWithInvalidAddressingMode)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" jsr #$5c\n"));
+    runAssemblerAndValidateFailure("filename:1: error: '#$5c' specifies invalid addressing mode for this instruction.\n",
+                                   "    :              1  jsr #$5c\n");
+}
+
+TEST(Assembler, JSRWithInvalidExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" jsr @ff\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '@ff' expression.\n",
+                                   "    :              1  jsr @ff\n");
+}

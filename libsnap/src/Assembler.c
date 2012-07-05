@@ -115,8 +115,9 @@ static int isTypeAbsolute(Expression* pExpression);
 static void handleLDA(Assembler* pThis);
 static void logInvalidAddressingMode(Assembler* pThis);
 static void handleSTA(Assembler* pThis);
-static void emitSTAAbsolute(Assembler* pThis, Expression* pExpression);
-static void emitSTAZeroPageAbsolute(Assembler* pThis, Expression* pExpression);
+static void emitAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression);
+static void emitZeroPageAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression);
+static void handleJSR(Assembler* pThis);
 static void rememberLabel(Assembler* pThis);
 static int isLabelToRemember(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
@@ -184,7 +185,8 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"HEX", handleHEX},
         {"ORG", handleORG},
         {"LDA", handleLDA},
-        {"STA", handleSTA}
+        {"STA", handleSTA},
+        {"JSR", handleJSR}
     };
     
     
@@ -390,11 +392,11 @@ static void handleSTA(Assembler* pThis)
     
     if (expression.type == TYPE_ZEROPAGE_ABSOLUTE)
     {
-        emitSTAZeroPageAbsolute(pThis, &expression);
+        emitZeroPageAbsoluteInstruction(pThis, 0x85, &expression);
     }
     else if (expression.type == TYPE_ABSOLUTE)
     {
-        emitSTAAbsolute(pThis, &expression);
+        emitAbsoluteInstruction(pThis, 0x8d, &expression);
     }
     else
     {
@@ -403,19 +405,40 @@ static void handleSTA(Assembler* pThis)
     }
 }
 
-static void emitSTAAbsolute(Assembler* pThis, Expression* pExpression)
+static void emitAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression)
 {
-    pThis->lineInfo.machineCode[0] = 0x8d;
+    pThis->lineInfo.machineCode[0] = opCode;
     pThis->lineInfo.machineCode[1] = LO_BYTE(pExpression->value);
     pThis->lineInfo.machineCode[2] = HI_BYTE(pExpression->value);
     pThis->lineInfo.machineCodeSize = 3;
 }
 
-static void emitSTAZeroPageAbsolute(Assembler* pThis, Expression* pExpression)
+static void emitZeroPageAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression)
 {
-    pThis->lineInfo.machineCode[0] = 0x85;
+    pThis->lineInfo.machineCode[0] = opCode;
     pThis->lineInfo.machineCode[1] = LO_BYTE(pExpression->value);
     pThis->lineInfo.machineCodeSize = 2;
+}
+
+static void handleJSR(Assembler* pThis)
+{
+    Expression expression;
+    
+    __try
+        expression = ExpressionEval(pThis, pThis->parsedLine.pOperands);
+    __catch
+        __nothrow;
+    
+    switch (expression.type)
+    {
+    case TYPE_ZEROPAGE_ABSOLUTE:
+    case TYPE_ABSOLUTE:
+        emitAbsoluteInstruction(pThis, 0x20, &expression);
+        return;
+    default:
+        logInvalidAddressingMode(pThis);
+        return;
+    }
 }
 
 static void rememberLabel(Assembler* pThis)
