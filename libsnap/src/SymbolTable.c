@@ -135,9 +135,13 @@ static Symbol* allocateSymbol(const char* pKey)
     pSymbol = malloc(sizeof(*pSymbol));
     if (!pSymbol)
         __throw_and_return(outOfMemoryException, NULL);
+    
     pSymbol->pKey = stringDuplicate(pKey);
     if (!pSymbol->pKey)
+    {
+        free(pSymbol);
         __throw_and_return(outOfMemoryException, NULL);
+    }
     pSymbol->pNext = NULL;
     memset(&pSymbol->expression, 0, sizeof(pSymbol->expression));
     
@@ -146,7 +150,11 @@ static Symbol* allocateSymbol(const char* pKey)
 
 static char* stringDuplicate(const char* pString)
 {
-    return strcpy(malloc(strlen(pString) + 1), pString);
+    char* pCopy = malloc(strlen(pString) + 1);
+    
+    if (!pCopy)
+        return pCopy;
+    return strcpy(pCopy, pString);
 }
 
 static size_t hashString(const char* pString)

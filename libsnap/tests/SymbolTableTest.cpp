@@ -128,6 +128,24 @@ TEST(SymbolTable, FailSymbolTableEntry)
     clearExceptionCode();
 }
 
+TEST(SymbolTable, FailStringAllocationForSymbolTableEntry)
+{
+    const Symbol* pSymbol = NULL;
+    int   exceptionThrown = FALSE;
+    
+    m_pSymbolTable = SymbolTable_Create(1);
+    MallocFailureInject_FailAllocation(2);
+    __try
+        pSymbol = SymbolTable_Add(m_pSymbolTable, pKey1);
+    __catch
+        exceptionThrown = TRUE;
+    MallocFailureInject_Restore();
+    
+    CHECK_TRUE(exceptionThrown);
+    CHECK(NULL == pSymbol);
+    LONGS_EQUAL(0, SymbolTable_GetSymbolCount(m_pSymbolTable));
+    clearExceptionCode();
+}
 TEST(SymbolTable, OneItemInSymbolTable)
 {
     const Symbol* pSymbol = NULL;
