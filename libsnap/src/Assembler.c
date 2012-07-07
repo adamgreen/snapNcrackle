@@ -103,7 +103,7 @@ static void parseLine(Assembler* pThis, char* pLine);
 static void prepareLineInfoForThisLine(Assembler* pThis);
 static void firstPassAssembleLine(Assembler* pThis);
 static void handleEQU(Assembler* pThis);
-static Symbol* attemptToAddSymbol(Assembler* pThis);
+static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName);
 static void ignoreOperator(Assembler* pThis);
 static void handleInvalidOperator(Assembler* pThis);
 static void handleHEX(Assembler* pThis);
@@ -128,6 +128,12 @@ static void rememberLabel(Assembler* pThis);
 static int isLabelToRemember(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
 static int wasEQUDirective(Assembler* pThis);
+static const char* expandedLabelName(Assembler* pThis, const char* pLabelName);
+static int isGlobalLabelName(const char* pLabelName);
+static int isLocalLabelName(const char* pLabelName);
+static void expandLocalLabelToGloballyUniqueName(Assembler* pThis, const char* pLocalLabelName);
+static int seenGlobalLabel(Assembler* pThis);
+static void rememberGlobalLabel(Assembler* pThis);
 static void listLine(Assembler* pThis);
 void Assembler_Run(Assembler* pThis)
 {
@@ -224,7 +230,7 @@ static void handleEQU(Assembler* pThis)
         
         pThis->lineInfo.flags |= LINEINFO_FLAG_WAS_EQU;
         __throwing_func( expression = ExpressionEval(pThis, pThis->parsedLine.pOperands) );
-        __throwing_func( pSymbol = attemptToAddSymbol(pThis) );
+        __throwing_func( pSymbol = attemptToAddSymbol(pThis, pThis->parsedLine.pLabel) );
         pSymbol->expression = expression;
         pThis->lineInfo.pSymbol = pSymbol;
     }
@@ -234,23 +240,22 @@ static void handleEQU(Assembler* pThis)
     }
 }
 
-static Symbol* attemptToAddSymbol(Assembler* pThis)
+static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName)
 {
     Symbol* pSymbol = NULL;
-    
-    if (SymbolTable_Find(pThis->pSymbols, pThis->parsedLine.pLabel))
+    if (SymbolTable_Find(pThis->pSymbols, pSymbolName))
     {
-        LOG_ERROR(pThis, "'%s' symbol has already been defined.", pThis->parsedLine.pLabel);
+        LOG_ERROR(pThis, "'%s' symbol has already been defined.", pSymbolName);
         __throw_and_return(invalidArgumentException, NULL);
     }
     
     __try
     {
-        __throwing_func( pSymbol = SymbolTable_Add(pThis->pSymbols, pThis->parsedLine.pLabel) );
+        __throwing_func( pSymbol = SymbolTable_Add(pThis->pSymbols, pSymbolName) );
     }
     __catch
     {
-        LOG_ERROR(pThis, "Failed to allocate space for '%s' symbol.", pThis->parsedLine.pLabel);
+        LOG_ERROR(pThis, "Failed to allocate space for '%s' symbol.", pSymbolName);
         __rethrow_and_return(NULL);
     }
     
@@ -519,19 +524,22 @@ static void handleORA(Assembler* pThis)
 
 static void rememberLabel(Assembler* pThis)
 {
-    if (isLabelToRemember(pThis))
+    if (!isLabelToRemember(pThis))
+        return;
+
+    __try
     {
-        __try
-        {
-            Symbol*    pSymbol = NULL;
-        
-            __throwing_func( pSymbol = attemptToAddSymbol(pThis) );
-            pSymbol->expression = ExpressionEval_CreateAbsoluteExpression(pThis->programCounter);
-        }
-        __catch
-        {
-            __nothrow;
-        }
+        const char* pExpandedLabelName = NULL;
+        Symbol*     pSymbol = NULL;
+    
+        __throwing_func( pExpandedLabelName = expandedLabelName(pThis, pThis->parsedLine.pLabel) );
+        __throwing_func( pSymbol = attemptToAddSymbol(pThis, pExpandedLabelName) );
+        __throwing_func( rememberGlobalLabel(pThis) );
+        pSymbol->expression = ExpressionEval_CreateAbsoluteExpression(pThis->programCounter);
+    }
+    __catch
+    {
+        __nothrow;
     }
 }
 
@@ -550,6 +558,65 @@ static int wasEQUDirective(Assembler* pThis)
     return pThis->lineInfo.flags & LINEINFO_FLAG_WAS_EQU;
 }
 
+static const char* expandedLabelName(Assembler* pThis, const char* pLabelName)
+{
+    if (isGlobalLabelName(pLabelName))
+        return pLabelName;
+    
+    expandLocalLabelToGloballyUniqueName(pThis, pLabelName);    
+    return pThis->labelBuffer;
+}
+
+static int isGlobalLabelName(const char* pLabelName)
+{
+    return !isLocalLabelName(pLabelName);
+}
+
+static int isLocalLabelName(const char* pLabelName)
+{
+    return *pLabelName == ':';
+}
+
+static void expandLocalLabelToGloballyUniqueName(Assembler* pThis, const char* pLocalLabelName)
+{
+    size_t      length = strlen(pLocalLabelName);
+    
+    if (!seenGlobalLabel(pThis))
+    {
+        LOG_ERROR(pThis, "'%s' local label isn't allowed before first global label.", pLocalLabelName);
+        __throw(invalidArgumentException);
+    }
+    if (length > pThis->maxLocalLabelSize)
+    {
+        LOG_ERROR(pThis, "'%s' label is too long.", pLocalLabelName);
+        __throw(bufferOverrunException);
+    }
+    
+    memcpy(pThis->pLocalLabelStart, pLocalLabelName, length+1);
+}
+
+static int seenGlobalLabel(Assembler* pThis)
+{
+    return pThis->labelBuffer[0] != '\0';
+}
+
+static void rememberGlobalLabel(Assembler* pThis)
+{
+    size_t length = strlen(pThis->parsedLine.pLabel);
+
+    if (!isGlobalLabelName(pThis->parsedLine.pLabel))
+        return;
+
+    if (length >= sizeof(pThis->labelBuffer))
+    {
+        LOG_ERROR(pThis, "'%s' label is too long.", pThis->parsedLine.pLabel);
+        __throw(bufferOverrunException);
+    }
+    memcpy(pThis->labelBuffer, pThis->parsedLine.pLabel, length);
+    pThis->pLocalLabelStart = &pThis->labelBuffer[length];
+    pThis->maxLocalLabelSize = sizeof(pThis->labelBuffer) - length - 1;
+}
+
 static void listLine(Assembler* pThis)
 {
     ListFile_OutputLine(pThis->pListFile, &pThis->lineInfo);
@@ -562,9 +629,16 @@ unsigned int Assembler_GetErrorCount(Assembler* pThis)
 }
 
 
-Symbol* Assembler_FindSymbol(Assembler* pThis, const char* pKey)
+Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName)
 {
-    return SymbolTable_Find(pThis->pSymbols, pKey);
+    const char* pExpandedlName;
+    
+    __try
+        __throwing_func( pExpandedlName = expandedLabelName(pThis, pLabelName) );
+    __catch
+        __nothrow_and_return(NULL);
+
+    return SymbolTable_Find(pThis->pSymbols, pExpandedlName);
 }
 
 

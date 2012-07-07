@@ -38,7 +38,7 @@ TEST_GROUP(Assembler)
     void setup()
     {
         clearExceptionCode();
-        printfSpy_Hook(128);
+        printfSpy_Hook(512);
         m_pAssembler = NULL;
     }
 
@@ -273,6 +273,58 @@ TEST(Assembler, RunOnLongLine)
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(1, printfSpy_GetCallCount());
     LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
+}
+
+TEST(Assembler, LabelTooLong)
+{
+    char longLine[257];
+    
+    memset(longLine, 'a', sizeof(longLine));
+    longLine[ARRAYSIZE(longLine)-1] = '\0';
+    m_pAssembler = Assembler_CreateFromString(longLine);
+    CHECK(m_pAssembler != NULL);
+
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(2, printfSpy_GetCallCount());
+    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
+    CHECK(NULL != strstr(printfSpy_GetPreviousOutput(), " label is too long.") );
+}
+
+TEST(Assembler, LocalLabelTooLong)
+{
+    char longLine[255+1+2+1];
+    
+    memset(longLine, 'a', 255);
+    strcpy(&longLine[sizeof(longLine) - 4], "\n:b");
+    m_pAssembler = Assembler_CreateFromString(longLine);
+    CHECK(m_pAssembler != NULL);
+
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(3, printfSpy_GetCallCount());
+    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
+    CHECK(NULL != strstr(printfSpy_GetPreviousOutput(), " label is too long.") );
+}
+
+TEST(Assembler, LocalLabelDefineBeforeGlobalLabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(":local_label\n"));
+    CHECK(m_pAssembler != NULL);
+
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(2, printfSpy_GetCallCount());
+    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
+    STRCMP_EQUAL("filename:1: error: ':local_label' local label isn't allowed before first global label.\n", printfSpy_GetPreviousOutput());
+}
+
+TEST(Assembler, LocalLabelReferenceBeforeGlobalLabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta :local_label\n"));
+    CHECK(m_pAssembler != NULL);
+
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(2, printfSpy_GetCallCount());
+    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
+    STRCMP_EQUAL("filename:1: error: ':local_label' local label isn't allowed before first global label.\n", printfSpy_GetPreviousOutput());
 }
 
 TEST(Assembler, CommentLine)
@@ -520,6 +572,16 @@ TEST(Assembler, STAInvalidInvalidExpress)
     m_pAssembler = Assembler_CreateFromString(dupe(" sta @ff\n"));
     runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '@ff' expression.\n",
                                    "    :              1  sta @ff\n");
+}
+
+TEST(Assembler, STAToLocalLabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("func1 sta $20\n"
+                                                   ":local sta $20\n"
+                                                   "func2 sta $21\n"
+                                                   ":local sta $22\n"
+                                                   " sta :local\n"));
+    runAssemblerAndValidateLastLineIs("0008: 85 06        5  sta :local\n", 5);
 }
 
 TEST(Assembler, SpecifySameLabelTwice)

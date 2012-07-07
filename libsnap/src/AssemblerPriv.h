@@ -34,10 +34,13 @@ struct Assembler
     SymbolTable*   pSymbols;
     ListFile*      pListFile;
     LineBuffer*    pLineText;
+    char*          pLocalLabelStart;
+    size_t         maxLocalLabelSize;
     ParsedLine     parsedLine;
     LineInfo       lineInfo;
     unsigned int   errorCount;
     unsigned short programCounter;
+    char           labelBuffer[256];
 };
 
 
@@ -48,6 +51,6 @@ struct Assembler
                                        __VA_ARGS__), pASSEMBLER->errorCount++
 
 
-Symbol* Assembler_FindSymbol(Assembler* pThis, const char* pKey);
+Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName);
 
 #endif /* _ASSEMBLER_PRIV_H_ */

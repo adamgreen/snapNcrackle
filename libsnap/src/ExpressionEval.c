@@ -18,6 +18,7 @@
 
 static int isHexValue(const char* pValue);
 static int isImmediateValue(const char* pValue);
+static int isLocalLabelReference(const char* pValue);
 __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
 {
     Symbol*    pSymbol = NULL;
@@ -40,10 +41,14 @@ __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
         }
         return expression;
     }
-    else if (NULL != (pSymbol = Assembler_FindSymbol(pAssembler, pOperands)))
+    else if (NULL != (pSymbol = Assembler_FindLabel(pAssembler, pOperands)))
     {
         expression = pSymbol->expression;
         return expression;
+    }
+    else if (isLocalLabelReference(pOperands))
+    {
+        __throw_and_return(invalidArgumentException, expression);
     }
     else
     {
@@ -60,6 +65,11 @@ static int isHexValue(const char* pValue)
 static int isImmediateValue(const char* pValue)
 {
     return *pValue == '#';
+}
+
+static int isLocalLabelReference(const char* pValue)
+{
+    return *pValue == ':';
 }
 
 
