@@ -136,7 +136,7 @@ TEST(SymbolTable, OneItemInSymbolTable)
     pSymbol = SymbolTable_Add(m_pSymbolTable, pKey1);
     
     CHECK(NULL != pSymbol);
-    POINTERS_EQUAL(pKey1, pSymbol->pKey);
+    STRCMP_EQUAL(pKey1, pSymbol->pKey);
     LONGS_EQUAL(1, SymbolTable_GetSymbolCount(m_pSymbolTable));
 }
 
@@ -144,8 +144,8 @@ TEST(SymbolTable, TwoItemsInSymbolTable)
 {
     m_pSymbolTable = SymbolTable_Create(2);
     createTwoSymbols();
-    POINTERS_EQUAL(pKey1, m_pSymbol1->pKey);
-    POINTERS_EQUAL(pKey2, m_pSymbol2->pKey);
+    STRCMP_EQUAL(pKey1, m_pSymbol1->pKey);
+    STRCMP_EQUAL(pKey2, m_pSymbol2->pKey);
 }
 
 TEST(SymbolTable, AttemptToFindNonExistantItem)
@@ -166,7 +166,7 @@ TEST(SymbolTable, FindItemWhenMultipleBuckets)
     createTwoSymbols();
     pSymbol = SymbolTable_Find(m_pSymbolTable, pKey1);
     CHECK(NULL != pSymbol);
-    POINTERS_EQUAL(pKey1, pSymbol->pKey);
+    STRCMP_EQUAL(pKey1, pSymbol->pKey);
 }
 
 TEST(SymbolTable, FindFirstItemInBucket)
@@ -178,7 +178,7 @@ TEST(SymbolTable, FindFirstItemInBucket)
 
     pSymbol = SymbolTable_Find(m_pSymbolTable, pKey1);
     CHECK(NULL != pSymbol);
-    POINTERS_EQUAL(pKey1, pSymbol->pKey);
+    STRCMP_EQUAL(pKey1, pSymbol->pKey);
 }
 
 TEST(SymbolTable, FindSecondItemInBucket)
@@ -190,7 +190,7 @@ TEST(SymbolTable, FindSecondItemInBucket)
 
     pSymbol = SymbolTable_Find(m_pSymbolTable, pKey2);
     CHECK(NULL != pSymbol);
-    POINTERS_EQUAL(pKey2, pSymbol->pKey);
+    STRCMP_EQUAL(pKey2, pSymbol->pKey);
 }
 
 TEST(SymbolTable, EnumerateEmptyList)
@@ -209,7 +209,7 @@ TEST(SymbolTable, EnumerateSingleItemList)
     Symbol* pSymbol = SymbolTable_EnumNext(m_pSymbolTable);
     CHECK(pSymbol != NULL);
     LONGS_EQUAL(noException, getExceptionCode());
-    POINTERS_EQUAL(pKey1, pSymbol->pKey);
+    STRCMP_EQUAL(pKey1, pSymbol->pKey);
 
     nextEnumAttemptShouldFail();
 }
@@ -242,7 +242,7 @@ TEST(SymbolTable, EnumerateOneItemNotInFirstBucket)
 
     Symbol* pSymbol = SymbolTable_EnumNext(m_pSymbolTable);
     CHECK(pSymbol != NULL);
-    POINTERS_EQUAL(pKey1, pSymbol->pKey);
+    STRCMP_EQUAL(pKey1, pSymbol->pKey);
     LONGS_EQUAL(noException, getExceptionCode());
 
     nextEnumAttemptShouldFail();

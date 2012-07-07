@@ -94,6 +94,7 @@ static void freeBucketList(Symbol* pEntry)
     while (pEntry)
     {
         Symbol* pNext = pEntry->pNext;
+        free((char*)pEntry->pKey);
         free(pEntry);
         pEntry = pNext;;
     }
@@ -108,6 +109,7 @@ size_t SymbolTable_GetSymbolCount(SymbolTable* pThis)
 
 static Symbol* allocateSymbol(const char* pKey);
 static size_t hashString(const char* pString);
+static char* stringDuplicate(const char* pString);
 Symbol* SymbolTable_Add(SymbolTable* pThis, const char* pKey)
 {
     Symbol*  pElement;
@@ -133,12 +135,18 @@ static Symbol* allocateSymbol(const char* pKey)
     pSymbol = malloc(sizeof(*pSymbol));
     if (!pSymbol)
         __throw_and_return(outOfMemoryException, NULL);
-        
-    pSymbol->pKey = pKey;
+    pSymbol->pKey = stringDuplicate(pKey);
+    if (!pSymbol->pKey)
+        __throw_and_return(outOfMemoryException, NULL);
     pSymbol->pNext = NULL;
     memset(&pSymbol->expression, 0, sizeof(pSymbol->expression));
     
     return pSymbol;
+}
+
+static char* stringDuplicate(const char* pString)
+{
+    return strcpy(malloc(strlen(pString) + 1), pString);
 }
 
 static size_t hashString(const char* pString)
@@ -157,15 +165,7 @@ static size_t hashString(const char* pString)
 static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey);
 Symbol* SymbolTable_Find(SymbolTable* pThis, const char* pKey)
 {
-    size_t i;
-    
-    for (i = 0 ; i < pThis->bucketCount ; i++)
-    {
-        Symbol* pSearchResult = searchBucket(pThis->ppBuckets[i], pKey);
-        if (pSearchResult)
-            return pSearchResult;
-    }
-    return NULL;
+    return searchBucket(pThis->ppBuckets[hashString(pKey) % pThis->bucketCount], pKey);
 }
 
 static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey)
