@@ -36,7 +36,7 @@ static int isDecimal(char firstChar);
 static void parseDecimalValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static unsigned short parseDecimalDigit(char digit);
 static int isImmediatePrefix(char prefixChar);
-static int isLocalLabelReference(const char* pValue);
+static int isLabelReference(char prefixChar);
 __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
 {
     ExpressionEvaluation eval;
@@ -76,14 +76,12 @@ static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
             __throw(invalidArgumentException);
         }
     }
-    else if (NULL != (pSymbol = Assembler_FindLabel(pAssembler, pEval->pCurrent)))
+    else if (isLabelReference(prefixChar))
     {
-        /* UNDONE: Symbols start with characters >= ':' and never have characters below '0' */
+        pSymbol = Assembler_FindLabel(pAssembler, pEval->pCurrent);
+        if (!pSymbol)
+            __throw(invalidArgumentException);
         pEval->expression = pSymbol->expression;
-    }
-    else if (isLocalLabelReference(pEval->pCurrent))
-    {
-        __throw(invalidArgumentException);
     }
     else
     {
@@ -225,9 +223,9 @@ static int isImmediatePrefix(char prefixChar)
     return prefixChar == '#';
 }
 
-static int isLocalLabelReference(const char* pValue)
+static int isLabelReference(char prefixChar)
 {
-    return *pValue == ':';
+    return prefixChar >= ':';
 }
 
 

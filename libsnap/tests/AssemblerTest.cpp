@@ -378,9 +378,9 @@ TEST(Assembler, FailAllocationDuringSymbolCreation)
 
 TEST(Assembler, InvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("org EQU @800\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '@800' expression.\n", 
-                                   "    :              1 org EQU @800\n");
+    m_pAssembler = Assembler_CreateFromString(dupe("org EQU +800\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+800' expression.\n", 
+                                   "    :              1 org EQU +800\n");
 }
 
 TEST(Assembler, AsteriskinExpression)
@@ -489,9 +489,9 @@ TEST(Assembler, ORGDirectiveWithLiteralValue)
 
 TEST(Assembler, ORGDirectiveWithInvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" org @900\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '@900' expression.\n",
-                                   "    :              1  org @900\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" org +900\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+900' expression.\n",
+                                   "    :              1  org +900\n");
 }
 
 TEST(Assembler, ORGDirectiveWithSymbolValue)
@@ -569,9 +569,9 @@ TEST(Assembler, STAInvalidImmediateValue)
 
 TEST(Assembler, STAInvalidInvalidExpress)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" sta @ff\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '@ff' expression.\n",
-                                   "    :              1  sta @ff\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta +ff\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
+                                   "    :              1  sta +ff\n");
 }
 
 TEST(Assembler, STAToLocalLabel)
@@ -620,9 +620,9 @@ TEST(Assembler, JSRWithInvalidAddressingMode)
 
 TEST(Assembler, JSRWithInvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" jsr @ff\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '@ff' expression.\n",
-                                   "    :              1  jsr @ff\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" jsr +ff\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
+                                   "    :              1  jsr +ff\n");
 }
 
 TEST(Assembler, LDXAbsolute)
@@ -653,9 +653,9 @@ TEST(Assembler, LDXZeroPageAbsoluteSymbol)
 
 TEST(Assembler, LDXWithInvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" ldx @ff\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '@ff' expression.\n",
-                                   "    :              1  ldx @ff\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" ldx +ff\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
+                                   "    :              1  ldx +ff\n");
 }
 
 TEST(Assembler, LDXWithInvalidAddressingMode)
@@ -699,9 +699,9 @@ TEST(Assembler, ORAImmediate)
 
 TEST(Assembler, ORAWithInvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" ora @ff\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '@ff' expression.\n",
-                                   "    :              1  ora @ff\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" ora +ff\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
+                                   "    :              1  ora +ff\n");
 }
 
 TEST(Assembler, ORANotYetImplementedAddressMode)
