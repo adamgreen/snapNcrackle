@@ -65,6 +65,20 @@ TEST(ExpressionEval, EvaluateHexLiteral)
     LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
 }
 
+TEST(ExpressionEval, EvaluateInvalidHexDigit)
+{
+    m_expression = ExpressionEval(m_pAssembler, "$AG");
+    LONGS_EQUAL(0xA, m_expression.value);
+    LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateHexValueTooLong)
+{
+    m_expression = ExpressionEval(m_pAssembler, "$12345");
+    LONGS_EQUAL(0x0, m_expression.value);
+    validateFailureMessage("filename:0: error: Hexadecimal number '$12345' doesn't fit in 16-bits.\n", invalidArgumentException);
+}
+
 TEST(ExpressionEval, EvaluateHexImmediate)
 {
     m_expression = ExpressionEval(m_pAssembler, "#$60");
@@ -72,10 +86,60 @@ TEST(ExpressionEval, EvaluateHexImmediate)
     LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
 }
 
-TEST(ExpressionEval, NotHexExpression)
+TEST(ExpressionEval, EvaluateBinaryLiteral)
 {
-    m_expression = ExpressionEval(m_pAssembler, dupe("800"));
-    validateFailureMessage("filename:0: error: Unexpected prefix in '800' expression.\n", invalidArgumentException);
+    m_expression = ExpressionEval(m_pAssembler, "%1010111100001001");
+    LONGS_EQUAL(0xaf09, m_expression.value);
+    LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateInvalidBinaryDigit)
+{
+    m_expression = ExpressionEval(m_pAssembler, "%12");
+    LONGS_EQUAL(0x1, m_expression.value);
+    LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateBinaryValueTooLong)
+{
+    m_expression = ExpressionEval(m_pAssembler, "%11110000111100001");
+    LONGS_EQUAL(0x0, m_expression.value);
+    validateFailureMessage("filename:0: error: Binary number '%11110000111100001' doesn't fit in 16-bits.\n", invalidArgumentException);
+}
+
+TEST(ExpressionEval, EvaluateBinaryImmediate)
+{
+    m_expression = ExpressionEval(m_pAssembler, "#%11110000");
+    LONGS_EQUAL(0xF0, m_expression.value);
+    LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateDecimalLiteral)
+{
+    m_expression = ExpressionEval(m_pAssembler, "65535");
+    LONGS_EQUAL(0xffff, m_expression.value);
+    LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateInvalidDecimalDigit)
+{
+    m_expression = ExpressionEval(m_pAssembler, "1f");
+    LONGS_EQUAL(0x1, m_expression.value);
+    LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateDecimalValueTooLong)
+{
+    m_expression = ExpressionEval(m_pAssembler, "65536");
+    LONGS_EQUAL(0x0, m_expression.value);
+    validateFailureMessage("filename:0: error: Decimal number '65536' doesn't fit in 16-bits.\n", invalidArgumentException);
+}
+
+TEST(ExpressionEval, EvaluateDecimalImmediate)
+{
+    m_expression = ExpressionEval(m_pAssembler, "#255");
+    LONGS_EQUAL(0xFF, m_expression.value);
+    LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
 }
 
 TEST(ExpressionEval, AsteriskinExpression)
@@ -87,5 +151,5 @@ TEST(ExpressionEval, AsteriskinExpression)
 TEST(ExpressionEval, InvalidImmediateValueLargerThan8Bits)
 {
     m_expression = ExpressionEval(m_pAssembler, dupe("#$100"));
-    validateFailureMessage("filename:0: error: Immediate expression '#$100' doesn't fit in 8-bits.\n", invalidArgumentException);
+    validateFailureMessage("filename:0: error: Immediate expression '$100' doesn't fit in 8-bits.\n", invalidArgumentException);
 }

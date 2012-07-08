@@ -376,11 +376,11 @@ TEST(Assembler, FailAllocationDuringSymbolCreation)
                                    "    :              1 org = $800\n");
 }
 
-TEST(Assembler, NotHexExpression)
+TEST(Assembler, InvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("org EQU 800\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '800' expression.\n", 
-                                   "    :              1 org EQU 800\n");
+    m_pAssembler = Assembler_CreateFromString(dupe("org EQU @800\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '@800' expression.\n", 
+                                   "    :              1 org EQU @800\n");
 }
 
 TEST(Assembler, AsteriskinExpression)
@@ -489,9 +489,9 @@ TEST(Assembler, ORGDirectiveWithLiteralValue)
 
 TEST(Assembler, ORGDirectiveWithInvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" org 900\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '900' expression.\n",
-                                   "    :              1  org 900\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" org @900\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '@900' expression.\n",
+                                   "    :              1  org @900\n");
 }
 
 TEST(Assembler, ORGDirectiveWithSymbolValue)
@@ -522,7 +522,7 @@ TEST(Assembler, LDAImmediate)
 TEST(Assembler, LDAInvalidImmediateValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" lda #$100\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Immediate expression '#$100' doesn't fit in 8-bits.\n",
+    runAssemblerAndValidateFailure("filename:1: error: Immediate expression '$100' doesn't fit in 8-bits.\n",
                                    "    :              1  lda #$100\n");
 }
 

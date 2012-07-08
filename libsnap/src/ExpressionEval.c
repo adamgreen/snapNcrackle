@@ -11,60 +11,218 @@
     GNU General Public License for more details.
 */
 #include <string.h>
+#include <limits.h>
 #include "ExpressionEval.h"
 #include "ExpressionEvalTest.h"
 #include "AssemblerPriv.h"
 
 
-static int isHexValue(const char* pValue);
-static int isImmediateValue(const char* pValue);
+typedef struct ExpressionEvaluation
+{
+    Expression  expression;
+    const char* pCurrent;
+    const char* pNext;
+} ExpressionEvaluation;
+
+
+static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval);
+static int isHexPrefix(char prefixChar);
+static void parseHexValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
+static unsigned short parseHexDigit(char digit);
+static int isBinaryPrefix(char prefixChar);
+static void parseBinaryValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
+static unsigned short parseBinaryDigit(char digit);
+static int isDecimal(char firstChar);
+static void parseDecimalValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
+static unsigned short parseDecimalDigit(char digit);
+static int isImmediatePrefix(char prefixChar);
 static int isLocalLabelReference(const char* pValue);
 __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
 {
-    Symbol*    pSymbol = NULL;
-    Expression expression;
+    ExpressionEvaluation eval;
     
-    memset(&expression, 0, sizeof(expression));
+    memset(&eval.expression, 0, sizeof(eval.expression));
+    eval.pCurrent = pOperands;
+    expressionEval(pAssembler, &eval);
     
-    if (isHexValue(pOperands))
+    return eval.expression;
+}
+
+static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
+{
+    char     prefixChar = *pEval->pCurrent;
+    Symbol*  pSymbol = NULL;
+    
+    if (isHexPrefix(prefixChar))
     {
-        return ExpressionEval_CreateAbsoluteExpression(strtoul(&pOperands[1], NULL, 16));
+        parseHexValue(pAssembler, pEval);
     }
-    else if (isImmediateValue(pOperands))
+    else if (isBinaryPrefix(prefixChar))
     {
-        expression = ExpressionEval(pAssembler, &pOperands[1]);
-        expression.type = TYPE_IMMEDIATE;
-        if (expression.value > 0xFF)
+        parseBinaryValue(pAssembler, pEval);
+    }
+    else if (isDecimal(prefixChar))
+    {
+        parseDecimalValue(pAssembler, pEval);
+    }
+    else if (isImmediatePrefix(prefixChar))
+    {
+        pEval->pCurrent++;
+        expressionEval(pAssembler, pEval);
+        pEval->expression.type = TYPE_IMMEDIATE;
+        if (pEval->expression.value > 0xFF)
         {
-            LOG_ERROR(pAssembler, "Immediate expression '%s' doesn't fit in 8-bits.", pOperands);
-            __throw_and_return(invalidArgumentException, expression);
+            LOG_ERROR(pAssembler, "Immediate expression '%s' doesn't fit in 8-bits.", pEval->pCurrent);
+            __throw(invalidArgumentException);
         }
-        return expression;
     }
-    else if (NULL != (pSymbol = Assembler_FindLabel(pAssembler, pOperands)))
+    else if (NULL != (pSymbol = Assembler_FindLabel(pAssembler, pEval->pCurrent)))
     {
-        expression = pSymbol->expression;
-        return expression;
+        /* UNDONE: Symbols start with characters >= ':' and never have characters below '0' */
+        pEval->expression = pSymbol->expression;
     }
-    else if (isLocalLabelReference(pOperands))
+    else if (isLocalLabelReference(pEval->pCurrent))
     {
-        __throw_and_return(invalidArgumentException, expression);
+        __throw(invalidArgumentException);
     }
     else
     {
-        LOG_ERROR(pAssembler, "Unexpected prefix in '%s' expression.", pOperands);
-        __throw_and_return(invalidArgumentException, expression);
+        LOG_ERROR(pAssembler, "Unexpected prefix in '%s' expression.", pEval->pCurrent);
+        __throw(invalidArgumentException);
     }
 }
 
-static int isHexValue(const char* pValue)
+static int isHexPrefix(char prefixChar)
 {
-    return *pValue == '$';
+    return prefixChar == '$';
 }
 
-static int isImmediateValue(const char* pValue)
+typedef struct Parser
 {
-    return *pValue == '#';
+    const char*    pType;
+    unsigned short (*parseDigit)(char digit);
+    unsigned short multiplier;
+    int            skipPrefix;
+} Parser;
+
+static void parseValue(Assembler* pAssembler, ExpressionEvaluation* pEval, Parser* pParser)
+{
+    const char*    pCurrent = pEval->pCurrent + pParser->skipPrefix;
+    unsigned int   value = 0;
+    unsigned int   digitCount = 0;
+    int            overflowDetected = FALSE;
+    
+    while (*pCurrent)
+    {
+        unsigned short digit;
+
+        __try
+        {
+            digit = pParser->parseDigit(*pCurrent);
+        }
+        __catch
+        {
+            clearExceptionCode();
+            break;
+        }
+        
+        value = (value * pParser->multiplier) + digit;
+        if (value > USHRT_MAX)
+            overflowDetected = TRUE;
+        digitCount++;
+        pCurrent++;
+    }
+    
+    if (overflowDetected)
+    {
+        LOG_ERROR(pAssembler, "%s number '%.*s' doesn't fit in 16-bits.", pParser->pType, digitCount+1, pEval->pCurrent);
+        setExceptionCode(invalidArgumentException);
+        value = 0;
+    }
+    pEval->pNext = pCurrent;
+    pEval->expression = ExpressionEval_CreateAbsoluteExpression(value);
+}
+
+static void parseHexValue(Assembler* pAssembler, ExpressionEvaluation* pEval)
+{
+    static Parser hexParser =
+    {
+        "Hexadecimal",
+        parseHexDigit,
+        16,
+        1
+    };
+
+    parseValue(pAssembler, pEval, &hexParser);
+}
+
+static unsigned short parseHexDigit(char digit)
+{
+    if (digit >= '0' && digit <= '9')
+        return digit - '0';
+    else if (digit >= 'a' && digit <= 'f')
+        return digit - 'a' + 10;
+    else if (digit >= 'A' && digit <= 'F')
+        return digit - 'A' + 10;
+    else
+        __throw_and_return(invalidHexDigitException, 0);
+}
+
+static int isBinaryPrefix(char prefixChar)
+{
+    return prefixChar == '%';
+}
+
+static void parseBinaryValue(Assembler* pAssembler, ExpressionEvaluation* pEval)
+{
+    static Parser binaryParser =
+    {
+        "Binary",
+        parseBinaryDigit,
+        2,
+        1
+    };
+
+    parseValue(pAssembler, pEval, &binaryParser);
+}
+
+static unsigned short parseBinaryDigit(char digit)
+{
+    if (digit >= '0' && digit <= '1')
+        return digit - '0';
+    else
+        __throw_and_return(invalidBinaryDigitException, 0);
+}
+
+static int isDecimal(char firstChar)
+{
+    return firstChar >= '0' && firstChar <= '9';
+}
+
+static void parseDecimalValue(Assembler* pAssembler, ExpressionEvaluation* pEval)
+{
+    static Parser decimalParser =
+    {
+        "Decimal",
+        parseDecimalDigit,
+        10,
+        0
+    };
+
+    parseValue(pAssembler, pEval, &decimalParser);
+}
+
+static unsigned short parseDecimalDigit(char digit)
+{
+    if (digit >= '0' && digit <= '9')
+        return digit - '0';
+    else
+        __throw_and_return(invalidDecimalDigitException, 0);
+}
+
+static int isImmediatePrefix(char prefixChar)
+{
+    return prefixChar == '#';
 }
 
 static int isLocalLabelReference(const char* pValue)

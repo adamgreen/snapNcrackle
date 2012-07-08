@@ -29,6 +29,8 @@
 #define fileNotFoundException               12
 #define fileException                       13
 #define endOfListException                  14
+#define invalidBinaryDigitException         15
+#define invalidDecimalDigitException        16
 
 extern int g_exceptionCode;
 
