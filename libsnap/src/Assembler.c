@@ -103,6 +103,8 @@ static void parseLine(Assembler* pThis, char* pLine);
 static void prepareLineInfoForThisLine(Assembler* pThis);
 static void firstPassAssembleLine(Assembler* pThis);
 static void handleEQU(Assembler* pThis);
+static void validateEQULabelFormat(Assembler* pThis);
+static void validateLabelFormat(Assembler* pThis);
 static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName);
 static void ignoreOperator(Assembler* pThis);
 static void handleInvalidOperator(Assembler* pThis);
@@ -230,6 +232,7 @@ static void handleEQU(Assembler* pThis)
         
         pThis->lineInfo.flags |= LINEINFO_FLAG_WAS_EQU;
         __throwing_func( expression = ExpressionEval(pThis, pThis->parsedLine.pOperands) );
+        __throwing_func( validateEQULabelFormat(pThis) );
         __throwing_func( pSymbol = attemptToAddSymbol(pThis, pThis->parsedLine.pLabel) );
         pSymbol->expression = expression;
         pThis->lineInfo.pSymbol = pSymbol;
@@ -237,6 +240,39 @@ static void handleEQU(Assembler* pThis)
     __catch
     {
         __nothrow;
+    }
+}
+
+static void validateEQULabelFormat(Assembler* pThis)
+{
+    if (pThis->parsedLine.pLabel[0] == ':')
+    {
+        LOG_ERROR(pThis, "'%s' can't be a local label when used with EQU.", pThis->parsedLine.pLabel);
+        __throw(invalidArgumentException);
+    }
+    
+    validateLabelFormat(pThis);
+}
+
+static void validateLabelFormat(Assembler* pThis)
+{
+    const char* pCurr;
+    
+    if (pThis->parsedLine.pLabel[0] < ':')
+    {
+        LOG_ERROR(pThis, "'%s' label starts with invalid character.", pThis->parsedLine.pLabel);
+        __throw(invalidArgumentException);
+    }
+    
+    pCurr = &pThis->parsedLine.pLabel[1];
+    while (*pCurr)
+    {
+        if (*pCurr < '0')
+        {
+            LOG_ERROR(pThis, "'%s' label contains invalid character, '%c'.", pThis->parsedLine.pLabel, *pCurr);
+            __throw(invalidArgumentException);
+        }
+        pCurr++;
     }
 }
 
@@ -532,6 +568,7 @@ static void rememberLabel(Assembler* pThis)
         const char* pExpandedLabelName = NULL;
         Symbol*     pSymbol = NULL;
     
+        __throwing_func( validateLabelFormat(pThis) );
         __throwing_func( pExpandedLabelName = expandedLabelName(pThis, pThis->parsedLine.pLabel, strlen(pThis->parsedLine.pLabel)) );
         __throwing_func( pSymbol = attemptToAddSymbol(pThis, pExpandedLabelName) );
         __throwing_func( rememberGlobalLabel(pThis) );

@@ -327,6 +327,61 @@ TEST(Assembler, LocalLabelReferenceBeforeGlobalLabel)
     STRCMP_EQUAL("filename:1: error: ':local_label' local label isn't allowed before first global label.\n", printfSpy_GetPreviousOutput());
 }
 
+TEST(Assembler, LabelStartsWithInvalidCharacter)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("9Label sta $23\n"));
+    CHECK(m_pAssembler != NULL);
+
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(2, printfSpy_GetCallCount());
+    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
+    STRCMP_EQUAL("filename:1: error: '9Label' label starts with invalid character.\n", printfSpy_GetPreviousOutput());
+}
+
+TEST(Assembler, LabelContainsInvalidCharacter)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("Label. sta $23\n"));
+    CHECK(m_pAssembler != NULL);
+
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(2, printfSpy_GetCallCount());
+    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
+    STRCMP_EQUAL("filename:1: error: 'Label.' label contains invalid character, '.'.\n", printfSpy_GetPreviousOutput());
+}
+
+TEST(Assembler, EQULabelStartsWithInvalidCharacter)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("9Label EQU $23\n"));
+    CHECK(m_pAssembler != NULL);
+
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(2, printfSpy_GetCallCount());
+    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
+    STRCMP_EQUAL("filename:1: error: '9Label' label starts with invalid character.\n", printfSpy_GetPreviousOutput());
+}
+
+TEST(Assembler, EQULabelContainsInvalidCharacter)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("Label. EQU $23\n"));
+    CHECK(m_pAssembler != NULL);
+
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(2, printfSpy_GetCallCount());
+    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
+    STRCMP_EQUAL("filename:1: error: 'Label.' label contains invalid character, '.'.\n", printfSpy_GetPreviousOutput());
+}
+
+TEST(Assembler, EQULabelIsLocal)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(":Label EQU $23\n"));
+    CHECK(m_pAssembler != NULL);
+
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(2, printfSpy_GetCallCount());
+    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
+    STRCMP_EQUAL("filename:1: error: ':Label' can't be a local label when used with EQU.\n", printfSpy_GetPreviousOutput());
+}
+
 TEST(Assembler, CommentLine)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("*  boot\n"));
