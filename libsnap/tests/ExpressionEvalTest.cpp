@@ -153,3 +153,31 @@ TEST(ExpressionEval, InvalidImmediateValueLargerThan8Bits)
     m_expression = ExpressionEval(m_pAssembler, dupe("#$100"));
     validateFailureMessage("filename:0: error: Immediate expression '$100' doesn't fit in 8-bits.\n", invalidArgumentException);
 }
+
+TEST(ExpressionEval, EvaluateSingleQuotedASCII)
+{
+    m_expression = ExpressionEval(m_pAssembler, "#'a'");
+    LONGS_EQUAL('a', m_expression.value);
+    LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateSingleQuotedPrefixOnlyASCII)
+{
+    m_expression = ExpressionEval(m_pAssembler, "#'a");
+    LONGS_EQUAL('a', m_expression.value);
+    LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateDoubleQuotedASCII)
+{
+    m_expression = ExpressionEval(m_pAssembler, "#\"a\"");
+    LONGS_EQUAL('a' | 0x80, m_expression.value);
+    LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateDoubleQuotedPrefixOnlyASCII)
+{
+    m_expression = ExpressionEval(m_pAssembler, "#\"a");
+    LONGS_EQUAL('a' | 0x80, m_expression.value);
+    LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
+}

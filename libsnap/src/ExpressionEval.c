@@ -38,6 +38,9 @@ static unsigned short parseDecimalDigit(char digit);
 static int isImmediatePrefix(char prefixChar);
 static int isLabelReference(char prefixChar);
 static size_t lengthOfLabel(const char* pLabel);
+static int isSingleQuoteASCII(char prefixChar);
+static void parseASCIIValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
+static int isDoubleQuotedASCII(char prefixChar);
 __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
 {
     ExpressionEvaluation eval;
@@ -65,6 +68,10 @@ static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
     else if (isDecimal(prefixChar))
     {
         parseDecimalValue(pAssembler, pEval);
+    }
+    else if (isSingleQuoteASCII(prefixChar) || isDoubleQuotedASCII(prefixChar))
+    {
+        parseASCIIValue(pAssembler, pEval);
     }
     else if (isImmediatePrefix(prefixChar))
     {
@@ -238,6 +245,27 @@ static size_t lengthOfLabel(const char* pLabel)
         pCurr++;
     }
     return pCurr - pLabel;
+}
+
+static int isSingleQuoteASCII(char prefixChar)
+{
+    return prefixChar == '\'';
+}
+
+static void parseASCIIValue(Assembler* pAssembler, ExpressionEvaluation* pEval)
+{
+    char          delimiter = pEval->pCurrent[0];
+    int           forceHighBit = delimiter == '"';
+    unsigned char value = forceHighBit ? pEval->pCurrent[1] | 0x80 : pEval->pCurrent[1];
+    int           skipTrailingQuote = pEval->pCurrent[2] == delimiter;
+    
+    pEval->pNext = skipTrailingQuote ? &pEval->pCurrent[3] : &pEval->pCurrent[2];
+    pEval->expression = ExpressionEval_CreateAbsoluteExpression(value);
+}
+
+static int isDoubleQuotedASCII(char prefixChar)
+{
+    return prefixChar == '"';
 }
 
 
