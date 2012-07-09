@@ -24,9 +24,21 @@ typedef struct ExpressionEvaluation
     const char* pNext;
 } ExpressionEvaluation;
 
+typedef void (*operatorHandler)(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
+
 
 static int isImmediatePrefix(char prefixChar);
 static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval);
+static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval);
+static void evaluateOperation(Assembler* pAssembler, ExpressionEvaluation* pEval);
+static operatorHandler determineHandlerForOperator(Assembler* pAssembler, char operatorChar);
+static void addHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
+static void subtractHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
+static void multiplyHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
+static void divisionHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
+static void xorHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
+static void orHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
+static void andHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
 static int isHexPrefix(char prefixChar);
 static void parseHexValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static unsigned short parseHexDigit(char digit);
@@ -36,13 +48,14 @@ static unsigned short parseBinaryDigit(char digit);
 static int isDecimal(char firstChar);
 static void parseDecimalValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static unsigned short parseDecimalDigit(char digit);
-static int isLabelReference(char prefixChar);
-static size_t lengthOfLabel(const char* pLabel);
 static int isSingleQuoteASCII(char prefixChar);
 static void parseASCIIValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static int isDoubleQuotedASCII(char prefixChar);
 static int isCurrentAddressChar(char prefixChar);
 static void parseCurrentAddressChar(Assembler* pAssembler, ExpressionEvaluation* pEval);
+static int isLabelReference(char prefixChar);
+static void parseLabelReference(Assembler* pAssembler, ExpressionEvaluation* pEval);
+static size_t lengthOfLabel(const char* pLabel);
 __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
 {
     ExpressionEvaluation eval;
@@ -57,7 +70,7 @@ __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
         eval.expression.type = TYPE_IMMEDIATE;
         if (eval.expression.value > 0xFF)
         {
-            LOG_ERROR(pAssembler, "Immediate expression '%s' doesn't fit in 8-bits.", eval.pCurrent);
+            LOG_ERROR(pAssembler, "Immediate expression '%s' doesn't fit in 8-bits.", &pOperands[1]);
             __throw_and_return(invalidArgumentException, eval.expression);
         }
     }
@@ -76,9 +89,26 @@ static int isImmediatePrefix(char prefixChar)
 
 static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
 {
+
+    __try
+        evaluatePrimitive(pAssembler, pEval);
+    __catch
+        __rethrow;
+        
+    pEval->pCurrent = pEval->pNext;
+    while (*pEval->pCurrent)
+    {
+        __try
+            evaluateOperation(pAssembler, pEval);
+        __catch
+            __rethrow;
+    }
+}
+
+static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval)
+{
     char     prefixChar = *pEval->pCurrent;
-    Symbol*  pSymbol = NULL;
-    
+
     if (isHexPrefix(prefixChar))
     {
         parseHexValue(pAssembler, pEval);
@@ -101,17 +131,94 @@ static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
     }
     else if (isLabelReference(prefixChar))
     {
-        size_t labelLength = lengthOfLabel(pEval->pCurrent);
-        pSymbol = Assembler_FindLabel(pAssembler, pEval->pCurrent, labelLength);
-        if (!pSymbol)
-            __throw(invalidArgumentException);
-        pEval->expression = pSymbol->expression;
+        parseLabelReference(pAssembler, pEval);
     }
     else
     {
         LOG_ERROR(pAssembler, "Unexpected prefix in '%s' expression.", pEval->pCurrent);
         __throw(invalidArgumentException);
     }
+    
+    pEval->pCurrent = pEval->pNext;
+}
+
+static void evaluateOperation(Assembler* pAssembler, ExpressionEvaluation* pEval)
+{
+    __try
+    {
+        operatorHandler      handleOperator;
+        ExpressionEvaluation rightEval;
+        
+        __throwing_func( handleOperator = determineHandlerForOperator(pAssembler, *pEval->pCurrent) );
+        memset(&rightEval, 0, sizeof(rightEval));
+        rightEval.pCurrent = pEval->pCurrent + 1;
+        __throwing_func( evaluatePrimitive(pAssembler, &rightEval) );
+        __throwing_func( handleOperator(pAssembler, pEval, &rightEval) );
+        pEval->pCurrent = rightEval.pNext;
+    }
+    __catch
+    {
+        __rethrow;
+    }
+}
+
+static operatorHandler determineHandlerForOperator(Assembler* pAssembler, char operatorChar)
+{
+    switch (operatorChar)
+    {
+    case '+':
+        return addHandler;
+    case '-':
+        return subtractHandler;
+    case '*':
+        return multiplyHandler;
+    case '/':
+        return divisionHandler;
+    case '!':
+        return xorHandler;
+    case '.':
+        return orHandler;
+    case '&':
+        return andHandler;
+    default:
+        LOG_ERROR(pAssembler, "'%c' is unexpected operator.", operatorChar);
+        __throw_and_return(invalidArgumentException, (operatorHandler)NULL);
+    }
+}
+
+static void addHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight)
+{
+    pEvalLeft->expression.value += pEvalRight->expression.value;
+}
+
+static void subtractHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight)
+{
+    pEvalLeft->expression.value -= pEvalRight->expression.value;
+}
+
+static void multiplyHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight)
+{
+    pEvalLeft->expression.value *= pEvalRight->expression.value;
+}
+
+static void divisionHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight)
+{
+    pEvalLeft->expression.value /= pEvalRight->expression.value;
+}
+
+static void xorHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight)
+{
+    pEvalLeft->expression.value ^= pEvalRight->expression.value;
+}
+
+static void orHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight)
+{
+    pEvalLeft->expression.value |= pEvalRight->expression.value;
+}
+
+static void andHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight)
+{
+    pEvalLeft->expression.value &= pEvalRight->expression.value;
 }
 
 static int isHexPrefix(char prefixChar)
@@ -242,21 +349,6 @@ static unsigned short parseDecimalDigit(char digit)
         __throw_and_return(invalidDecimalDigitException, 0);
 }
 
-static int isLabelReference(char prefixChar)
-{
-    return prefixChar >= ':';
-}
-
-static size_t lengthOfLabel(const char* pLabel)
-{
-    const char* pCurr = pLabel + 1;
-    while (*pCurr && *pCurr >= '0')
-    {
-        pCurr++;
-    }
-    return pCurr - pLabel;
-}
-
 static int isSingleQuoteASCII(char prefixChar)
 {
     return prefixChar == '\'';
@@ -287,6 +379,31 @@ static void parseCurrentAddressChar(Assembler* pAssembler, ExpressionEvaluation*
 {
     pEval->pNext = pEval->pCurrent + 1;
     pEval->expression = ExpressionEval_CreateAbsoluteExpression(pAssembler->programCounter);
+}
+
+static int isLabelReference(char prefixChar)
+{
+    return prefixChar >= ':';
+}
+
+static void parseLabelReference(Assembler* pAssembler, ExpressionEvaluation* pEval)
+{
+    size_t  labelLength = lengthOfLabel(pEval->pCurrent);
+    Symbol* pSymbol = Assembler_FindLabel(pAssembler, pEval->pCurrent, labelLength);
+    if (!pSymbol)
+        __throw(invalidArgumentException);
+    pEval->expression = pSymbol->expression;
+    pEval->pNext = pEval->pCurrent + labelLength;
+}
+
+static size_t lengthOfLabel(const char* pLabel)
+{
+    const char* pCurr = pLabel + 1;
+    while (*pCurr && *pCurr >= '0')
+    {
+        pCurr++;
+    }
+    return pCurr - pLabel;
 }
 
 

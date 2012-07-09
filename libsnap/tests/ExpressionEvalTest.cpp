@@ -70,6 +70,7 @@ TEST(ExpressionEval, EvaluateInvalidHexDigit)
     m_expression = ExpressionEval(m_pAssembler, "$AG");
     LONGS_EQUAL(0xA, m_expression.value);
     LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
+    validateFailureMessage("filename:0: error: 'G' is unexpected operator.\n", invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateHexValueTooLong)
@@ -98,6 +99,7 @@ TEST(ExpressionEval, EvaluateInvalidBinaryDigit)
     m_expression = ExpressionEval(m_pAssembler, "%12");
     LONGS_EQUAL(0x1, m_expression.value);
     LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
+    validateFailureMessage("filename:0: error: '2' is unexpected operator.\n", invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateBinaryValueTooLong)
@@ -126,6 +128,7 @@ TEST(ExpressionEval, EvaluateInvalidDecimalDigit)
     m_expression = ExpressionEval(m_pAssembler, "1f");
     LONGS_EQUAL(0x1, m_expression.value);
     LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
+    validateFailureMessage("filename:0: error: 'f' is unexpected operator.\n", invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateDecimalValueTooLong)
@@ -186,4 +189,60 @@ TEST(ExpressionEval, AsteriskInExpression)
     m_expression = ExpressionEval(m_pAssembler, dupe("*"));
     LONGS_EQUAL(0x800, m_expression.value);
     LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateAddition)
+{
+    m_expression = ExpressionEval(m_pAssembler, "2+3");
+    LONGS_EQUAL(5, m_expression.value);
+    LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateSubtraction)
+{
+    m_expression = ExpressionEval(m_pAssembler, "3-2");
+    LONGS_EQUAL(1, m_expression.value);
+    LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateMultiplication)
+{
+    m_expression = ExpressionEval(m_pAssembler, "3*2");
+    LONGS_EQUAL(6, m_expression.value);
+    LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateDivision)
+{
+    m_expression = ExpressionEval(m_pAssembler, "3/2");
+    LONGS_EQUAL(1, m_expression.value);
+    LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateNoOperatorPrecedenceExample)
+{
+    m_expression = ExpressionEval(m_pAssembler, "2+3*5");
+    LONGS_EQUAL(25, m_expression.value);
+    LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateXOR)
+{
+    m_expression = ExpressionEval(m_pAssembler, "$ff!$80");
+    LONGS_EQUAL(0x7f, m_expression.value);
+    LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateOR)
+{
+    m_expression = ExpressionEval(m_pAssembler, "$00.$80");
+    LONGS_EQUAL(0x80, m_expression.value);
+    LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateAND)
+{
+    m_expression = ExpressionEval(m_pAssembler, "$af&$f0");
+    LONGS_EQUAL(0xa0, m_expression.value);
+    LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
 }
