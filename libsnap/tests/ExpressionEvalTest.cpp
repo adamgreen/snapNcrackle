@@ -246,3 +246,10 @@ TEST(ExpressionEval, EvaluateAND)
     LONGS_EQUAL(0xa0, m_expression.value);
     LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
 }
+
+TEST(ExpressionEval, EvaluateInvalidLabel)
+{
+    m_expression = ExpressionEval(m_pAssembler, "Label+1");
+    LONGS_EQUAL(0x0, m_expression.value);
+    validateFailureMessage("filename:0: error: 'Label' label is undefined.\n", invalidArgumentException);
+}
