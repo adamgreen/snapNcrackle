@@ -55,7 +55,8 @@ static void commonObjectInit(Assembler* pThis)
         // UNDONE: Take list file location as parameter.
         __throwing_func( pThis->pListFile = ListFile_Create(stdout) );
         __throwing_func( pThis->pLineText = LineBuffer_Create() );
-        pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
+        __throwing_func( pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS) );
+        pThis->pLineInfo = &pThis->linesHead;
     }
     __catch
     {
@@ -85,16 +86,30 @@ __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename)
 }
 
 
+static void freeLines(Assembler* pThis);
 void Assembler_Free(Assembler* pThis)
 {
     if (!pThis)
         return;
     
+    freeLines(pThis);
     LineBuffer_Free(pThis->pLineText);
     ListFile_Free(pThis->pListFile);
     SymbolTable_Free(pThis->pSymbols);
     TextFile_Free(pThis->pTextFile);
     free(pThis);
+}
+
+static void freeLines(Assembler* pThis)
+{
+    LineInfo* pCurr = pThis->linesHead.pNext;
+    
+    while (pCurr)
+    {
+        LineInfo* pNext = pCurr->pNext;
+        free(pCurr);
+        pCurr = pNext;
+    }
 }
 
 
@@ -161,12 +176,12 @@ static void parseLine(Assembler* pThis, char* pLine)
     __try
     {
         __throwing_func( LineBuffer_Set(pThis->pLineText, pLine) );
-        prepareLineInfoForThisLine(pThis, pLine);
+        __throwing_func( prepareLineInfoForThisLine(pThis, pLine) );
         ParseLine(&pThis->parsedLine, LineBuffer_Get(pThis->pLineText));
         firstPassAssembleLine(pThis);
         rememberLabel(pThis);
         listLine(pThis);
-        pThis->programCounter += pThis->lineInfo.machineCodeSize;
+        pThis->programCounter += pThis->pLineInfo->machineCodeSize;
     }
     __catch
     {
@@ -176,12 +191,17 @@ static void parseLine(Assembler* pThis, char* pLine)
 
 static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine)
 {
-    unsigned int lineNumber = pThis->lineInfo.lineNumber;
-    
-    memset(&pThis->lineInfo, 0, sizeof(pThis->lineInfo));
-    pThis->lineInfo.lineNumber = lineNumber + 1;
-    pThis->lineInfo.pLineText = pLine;
-    pThis->lineInfo.address = pThis->programCounter;
+    // UNDONE: Test for failed allocation.
+    LineInfo* pLineInfo = malloc(sizeof(*pLineInfo));
+    if (!pLineInfo)
+        __throw(outOfMemoryException);
+        
+    memset(pLineInfo, 0, sizeof(*pLineInfo));
+    pLineInfo->lineNumber = pThis->pLineInfo->lineNumber + 1;
+    pLineInfo->pLineText = pLine;
+    pLineInfo->address = pThis->programCounter;
+    pThis->pLineInfo->pNext = pLineInfo;
+    pThis->pLineInfo = pLineInfo;
 }
 
 static void firstPassAssembleLine(Assembler* pThis)
@@ -230,12 +250,12 @@ static void handleEQU(Assembler* pThis)
         Symbol*    pSymbol = NULL;
         Expression expression;
         
-        pThis->lineInfo.flags |= LINEINFO_FLAG_WAS_EQU;
+        pThis->pLineInfo->flags |= LINEINFO_FLAG_WAS_EQU;
         __throwing_func( expression = ExpressionEval(pThis, pThis->parsedLine.pOperands) );
         __throwing_func( validateEQULabelFormat(pThis) );
         __throwing_func( pSymbol = attemptToAddSymbol(pThis, pThis->parsedLine.pLabel) );
         pSymbol->expression = expression;
-        pThis->lineInfo.pSymbol = pSymbol;
+        pThis->pLineInfo->pSymbol = pSymbol;
     }
     __catch
     {
@@ -312,7 +332,7 @@ static void handleHEX(Assembler* pThis)
     const char* pCurr = pThis->parsedLine.pOperands;
     size_t      i = 0;
 
-    while (*pCurr && i < sizeof(pThis->lineInfo.machineCode))
+    while (*pCurr && i < sizeof(pThis->pLineInfo->machineCode))
     {
         __try
         {
@@ -320,7 +340,7 @@ static void handleHEX(Assembler* pThis)
             const char*  pNext;
 
             __throwing_func( byte = getNextHexByte(pCurr, &pNext) );
-            pThis->lineInfo.machineCode[i++] = byte;
+            pThis->pLineInfo->machineCode[i++] = byte;
             pCurr = pNext;
         }
         __catch
@@ -335,7 +355,7 @@ static void handleHEX(Assembler* pThis)
         LOG_ERROR(pThis, "'%s' contains more than 32 values.", pThis->parsedLine.pOperands);
         return;
     }
-    pThis->lineInfo.machineCodeSize = i;
+    pThis->pLineInfo->machineCodeSize = i;
 }
 
 static unsigned char getNextHexByte(const char* pStart, const char** ppNext)
@@ -432,9 +452,9 @@ static void logInvalidAddressingMode(Assembler* pThis)
 
 static void emitImmediateInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression)
 {
-    pThis->lineInfo.machineCode[0] = opCode;
-    pThis->lineInfo.machineCode[1] = LO_BYTE(pExpression->value);
-    pThis->lineInfo.machineCodeSize = 2;
+    pThis->pLineInfo->machineCode[0] = opCode;
+    pThis->pLineInfo->machineCode[1] = LO_BYTE(pExpression->value);
+    pThis->pLineInfo->machineCodeSize = 2;
 }
 
 static void handleSTA(Assembler* pThis)
@@ -462,17 +482,17 @@ static void handleSTA(Assembler* pThis)
 
 static void emitAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression)
 {
-    pThis->lineInfo.machineCode[0] = opCode;
-    pThis->lineInfo.machineCode[1] = LO_BYTE(pExpression->value);
-    pThis->lineInfo.machineCode[2] = HI_BYTE(pExpression->value);
-    pThis->lineInfo.machineCodeSize = 3;
+    pThis->pLineInfo->machineCode[0] = opCode;
+    pThis->pLineInfo->machineCode[1] = LO_BYTE(pExpression->value);
+    pThis->pLineInfo->machineCode[2] = HI_BYTE(pExpression->value);
+    pThis->pLineInfo->machineCodeSize = 3;
 }
 
 static void emitZeroPageAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression)
 {
-    pThis->lineInfo.machineCode[0] = opCode;
-    pThis->lineInfo.machineCode[1] = LO_BYTE(pExpression->value);
-    pThis->lineInfo.machineCodeSize = 2;
+    pThis->pLineInfo->machineCode[0] = opCode;
+    pThis->pLineInfo->machineCode[1] = LO_BYTE(pExpression->value);
+    pThis->pLineInfo->machineCodeSize = 2;
 }
 
 static void handleJSR(Assembler* pThis)
@@ -526,8 +546,8 @@ static void handleTXA(Assembler* pThis)
 
 static void emitImpliedInstruction(Assembler* pThis, unsigned char opCode)
 {
-    pThis->lineInfo.machineCode[0] = opCode;
-    pThis->lineInfo.machineCodeSize = 1;
+    pThis->pLineInfo->machineCode[0] = opCode;
+    pThis->pLineInfo->machineCodeSize = 1;
 }
 
 static void handleLSR(Assembler* pThis)
@@ -592,7 +612,7 @@ static int doesLineContainALabel(Assembler* pThis)
 
 static int wasEQUDirective(Assembler* pThis)
 {
-    return pThis->lineInfo.flags & LINEINFO_FLAG_WAS_EQU;
+    return pThis->pLineInfo->flags & LINEINFO_FLAG_WAS_EQU;
 }
 
 static const char* expandedLabelName(Assembler* pThis, const char* pLabelName, size_t labelLength)
@@ -655,7 +675,7 @@ static void rememberGlobalLabel(Assembler* pThis)
 
 static void listLine(Assembler* pThis)
 {
-    ListFile_OutputLine(pThis->pListFile, &pThis->lineInfo);
+    ListFile_OutputLine(pThis->pListFile, pThis->pLineInfo);
 }
 
 

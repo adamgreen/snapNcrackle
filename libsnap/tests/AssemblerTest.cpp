@@ -261,6 +261,18 @@ TEST(Assembler, FailAllocationOnLongLine)
     clearExceptionCode();
 }
 
+TEST(Assembler, FailAllocationOnLineInfoAllocation)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("* Comment Line."));
+    CHECK(m_pAssembler != NULL);
+
+    MallocFailureInject_FailAllocation(1);
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(0, printfSpy_GetCallCount());
+    LONGS_EQUAL(outOfMemoryException, getExceptionCode());
+    clearExceptionCode();
+}
+
 TEST(Assembler, RunOnLongLine)
 {
     char longLine[257];
@@ -426,7 +438,7 @@ TEST(Assembler, MultipleDefinedSymbolFailure)
 TEST(Assembler, FailAllocationDuringSymbolCreation)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("org = $800\n"));
-    MallocFailureInject_FailAllocation(1);
+    MallocFailureInject_FailAllocation(2);
     runAssemblerAndValidateFailure("filename:1: error: Failed to allocate space for 'org' symbol.\n", 
                                    "    :              1 org = $800\n");
 }

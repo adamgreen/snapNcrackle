@@ -19,13 +19,14 @@
 
 typedef struct LineInfo
 {
-    const char*    pLineText;
-    Symbol*        pSymbol;
-    size_t         machineCodeSize;
-    unsigned int   lineNumber;
-    unsigned int   flags;
-    unsigned short address;
-    unsigned char  machineCode[32];
+    const char*      pLineText;
+    Symbol*          pSymbol;
+    struct LineInfo* pNext;
+    size_t           machineCodeSize;
+    unsigned int     lineNumber;
+    unsigned int     flags;
+    unsigned short   address;
+    unsigned char    machineCode[32];
 } LineInfo;
 
 #endif /* _LINE_INFO_H_ */

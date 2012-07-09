@@ -35,9 +35,10 @@ struct Assembler
     ListFile*      pListFile;
     LineBuffer*    pLineText;
     char*          pLocalLabelStart;
+    LineInfo*      pLineInfo;
     size_t         maxLocalLabelSize;
     ParsedLine     parsedLine;
-    LineInfo       lineInfo;
+    LineInfo       linesHead;
     unsigned int   errorCount;
     unsigned short programCounter;
     char           labelBuffer[256];
@@ -47,7 +48,7 @@ struct Assembler
 #define LOG_ERROR(pASSEMBLER, FORMAT, ...) fprintf(stderr, \
                                        "%s:%d: error: " FORMAT LINE_ENDING, \
                                        pASSEMBLER->pSourceFilename, \
-                                       pASSEMBLER->lineInfo.lineNumber, \
+                                       pASSEMBLER->pLineInfo->lineNumber, \
                                        __VA_ARGS__), pASSEMBLER->errorCount++
 
 
