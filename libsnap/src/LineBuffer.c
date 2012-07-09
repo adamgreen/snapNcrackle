@@ -86,7 +86,7 @@ __throws void LineBuffer_Set(LineBuffer* pThis, const char* pText)
 }
 
 
-const char* LineBuffer_Get(LineBuffer* pThis)
+char* LineBuffer_Get(LineBuffer* pThis)
 {
     return pThis->pText;
 }

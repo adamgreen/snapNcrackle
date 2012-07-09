@@ -100,7 +100,7 @@ void Assembler_Free(Assembler* pThis)
 
 static void parseSource(Assembler* pThis);
 static void parseLine(Assembler* pThis, char* pLine);
-static void prepareLineInfoForThisLine(Assembler* pThis);
+static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine);
 static void firstPassAssembleLine(Assembler* pThis);
 static void handleEQU(Assembler* pThis);
 static void validateEQULabelFormat(Assembler* pThis);
@@ -161,8 +161,8 @@ static void parseLine(Assembler* pThis, char* pLine)
     __try
     {
         __throwing_func( LineBuffer_Set(pThis->pLineText, pLine) );
-        prepareLineInfoForThisLine(pThis);
-        ParseLine(&pThis->parsedLine, pLine);
+        prepareLineInfoForThisLine(pThis, pLine);
+        ParseLine(&pThis->parsedLine, LineBuffer_Get(pThis->pLineText));
         firstPassAssembleLine(pThis);
         rememberLabel(pThis);
         listLine(pThis);
@@ -174,13 +174,13 @@ static void parseLine(Assembler* pThis, char* pLine)
     }
 }
 
-static void prepareLineInfoForThisLine(Assembler* pThis)
+static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine)
 {
     unsigned int lineNumber = pThis->lineInfo.lineNumber;
     
     memset(&pThis->lineInfo, 0, sizeof(pThis->lineInfo));
     pThis->lineInfo.lineNumber = lineNumber + 1;
-    pThis->lineInfo.pLineText = LineBuffer_Get(pThis->pLineText);
+    pThis->lineInfo.pLineText = pLine;
     pThis->lineInfo.address = pThis->programCounter;
 }
 

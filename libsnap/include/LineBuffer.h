@@ -22,6 +22,6 @@ __throws LineBuffer* LineBuffer_Create(void);
          void        LineBuffer_Free(LineBuffer* pThis);
 
 __throws void        LineBuffer_Set(LineBuffer* pThis, const char* pString);
-         const char* LineBuffer_Get(LineBuffer* pThis);
+         char*        LineBuffer_Get(LineBuffer* pThis);
          
 #endif /* _LINE_BUFFER_H_ */
