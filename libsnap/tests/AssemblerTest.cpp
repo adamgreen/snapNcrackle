@@ -123,7 +123,7 @@ TEST_GROUP(Assembler)
     {
         Assembler_Run(m_pAssembler);
         LONGS_EQUAL(expectedPrintfCalls, printfSpy_GetCallCount());
-        STRCMP_EQUAL(pExpectedFailureMessage, printfSpy_GetPreviousOutput());
+        STRCMP_EQUAL(pExpectedFailureMessage, printfSpy_GetLastErrorOutput());
         STRCMP_EQUAL(pExpectedListOutput, printfSpy_GetLastOutput());
         LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler) );
     }
@@ -314,7 +314,7 @@ TEST(Assembler, LocalLabelTooLong)
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(3, printfSpy_GetCallCount());
     LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
-    CHECK(NULL != strstr(printfSpy_GetPreviousOutput(), " label is too long.") );
+    CHECK(NULL != strstr(printfSpy_GetLastErrorOutput(), " label is too long.") );
 }
 
 TEST(Assembler, LocalLabelDefineBeforeGlobalLabel)

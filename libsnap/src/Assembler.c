@@ -113,7 +113,7 @@ static void freeLines(Assembler* pThis)
 }
 
 
-static void parseSource(Assembler* pThis);
+static void firstPass(Assembler* pThis);
 static void parseLine(Assembler* pThis, char* pLine);
 static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine);
 static void firstPassAssembleLine(Assembler* pThis);
@@ -151,14 +151,21 @@ static int isLocalLabelName(const char* pLabelName);
 static void expandLocalLabelToGloballyUniqueName(Assembler* pThis, const char* pLocalLabelName, size_t length);
 static int seenGlobalLabel(Assembler* pThis);
 static void rememberGlobalLabel(Assembler* pThis);
-static void listLine(Assembler* pThis);
+static void secondPass(Assembler* pThis);
 void Assembler_Run(Assembler* pThis)
 {
-    parseSource(pThis);
-    return;
+    __try
+    {
+        __throwing_func( firstPass(pThis) );
+        __throwing_func( secondPass(pThis) );
+    }
+    __catch
+    {
+        __rethrow;
+    }
 }
 
-static void parseSource(Assembler* pThis)
+static void firstPass(Assembler* pThis)
 {
     char*      pLine = NULL;
     
@@ -180,7 +187,6 @@ static void parseLine(Assembler* pThis, char* pLine)
         ParseLine(&pThis->parsedLine, LineBuffer_Get(pThis->pLineText));
         firstPassAssembleLine(pThis);
         rememberLabel(pThis);
-        listLine(pThis);
         pThis->programCounter += pThis->pLineInfo->machineCodeSize;
     }
     __catch
@@ -191,7 +197,6 @@ static void parseLine(Assembler* pThis, char* pLine)
 
 static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine)
 {
-    // UNDONE: Test for failed allocation.
     LineInfo* pLineInfo = malloc(sizeof(*pLineInfo));
     if (!pLineInfo)
         __throw(outOfMemoryException);
@@ -673,9 +678,15 @@ static void rememberGlobalLabel(Assembler* pThis)
     pThis->maxLocalLabelSize = sizeof(pThis->labelBuffer) - length - 1;
 }
 
-static void listLine(Assembler* pThis)
+static void secondPass(Assembler* pThis)
 {
-    ListFile_OutputLine(pThis->pListFile, pThis->pLineInfo);
+    LineInfo* pCurr = pThis->linesHead.pNext;
+    
+    while(pCurr)
+    {
+        ListFile_OutputLine(pThis->pListFile, pCurr);
+        pCurr = pCurr->pNext;
+    }
 }
 
 
