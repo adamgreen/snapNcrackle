@@ -433,16 +433,9 @@ TEST(Assembler, FailAllocationDuringSymbolCreation)
 
 TEST(Assembler, InvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("org EQU +800\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+800' expression.\n", 
-                                   "    :              1 org EQU +800\n");
-}
-
-TEST(Assembler, AsteriskinExpression)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe("CHECKEND = *-CHECKER\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '*-CHECKER' expression.\n", 
-                                   "    :              1 CHECKEND = *-CHECKER\n");
+    m_pAssembler = Assembler_CreateFromString(dupe("org EQU (800\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '(800' expression.\n", 
+                                   "    :              1 org EQU (800\n");
 }
 
 TEST(Assembler, IgnoreLSTDirective)

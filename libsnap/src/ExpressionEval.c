@@ -41,6 +41,8 @@ static size_t lengthOfLabel(const char* pLabel);
 static int isSingleQuoteASCII(char prefixChar);
 static void parseASCIIValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static int isDoubleQuotedASCII(char prefixChar);
+static int isCurrentAddressChar(char prefixChar);
+static void parseCurrentAddressChar(Assembler* pAssembler, ExpressionEvaluation* pEval);
 __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
 {
     ExpressionEvaluation eval;
@@ -72,6 +74,10 @@ static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
     else if (isSingleQuoteASCII(prefixChar) || isDoubleQuotedASCII(prefixChar))
     {
         parseASCIIValue(pAssembler, pEval);
+    }
+    else if (isCurrentAddressChar(prefixChar))
+    {
+        parseCurrentAddressChar(pAssembler, pEval);
     }
     else if (isImmediatePrefix(prefixChar))
     {
@@ -266,6 +272,17 @@ static void parseASCIIValue(Assembler* pAssembler, ExpressionEvaluation* pEval)
 static int isDoubleQuotedASCII(char prefixChar)
 {
     return prefixChar == '"';
+}
+
+static int isCurrentAddressChar(char prefixChar)
+{
+    return prefixChar == '*';
+}
+
+static void parseCurrentAddressChar(Assembler* pAssembler, ExpressionEvaluation* pEval)
+{
+    pEval->pNext = pEval->pCurrent + 1;
+    pEval->expression = ExpressionEval_CreateAbsoluteExpression(pAssembler->programCounter);
 }
 
 

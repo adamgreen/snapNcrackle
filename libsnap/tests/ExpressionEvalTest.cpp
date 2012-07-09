@@ -142,12 +142,6 @@ TEST(ExpressionEval, EvaluateDecimalImmediate)
     LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
 }
 
-TEST(ExpressionEval, AsteriskinExpression)
-{
-    m_expression = ExpressionEval(m_pAssembler, dupe("*-CHECKER"));
-    validateFailureMessage("filename:0: error: Unexpected prefix in '*-CHECKER' expression.\n", invalidArgumentException);
-}
-
 TEST(ExpressionEval, InvalidImmediateValueLargerThan8Bits)
 {
     m_expression = ExpressionEval(m_pAssembler, dupe("#$100"));
@@ -180,4 +174,16 @@ TEST(ExpressionEval, EvaluateDoubleQuotedPrefixOnlyASCII)
     m_expression = ExpressionEval(m_pAssembler, "#\"a");
     LONGS_EQUAL('a' | 0x80, m_expression.value);
     LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
+}
+
+TEST(ExpressionEval, AsteriskInExpression)
+{
+    Assembler_Free(m_pAssembler);
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"));
+    CHECK(m_pAssembler != NULL);
+    Assembler_Run(m_pAssembler);
+    
+    m_expression = ExpressionEval(m_pAssembler, dupe("*"));
+    LONGS_EQUAL(0x800, m_expression.value);
+    LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
 }
