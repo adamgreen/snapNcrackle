@@ -25,6 +25,7 @@ typedef struct ExpressionEvaluation
 } ExpressionEvaluation;
 
 
+static int isImmediatePrefix(char prefixChar);
 static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static int isHexPrefix(char prefixChar);
 static void parseHexValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
@@ -35,7 +36,6 @@ static unsigned short parseBinaryDigit(char digit);
 static int isDecimal(char firstChar);
 static void parseDecimalValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static unsigned short parseDecimalDigit(char digit);
-static int isImmediatePrefix(char prefixChar);
 static int isLabelReference(char prefixChar);
 static size_t lengthOfLabel(const char* pLabel);
 static int isSingleQuoteASCII(char prefixChar);
@@ -49,9 +49,29 @@ __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
     
     memset(&eval.expression, 0, sizeof(eval.expression));
     eval.pCurrent = pOperands;
-    expressionEval(pAssembler, &eval);
+
+    if (isImmediatePrefix(*eval.pCurrent))
+    {
+        eval.pCurrent++;
+        expressionEval(pAssembler, &eval);
+        eval.expression.type = TYPE_IMMEDIATE;
+        if (eval.expression.value > 0xFF)
+        {
+            LOG_ERROR(pAssembler, "Immediate expression '%s' doesn't fit in 8-bits.", eval.pCurrent);
+            __throw_and_return(invalidArgumentException, eval.expression);
+        }
+    }
+    else
+    {
+        expressionEval(pAssembler, &eval);
+    }
     
     return eval.expression;
+}
+
+static int isImmediatePrefix(char prefixChar)
+{
+    return prefixChar == '#';
 }
 
 static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
@@ -78,17 +98,6 @@ static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
     else if (isCurrentAddressChar(prefixChar))
     {
         parseCurrentAddressChar(pAssembler, pEval);
-    }
-    else if (isImmediatePrefix(prefixChar))
-    {
-        pEval->pCurrent++;
-        expressionEval(pAssembler, pEval);
-        pEval->expression.type = TYPE_IMMEDIATE;
-        if (pEval->expression.value > 0xFF)
-        {
-            LOG_ERROR(pAssembler, "Immediate expression '%s' doesn't fit in 8-bits.", pEval->pCurrent);
-            __throw(invalidArgumentException);
-        }
     }
     else if (isLabelReference(prefixChar))
     {
@@ -231,11 +240,6 @@ static unsigned short parseDecimalDigit(char digit)
         return digit - '0';
     else
         __throw_and_return(invalidDecimalDigitException, 0);
-}
-
-static int isImmediatePrefix(char prefixChar)
-{
-    return prefixChar == '#';
 }
 
 static int isLabelReference(char prefixChar)
