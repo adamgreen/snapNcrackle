@@ -26,6 +26,7 @@ void        printfSpy_Unhook(void);
 
 const char* printfSpy_GetLastOutput(void);
 const char* printfSpy_GetPreviousOutput(void);
+const char* printfSpy_GetLastErrorOutput(void);
 FILE*       printfSpy_GetLastFile(void);
 size_t      printfSpy_GetCallCount(void);
 

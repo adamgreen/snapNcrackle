@@ -124,4 +124,6 @@ TEST(printfSpy, SendToStdErr)
     POINTERS_EQUAL(NULL, printfSpy_GetLastFile());
     hook_fprintf(stderr, "Line 1\r\n");
     POINTERS_EQUAL(stderr, printfSpy_GetLastFile());
+    STRCMP_EQUAL("Line 1\r\n", printfSpy_GetLastOutput());
+    STRCMP_EQUAL("Line 1\r\n", printfSpy_GetLastErrorOutput());
 }

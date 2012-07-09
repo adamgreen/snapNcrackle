@@ -20,6 +20,7 @@
 
 char*   g_pLastOutput = NULL;
 char*   g_pPreviousOutput = NULL;
+char*   g_pLastErrorOutput = NULL;
 size_t  g_bufferSize = 0;
 size_t  g_callCount = 0;
 FILE*   g_pFile = NULL;
@@ -33,17 +34,22 @@ static void _AllocateAndInitBuffers(size_t BufferSize)
     CHECK_C(NULL != g_pLastOutput);
     g_pPreviousOutput = malloc(g_bufferSize);
     CHECK_C(NULL != g_pPreviousOutput);
+    g_pLastErrorOutput = malloc(g_bufferSize);
+    CHECK_C(NULL != g_pLastErrorOutput);
     g_pLastOutput[0] = '\0';
     g_pPreviousOutput[0] = '\0';
+    g_pLastErrorOutput[0] = '\0';
     g_pFile = NULL;
 }
 
 static void _FreeBuffer(void)
 {
+    free(g_pLastErrorOutput);
     free(g_pPreviousOutput);
     free(g_pLastOutput);
     g_pLastOutput = NULL;
     g_pPreviousOutput = NULL;
+    g_pLastErrorOutput = NULL;
     g_bufferSize = 0;
     g_pFile = NULL;
 }
@@ -57,6 +63,8 @@ static int mock_common(FILE* pFile, const char* pFormat, va_list valist)
                             g_bufferSize,
                             pFormat,
                             valist);
+    if (pFile == stderr)
+        strcpy(g_pLastErrorOutput, g_pLastOutput);
     g_callCount++;
     g_pFile = pFile;
     return WrittenSize;
@@ -115,6 +123,11 @@ const char* printfSpy_GetLastOutput(void)
 const char* printfSpy_GetPreviousOutput(void)
 {
     return g_pPreviousOutput;
+}
+
+const char* printfSpy_GetLastErrorOutput(void)
+{
+    return g_pLastErrorOutput;
 }
 
 FILE* printfSpy_GetLastFile(void)
