@@ -627,7 +627,8 @@ static void expandLocalLabelToGloballyUniqueName(Assembler* pThis, const char* p
         __throw(bufferOverrunException);
     }
     
-    memcpy(pThis->pLocalLabelStart, pLocalLabelName, length+1);
+    memcpy(pThis->pLocalLabelStart, pLocalLabelName, length);
+    pThis->pLocalLabelStart[length] = '\0';
 }
 
 static int seenGlobalLabel(Assembler* pThis)
@@ -664,14 +665,14 @@ unsigned int Assembler_GetErrorCount(Assembler* pThis)
 }
 
 
-Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName, size_t labelLength)
+__throws Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName, size_t labelLength)
 {
     const char* pExpandedlName;
     
     __try
         __throwing_func( pExpandedlName = expandedLabelName(pThis, pLabelName, labelLength) );
     __catch
-        __nothrow_and_return(NULL);
+        __rethrow_and_return(NULL);
 
     return SymbolTable_Find(pThis->pSymbols, pExpandedlName);
 }

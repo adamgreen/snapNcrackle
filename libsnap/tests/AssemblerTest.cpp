@@ -622,14 +622,14 @@ TEST(Assembler, STAInvalidInvalidExpress)
                                    "    :              1  sta +ff\n");
 }
 
-TEST(Assembler, STAToLocalLabel)
+TEST(Assembler, STAToLocalLabelPlusOffset)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("func1 sta $20\n"
                                                    ":local sta $20\n"
                                                    "func2 sta $21\n"
                                                    ":local sta $22\n"
-                                                   " sta :local\n"));
-    runAssemblerAndValidateLastLineIs("0008: 85 06        5  sta :local\n", 5);
+                                                   " sta :local+1\n"));
+    runAssemblerAndValidateLastLineIs("0008: 85 07        5  sta :local+1\n", 5);
 }
 
 TEST(Assembler, SpecifySameLabelTwice)
