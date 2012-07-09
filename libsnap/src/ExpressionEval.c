@@ -37,6 +37,7 @@ static void parseDecimalValue(Assembler* pAssembler, ExpressionEvaluation* pEval
 static unsigned short parseDecimalDigit(char digit);
 static int isImmediatePrefix(char prefixChar);
 static int isLabelReference(char prefixChar);
+static size_t lengthOfLabel(const char* pLabel);
 __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
 {
     ExpressionEvaluation eval;
@@ -78,7 +79,8 @@ static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
     }
     else if (isLabelReference(prefixChar))
     {
-        pSymbol = Assembler_FindLabel(pAssembler, pEval->pCurrent);
+        size_t labelLength = lengthOfLabel(pEval->pCurrent);
+        pSymbol = Assembler_FindLabel(pAssembler, pEval->pCurrent, labelLength);
         if (!pSymbol)
             __throw(invalidArgumentException);
         pEval->expression = pSymbol->expression;
@@ -226,6 +228,16 @@ static int isImmediatePrefix(char prefixChar)
 static int isLabelReference(char prefixChar)
 {
     return prefixChar >= ':';
+}
+
+static size_t lengthOfLabel(const char* pLabel)
+{
+    const char* pCurr = pLabel + 1;
+    while (*pCurr && *pCurr >= '0')
+    {
+        pCurr++;
+    }
+    return pCurr - pLabel;
 }
 
 

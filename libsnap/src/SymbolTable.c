@@ -170,13 +170,13 @@ static size_t hashString(const char* pString)
 }
 
 
-static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey);
-Symbol* SymbolTable_Find(SymbolTable* pThis, const char* pKey)
+static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey, size_t keyLength);
+Symbol* SymbolTable_FindSized(SymbolTable* pThis, const char* pKey, size_t keyLength)
 {
-    return searchBucket(pThis->ppBuckets[hashString(pKey) % pThis->bucketCount], pKey);
+    return searchBucket(pThis->ppBuckets[hashString(pKey) % pThis->bucketCount], pKey, keyLength);
 }
 
-static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey)
+static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey, size_t keyLength)
 {
     Symbol* pCurr = pBucketHead;
     
@@ -185,12 +185,18 @@ static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey)
         
     while (pCurr)
     {
-        if (0 == strcmp(pKey, pCurr->pKey))
+        if (0 == strncmp(pKey, pCurr->pKey, keyLength))
             return pCurr;
             
         pCurr = pCurr->pNext;
     }
     return NULL;
+}
+
+
+Symbol* SymbolTable_Find(SymbolTable* pThis, const char* pKey)
+{
+    return searchBucket(pThis->ppBuckets[hashString(pKey) % pThis->bucketCount], pKey, strlen(pKey));
 }
 
 

@@ -51,6 +51,6 @@ struct Assembler
                                        __VA_ARGS__), pASSEMBLER->errorCount++
 
 
-Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName);
+Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName, size_t labelLength);
 
 #endif /* _ASSEMBLER_PRIV_H_ */

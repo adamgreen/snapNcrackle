@@ -128,10 +128,10 @@ static void rememberLabel(Assembler* pThis);
 static int isLabelToRemember(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
 static int wasEQUDirective(Assembler* pThis);
-static const char* expandedLabelName(Assembler* pThis, const char* pLabelName);
+static const char* expandedLabelName(Assembler* pThis, const char* pLabelName, size_t labelLength);
 static int isGlobalLabelName(const char* pLabelName);
 static int isLocalLabelName(const char* pLabelName);
-static void expandLocalLabelToGloballyUniqueName(Assembler* pThis, const char* pLocalLabelName);
+static void expandLocalLabelToGloballyUniqueName(Assembler* pThis, const char* pLocalLabelName, size_t length);
 static int seenGlobalLabel(Assembler* pThis);
 static void rememberGlobalLabel(Assembler* pThis);
 static void listLine(Assembler* pThis);
@@ -532,7 +532,7 @@ static void rememberLabel(Assembler* pThis)
         const char* pExpandedLabelName = NULL;
         Symbol*     pSymbol = NULL;
     
-        __throwing_func( pExpandedLabelName = expandedLabelName(pThis, pThis->parsedLine.pLabel) );
+        __throwing_func( pExpandedLabelName = expandedLabelName(pThis, pThis->parsedLine.pLabel, strlen(pThis->parsedLine.pLabel)) );
         __throwing_func( pSymbol = attemptToAddSymbol(pThis, pExpandedLabelName) );
         __throwing_func( rememberGlobalLabel(pThis) );
         pSymbol->expression = ExpressionEval_CreateAbsoluteExpression(pThis->programCounter);
@@ -558,12 +558,12 @@ static int wasEQUDirective(Assembler* pThis)
     return pThis->lineInfo.flags & LINEINFO_FLAG_WAS_EQU;
 }
 
-static const char* expandedLabelName(Assembler* pThis, const char* pLabelName)
+static const char* expandedLabelName(Assembler* pThis, const char* pLabelName, size_t labelLength)
 {
     if (isGlobalLabelName(pLabelName))
         return pLabelName;
     
-    expandLocalLabelToGloballyUniqueName(pThis, pLabelName);    
+    expandLocalLabelToGloballyUniqueName(pThis, pLabelName, labelLength);    
     return pThis->labelBuffer;
 }
 
@@ -577,18 +577,16 @@ static int isLocalLabelName(const char* pLabelName)
     return *pLabelName == ':';
 }
 
-static void expandLocalLabelToGloballyUniqueName(Assembler* pThis, const char* pLocalLabelName)
+static void expandLocalLabelToGloballyUniqueName(Assembler* pThis, const char* pLocalLabelName, size_t length)
 {
-    size_t      length = strlen(pLocalLabelName);
-    
     if (!seenGlobalLabel(pThis))
     {
-        LOG_ERROR(pThis, "'%s' local label isn't allowed before first global label.", pLocalLabelName);
+        LOG_ERROR(pThis, "'%.*s' local label isn't allowed before first global label.", length, pLocalLabelName);
         __throw(invalidArgumentException);
     }
     if (length > pThis->maxLocalLabelSize)
     {
-        LOG_ERROR(pThis, "'%s' label is too long.", pLocalLabelName);
+        LOG_ERROR(pThis, "'%.*s' label is too long.", length, pLocalLabelName);
         __throw(bufferOverrunException);
     }
     
@@ -629,12 +627,12 @@ unsigned int Assembler_GetErrorCount(Assembler* pThis)
 }
 
 
-Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName)
+Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName, size_t labelLength)
 {
     const char* pExpandedlName;
     
     __try
-        __throwing_func( pExpandedlName = expandedLabelName(pThis, pLabelName) );
+        __throwing_func( pExpandedlName = expandedLabelName(pThis, pLabelName, labelLength) );
     __catch
         __nothrow_and_return(NULL);
 

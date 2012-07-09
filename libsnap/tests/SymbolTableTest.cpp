@@ -166,28 +166,52 @@ TEST(SymbolTable, TwoItemsInSymbolTable)
     STRCMP_EQUAL(pKey2, m_pSymbol2->pKey);
 }
 
-TEST(SymbolTable, AttemptToFindNonExistantItem)
+TEST(SymbolTable, AttemptToFindSizedNonExistantItem)
 {
     const Symbol* pSymbol = NULL;
     
     m_pSymbolTable = SymbolTable_Create(2);
     SymbolTable_Add(m_pSymbolTable, pKey1);
-    pSymbol = SymbolTable_Find(m_pSymbolTable, "foobar");
+    pSymbol = SymbolTable_FindSized(m_pSymbolTable, "foobar", strlen("foobar"));
     POINTERS_EQUAL(NULL, pSymbol);
 }
 
-TEST(SymbolTable, FindItemWhenMultipleBuckets)
+TEST(SymbolTable, FindSizedItemWhenMultipleBuckets)
 {
     const Symbol* pSymbol = NULL;
     
     m_pSymbolTable = SymbolTable_Create(5);
     createTwoSymbols();
-    pSymbol = SymbolTable_Find(m_pSymbolTable, pKey1);
+    pSymbol = SymbolTable_FindSized(m_pSymbolTable, pKey1, strlen(pKey1));
     CHECK(NULL != pSymbol);
     STRCMP_EQUAL(pKey1, pSymbol->pKey);
 }
 
-TEST(SymbolTable, FindFirstItemInBucket)
+TEST(SymbolTable, FindSizedFirstItemInBucket)
+{
+    const Symbol* pSymbol = NULL;
+    
+    m_pSymbolTable = SymbolTable_Create(1);
+    createTwoSymbols();
+
+    pSymbol = SymbolTable_FindSized(m_pSymbolTable, pKey1, strlen(pKey1));
+    CHECK(NULL != pSymbol);
+    STRCMP_EQUAL(pKey1, pSymbol->pKey);
+}
+
+TEST(SymbolTable, FindSizedSecondItemInBucket)
+{
+    const Symbol* pSymbol = NULL;
+    
+    m_pSymbolTable = SymbolTable_Create(1);
+    createTwoSymbols();
+
+    pSymbol = SymbolTable_FindSized(m_pSymbolTable, pKey2, strlen(pKey2));
+    CHECK(NULL != pSymbol);
+    STRCMP_EQUAL(pKey2, pSymbol->pKey);
+}
+
+TEST(SymbolTable, FindBothItemsInBucketWithUnsizedFind)
 {
     const Symbol* pSymbol = NULL;
     
@@ -197,14 +221,6 @@ TEST(SymbolTable, FindFirstItemInBucket)
     pSymbol = SymbolTable_Find(m_pSymbolTable, pKey1);
     CHECK(NULL != pSymbol);
     STRCMP_EQUAL(pKey1, pSymbol->pKey);
-}
-
-TEST(SymbolTable, FindSecondItemInBucket)
-{
-    const Symbol* pSymbol = NULL;
-    
-    m_pSymbolTable = SymbolTable_Create(1);
-    createTwoSymbols();
 
     pSymbol = SymbolTable_Find(m_pSymbolTable, pKey2);
     CHECK(NULL != pSymbol);
