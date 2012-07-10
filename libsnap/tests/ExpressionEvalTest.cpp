@@ -31,7 +31,9 @@ TEST_GROUP(ExpressionEval)
     void setup()
     {
         printfSpy_Hook(128);
-        m_pAssembler = Assembler_CreateFromString(dupe("* First line of sample.\n"));
+        m_pAssembler = Assembler_CreateFromString(dupe(""));
+        CHECK(m_pAssembler);
+        Assembler_Run(m_pAssembler);
     }
 
     void teardown()
@@ -160,8 +162,8 @@ TEST(ExpressionEval, EvaluateSingleQuotedASCII)
 
 TEST(ExpressionEval, EvaluateSingleQuotedPrefixOnlyASCII)
 {
-    m_expression = ExpressionEval(m_pAssembler, "#'a");
-    LONGS_EQUAL('a', m_expression.value);
+    m_expression = ExpressionEval(m_pAssembler, "#'a+1");
+    LONGS_EQUAL('a'+1, m_expression.value);
     LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
 }
 
@@ -174,8 +176,8 @@ TEST(ExpressionEval, EvaluateDoubleQuotedASCII)
 
 TEST(ExpressionEval, EvaluateDoubleQuotedPrefixOnlyASCII)
 {
-    m_expression = ExpressionEval(m_pAssembler, "#\"a");
-    LONGS_EQUAL('a' | 0x80, m_expression.value);
+    m_expression = ExpressionEval(m_pAssembler, "#\"a+1");
+    LONGS_EQUAL(('a' | 0x80)+1, m_expression.value);
     LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
 }
 
@@ -245,11 +247,4 @@ TEST(ExpressionEval, EvaluateAND)
     m_expression = ExpressionEval(m_pAssembler, "$af&$f0");
     LONGS_EQUAL(0xa0, m_expression.value);
     LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
-}
-
-TEST(ExpressionEval, EvaluateInvalidLabel)
-{
-    m_expression = ExpressionEval(m_pAssembler, "Label+1");
-    LONGS_EQUAL(0x0, m_expression.value);
-    validateFailureMessage("filename:0: error: 'Label' label is undefined.\n", invalidArgumentException);
 }
