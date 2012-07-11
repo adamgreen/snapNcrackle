@@ -396,11 +396,6 @@ static void parseLabelReference(Assembler* pAssembler, ExpressionEvaluation* pEv
     __catch
         __rethrow;
 
-    if (!pSymbol)
-    {
-        LOG_ERROR(pAssembler, "'%.*s' label is undefined.", labelLength, pEval->pCurrent);
-        __throw(invalidArgumentException);
-    }
     pEval->expression = pSymbol->expression;
     pEval->pNext = pEval->pCurrent + labelLength;
 }

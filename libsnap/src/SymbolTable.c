@@ -136,14 +136,13 @@ static Symbol* allocateSymbol(const char* pKey)
     if (!pSymbol)
         __throw_and_return(outOfMemoryException, NULL);
     
+    memset(pSymbol, 0, sizeof(*pSymbol));
     pSymbol->pKey = stringDuplicate(pKey);
     if (!pSymbol->pKey)
     {
         free(pSymbol);
         __throw_and_return(outOfMemoryException, NULL);
     }
-    pSymbol->pNext = NULL;
-    memset(&pSymbol->expression, 0, sizeof(pSymbol->expression));
     
     return pSymbol;
 }

@@ -16,6 +16,7 @@ extern "C"
 {
     #include "ExpressionEval.h"
     #include "printfSpy.h"
+    #include "MallocFailureInject.h"
 }
 
 // Include C++ headers for test harness.
@@ -247,4 +248,23 @@ TEST(ExpressionEval, EvaluateAND)
     m_expression = ExpressionEval(m_pAssembler, "$af&$f0");
     LONGS_EQUAL(0xa0, m_expression.value);
     LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, ForwardLabelReference)
+{
+    m_expression = ExpressionEval(m_pAssembler, dupe("fwd_label"));
+    LONGS_EQUAL(0x0, m_expression.value);
+    LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, FailAllocationOnForwardLabelReference)
+{
+    MallocFailureInject_FailAllocation(1);
+    m_expression = ExpressionEval(m_pAssembler, dupe("fwd_label"));
+    MallocFailureInject_Restore();
+
+    LONGS_EQUAL(0x0, m_expression.value);
+    LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
+    LONGS_EQUAL(outOfMemoryException, getExceptionCode());
+    clearExceptionCode();
 }

@@ -16,12 +16,17 @@
 #include "ExpressionEval.h"
 
 
+#define SYMBOL_FLAG_DEFINED 1
+
+
 typedef struct Symbol Symbol;
 struct Symbol
 {
     const char*    pKey;
     Expression     expression;
     Symbol*        pNext;
+    unsigned int   flags;
 };
+
 
 #endif /* _SYMBOL_H_ */

@@ -105,10 +105,10 @@ TEST_GROUP(Assembler)
         LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
     }
     
-    void runAssemblerAndValidateOutputIsTwoLinesOf(const char* pExpectedOutput1, const char* pExpectedOutput2)
+    void runAssemblerAndValidateOutputIsTwoLinesOf(const char* pExpectedOutput1, const char* pExpectedOutput2, int expectedPrintfCalls = 2)
     {
         Assembler_Run(m_pAssembler);
-        LONGS_EQUAL(2, printfSpy_GetCallCount());
+        LONGS_EQUAL(expectedPrintfCalls, printfSpy_GetCallCount());
         STRCMP_EQUAL(pExpectedOutput1, printfSpy_GetPreviousOutput());
         STRCMP_EQUAL(pExpectedOutput2, printfSpy_GetLastOutput());
         LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
@@ -317,6 +317,14 @@ TEST(Assembler, LocalLabelTooLong)
     CHECK(NULL != strstr(printfSpy_GetLastErrorOutput(), " label is too long.") );
 }
 
+TEST(Assembler, SpecifySameLabelTwice)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("entry lda #$60\n"
+                                                   "entry lda #$61\n"));
+    runAssemblerAndValidateFailure("filename:2: error: 'entry' symbol has already been defined.\n",
+                                   "0002: A9 61        2 entry lda #$61\n", 3);
+}
+
 TEST(Assembler, LocalLabelDefineBeforeGlobalLabel)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(":local_label\n"));
@@ -361,6 +369,26 @@ TEST(Assembler, LabelContainsInvalidCharacter)
     STRCMP_EQUAL("filename:1: error: 'Label.' label contains invalid character, '.'.\n", printfSpy_GetPreviousOutput());
 }
 
+TEST(Assembler, ForwardReferenceLabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta label\n"
+                                                   "label sta $2b\n"));
+    CHECK(m_pAssembler != NULL);
+    // UNDONE: The machine code for the last two bytes of first instruction will change once forward references are fully working.
+    runAssemblerAndValidateOutputIsTwoLinesOf("0000: 8D 00 00     1  sta label\n",
+                                              "0003: 85 2B        2 label sta $2b\n");
+}
+
+TEST(Assembler, FailToDefineLabelTwiceAfterForwardReferenced)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta label\n"
+                                                   "label sta $2b\n"
+                                                   "label sta $2c\n"));
+    CHECK(m_pAssembler != NULL);
+    runAssemblerAndValidateFailure("filename:3: error: 'label' symbol has already been defined.\n",
+                                   "0005: 85 2C        3 label sta $2c\n", 4);
+}
+
 TEST(Assembler, EQULabelStartsWithInvalidCharacter)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("9Label EQU $23\n"));
@@ -392,6 +420,26 @@ TEST(Assembler, EQULabelIsLocal)
     LONGS_EQUAL(2, printfSpy_GetCallCount());
     LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
     STRCMP_EQUAL("filename:1: error: ':Label' can't be a local label when used with EQU.\n", printfSpy_GetPreviousOutput());
+}
+
+TEST(Assembler, ForwardReferenceEQULabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta label\n"
+                                                   "label equ $ffff\n"));
+    CHECK(m_pAssembler != NULL);
+    // UNDONE: The machine code for the last two bytes of first instruction will change once forward references are fully working.
+    runAssemblerAndValidateOutputIsTwoLinesOf("0000: 8D 00 00     1  sta label\n",
+                                              "    :    =FFFF     2 label equ $ffff\n");
+}
+
+TEST(Assembler, FailToDefineEquLabelTwiceAfterForwardReferenced)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta label\n"
+                                                   "label equ $2b\n"
+                                                   "label equ $2c\n"));
+    CHECK(m_pAssembler != NULL);
+    runAssemblerAndValidateFailure("filename:3: error: 'label' symbol has already been defined.\n",
+                                   "    :              3 label equ $2c\n", 4);
 }
 
 TEST(Assembler, CommentLine)
@@ -644,12 +692,16 @@ TEST(Assembler, STAToLocalLabelPlusOffset)
     runAssemblerAndValidateLastLineIs("0008: 85 07        5  sta :local+1\n", 5);
 }
 
-TEST(Assembler, SpecifySameLabelTwice)
+IGNORE_TEST(Assembler, STAToLocalLabelPlusOffsetForwardReference)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("entry lda #$60\n"
-                                                   "entry lda #$61\n"));
-    runAssemblerAndValidateFailure("filename:2: error: 'entry' symbol has already been defined.\n",
-                                   "0002: A9 61        2 entry lda #$61\n", 3);
+    m_pAssembler = Assembler_CreateFromString(dupe("func1 sta $20\n"
+                                                   ":local sta $20\n"
+                                                   "func2 sta $21\n"
+                                                   " sta :local+1\n"
+                                                   ":local sta $22\n"));
+    
+    runAssemblerAndValidateOutputIsTwoLinesOf("0006: 8D 09 00     4  sta :local+1\n",
+                                              "0008: 85 22        5 :local sta $22\n", 5);
 }
 
 TEST(Assembler, JSRAbsolute)

@@ -121,6 +121,8 @@ static void handleEQU(Assembler* pThis);
 static void validateEQULabelFormat(Assembler* pThis);
 static void validateLabelFormat(Assembler* pThis);
 static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName);
+static int isSymbolDefined(Symbol* pSymbol);
+static void flagSymbolAsDefined(Symbol* pSymbol);
 static void ignoreOperator(Assembler* pThis);
 static void handleInvalidOperator(Assembler* pThis);
 static void handleHEX(Assembler* pThis);
@@ -303,24 +305,37 @@ static void validateLabelFormat(Assembler* pThis)
 
 static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName)
 {
-    Symbol* pSymbol = NULL;
-    if (SymbolTable_Find(pThis->pSymbols, pSymbolName))
+    Symbol* pSymbol = SymbolTable_Find(pThis->pSymbols, pSymbolName);
+    if (pSymbol && isSymbolDefined(pSymbol))
     {
         LOG_ERROR(pThis, "'%s' symbol has already been defined.", pSymbolName);
         __throw_and_return(invalidArgumentException, NULL);
     }
-    
-    __try
+    if (!pSymbol)
     {
-        __throwing_func( pSymbol = SymbolTable_Add(pThis->pSymbols, pSymbolName) );
-    }
-    __catch
-    {
-        LOG_ERROR(pThis, "Failed to allocate space for '%s' symbol.", pSymbolName);
-        __rethrow_and_return(NULL);
-    }
-    
+        __try
+        {
+            pSymbol = SymbolTable_Add(pThis->pSymbols, pSymbolName);
+        }
+        __catch
+        {
+            LOG_ERROR(pThis, "Failed to allocate space for '%s' symbol.", pSymbolName);
+            __rethrow_and_return(NULL);
+        }
+    }    
+    flagSymbolAsDefined(pSymbol);
+
     return pSymbol;
+}
+
+static int isSymbolDefined(Symbol* pSymbol)
+{
+    return pSymbol->flags & SYMBOL_FLAG_DEFINED;
+}
+
+static void flagSymbolAsDefined(Symbol* pSymbol)
+{
+    pSymbol->flags |= SYMBOL_FLAG_DEFINED;
 }
 
 static void ignoreOperator(Assembler* pThis)
@@ -698,14 +713,22 @@ unsigned int Assembler_GetErrorCount(Assembler* pThis)
 
 __throws Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName, size_t labelLength)
 {
-    const char* pExpandedlName;
+    Symbol*     pSymbol = NULL;
+    const char* pExpandedName = NULL;
     
     __try
-        __throwing_func( pExpandedlName = expandedLabelName(pThis, pLabelName, labelLength) );
+    {
+        __throwing_func( pExpandedName = expandedLabelName(pThis, pLabelName, labelLength) );
+        pSymbol = SymbolTable_Find(pThis->pSymbols, pExpandedName);
+        if (!pSymbol)
+            __throwing_func( pSymbol = SymbolTable_Add(pThis->pSymbols, pExpandedName) );
+    }
     __catch
+    {
         __rethrow_and_return(NULL);
+    }
 
-    return SymbolTable_Find(pThis->pSymbols, pExpandedlName);
+    return pSymbol;
 }
 
 
