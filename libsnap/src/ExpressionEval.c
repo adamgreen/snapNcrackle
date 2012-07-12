@@ -56,6 +56,7 @@ static void parseCurrentAddressChar(Assembler* pAssembler, ExpressionEvaluation*
 static int isLabelReference(char prefixChar);
 static void parseLabelReference(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static size_t lengthOfLabel(const char* pLabel);
+static void flagForwardReferenceOnExpressionIfUndefinedLabel(ExpressionEvaluation* pEval, Symbol* pSymbol);
 __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
 {
     ExpressionEvaluation eval;
@@ -398,6 +399,7 @@ static void parseLabelReference(Assembler* pAssembler, ExpressionEvaluation* pEv
 
     pEval->expression = pSymbol->expression;
     pEval->pNext = pEval->pCurrent + labelLength;
+    flagForwardReferenceOnExpressionIfUndefinedLabel(pEval, pSymbol);
 }
 
 static size_t lengthOfLabel(const char* pLabel)
@@ -410,11 +412,18 @@ static size_t lengthOfLabel(const char* pLabel)
     return pCurr - pLabel;
 }
 
+static void flagForwardReferenceOnExpressionIfUndefinedLabel(ExpressionEvaluation* pEval, Symbol* pSymbol)
+{
+    if (!(pSymbol->flags & SYMBOL_FLAG_DEFINED))
+        pEval->expression.flags |= EXPRESSION_FLAG_FORWARD_REFERENCE;
+}
+
 
 Expression ExpressionEval_CreateAbsoluteExpression(unsigned short value)
 {
     Expression expression;
     
+    memset(&expression, 0, sizeof(expression));
     expression.value = value;
     if (value <= 0xff)
         expression.type = TYPE_ZEROPAGE_ABSOLUTE;

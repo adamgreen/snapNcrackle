@@ -32,9 +32,8 @@ TEST_GROUP(ExpressionEval)
     void setup()
     {
         printfSpy_Hook(128);
-        m_pAssembler = Assembler_CreateFromString(dupe(""));
-        CHECK(m_pAssembler);
-        Assembler_Run(m_pAssembler);
+        m_pAssembler = NULL;
+        setupAssemblerModule("");
     }
 
     void teardown()
@@ -57,6 +56,14 @@ TEST_GROUP(ExpressionEval)
         LONGS_EQUAL(1, printfSpy_GetCallCount());
         LONGS_EQUAL(expectedExceptionCode, getExceptionCode());
         clearExceptionCode();
+    }
+    
+    void setupAssemblerModule(const char* pAsmSource)
+    {
+        Assembler_Free(m_pAssembler);
+        m_pAssembler = Assembler_CreateFromString(dupe(pAsmSource));
+        CHECK(m_pAssembler != NULL);
+        Assembler_Run(m_pAssembler);
     }
 };
 
@@ -184,11 +191,7 @@ TEST(ExpressionEval, EvaluateDoubleQuotedPrefixOnlyASCII)
 
 TEST(ExpressionEval, AsteriskInExpression)
 {
-    Assembler_Free(m_pAssembler);
-    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"));
-    CHECK(m_pAssembler != NULL);
-    Assembler_Run(m_pAssembler);
-    
+    setupAssemblerModule(" org $800\n");
     m_expression = ExpressionEval(m_pAssembler, dupe("*"));
     LONGS_EQUAL(0x800, m_expression.value);
     LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
@@ -252,15 +255,25 @@ TEST(ExpressionEval, EvaluateAND)
 
 TEST(ExpressionEval, ForwardLabelReference)
 {
-    m_expression = ExpressionEval(m_pAssembler, dupe("fwd_label"));
+    m_expression = ExpressionEval(m_pAssembler, "fwd_label");
     LONGS_EQUAL(0x0, m_expression.value);
     LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
+    CHECK_TRUE(m_expression.flags & EXPRESSION_FLAG_FORWARD_REFERENCE);
+}
+
+TEST(ExpressionEval, BackwardLabelReference)
+{
+    setupAssemblerModule("backLabel equ $a55a\n");
+    m_expression = ExpressionEval(m_pAssembler, "backLabel");
+    LONGS_EQUAL(0xa55a, m_expression.value);
+    LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
+    CHECK_FALSE(m_expression.flags & EXPRESSION_FLAG_FORWARD_REFERENCE);
 }
 
 TEST(ExpressionEval, FailAllocationOnForwardLabelReference)
 {
     MallocFailureInject_FailAllocation(1);
-    m_expression = ExpressionEval(m_pAssembler, dupe("fwd_label"));
+    m_expression = ExpressionEval(m_pAssembler, "fwd_label");
     MallocFailureInject_Restore();
 
     LONGS_EQUAL(0x0, m_expression.value);

@@ -16,6 +16,9 @@
 #include "try_catch.h"
 #include "Assembler.h"
 
+#define EXPRESSION_FLAG_FORWARD_REFERENCE 1
+
+
 typedef enum ExpressionType
 {
     TYPE_ABSOLUTE = 0,
@@ -23,10 +26,10 @@ typedef enum ExpressionType
     TYPE_IMMEDIATE
 } ExpressionType;
 
-
 typedef struct Expression
 {
     ExpressionType type;
+    unsigned int   flags;
     unsigned short value;
 } Expression;
 
