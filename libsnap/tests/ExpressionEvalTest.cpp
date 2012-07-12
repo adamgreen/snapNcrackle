@@ -15,6 +15,8 @@
 extern "C"
 {
     #include "ExpressionEval.h"
+    #include "SymbolTable.h"
+    #include "../src/AssemblerPriv.h"
     #include "printfSpy.h"
     #include "MallocFailureInject.h"
 }
@@ -255,19 +257,33 @@ TEST(ExpressionEval, EvaluateAND)
 
 TEST(ExpressionEval, ForwardLabelReference)
 {
-    m_expression = ExpressionEval(m_pAssembler, "fwd_label");
+    static const char labelName[] = "fwd_label";
+    m_expression = ExpressionEval(m_pAssembler, labelName);
     LONGS_EQUAL(0x0, m_expression.value);
     LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
     CHECK_TRUE(m_expression.flags & EXPRESSION_FLAG_FORWARD_REFERENCE);
+    
+    Symbol* pSymbol = Assembler_FindLabel(m_pAssembler, labelName, strlen(labelName));
+    CHECK(pSymbol);
+    Symbol_LineReferenceEnumStart(pSymbol);
+    LineInfo* pLineInfo = Symbol_LineReferenceEnumNext(pSymbol);
+    CHECK(pLineInfo);
 }
 
 TEST(ExpressionEval, BackwardLabelReference)
 {
+    static const char labelName[] = "backLabel";
     setupAssemblerModule("backLabel equ $a55a\n");
-    m_expression = ExpressionEval(m_pAssembler, "backLabel");
+    m_expression = ExpressionEval(m_pAssembler, labelName);
     LONGS_EQUAL(0xa55a, m_expression.value);
     LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
     CHECK_FALSE(m_expression.flags & EXPRESSION_FLAG_FORWARD_REFERENCE);
+
+    Symbol* pSymbol = Assembler_FindLabel(m_pAssembler, labelName, strlen(labelName));
+    CHECK(pSymbol);
+    Symbol_LineReferenceEnumStart(pSymbol);
+    LineInfo* pLineInfo = Symbol_LineReferenceEnumNext(pSymbol);
+    POINTERS_EQUAL(NULL, pLineInfo);
 }
 
 TEST(ExpressionEval, FailAllocationOnForwardLabelReference)

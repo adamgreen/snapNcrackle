@@ -722,6 +722,8 @@ __throws Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName, s
         pSymbol = SymbolTable_Find(pThis->pSymbols, pExpandedName);
         if (!pSymbol)
             __throwing_func( pSymbol = SymbolTable_Add(pThis->pSymbols, pExpandedName) );
+        if (!isSymbolDefined(pSymbol))
+            __throwing_func( Symbol_LineReferenceAdd(pSymbol, pThis->pLineInfo) );
     }
     __catch
     {
