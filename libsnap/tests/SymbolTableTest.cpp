@@ -28,12 +28,15 @@ static const char* pKey2 = "foo2";
 
 TEST_GROUP(SymbolTable)
 {
+    LineInfo     m_lineInfo1;
+    LineInfo     m_lineInfo2;
     SymbolTable* m_pSymbolTable;
     Symbol*      m_pSymbol1;
     Symbol*      m_pSymbol2;
     
     void setup()
     {
+        memset(&m_lineInfo1, 0, sizeof(m_lineInfo1));
         m_pSymbolTable = NULL;
         m_pSymbol1 = NULL;
         m_pSymbol2 = NULL;
@@ -85,6 +88,12 @@ TEST_GROUP(SymbolTable)
     {
         Symbol* pSymbol = SymbolTable_EnumNext(m_pSymbolTable);
         POINTERS_EQUAL(NULL, pSymbol);
+    }
+    
+    void nextLineEnumAttemptShouldFail(Symbol* pSymbol)
+    {
+        LineInfo* pLineInfo = Symbol_LineReferenceEnumNext(pSymbol);
+        POINTERS_EQUAL(NULL, pLineInfo);
     }
 };
 
@@ -299,4 +308,93 @@ TEST(SymbolTable, EnumerateTwoItemsInDifferentBuckets)
     CHECK(pSymbol1 != pSymbol2);
 
     nextEnumAttemptShouldFail();
+}
+
+TEST(SymbolTable, FailAllocationWhenAddingLineInfoToSymbol)
+{
+    m_pSymbolTable = SymbolTable_Create(1);
+    createOneSymbol();
+    
+    MallocFailureInject_FailAllocation(1);
+    Symbol_LineReferenceAdd(m_pSymbol1, &m_lineInfo1);
+    MallocFailureInject_Restore();
+
+    LONGS_EQUAL(outOfMemoryException, getExceptionCode());
+    POINTERS_EQUAL(NULL, m_pSymbol1->pLineReferences);
+    CHECK_FALSE(Symbol_LineReferenceExist(m_pSymbol1, &m_lineInfo1));
+    clearExceptionCode();
+}
+
+TEST(SymbolTable, AddOneLineInfoToSymbol)
+{
+    m_pSymbolTable = SymbolTable_Create(1);
+    createOneSymbol();
+    Symbol_LineReferenceAdd(m_pSymbol1, &m_lineInfo1);
+
+    Symbol_LineReferenceEnumStart(m_pSymbol1);
+    LineInfo* pLineInfo = Symbol_LineReferenceEnumNext(m_pSymbol1);
+    POINTERS_EQUAL(&m_lineInfo1, pLineInfo);
+    nextLineEnumAttemptShouldFail(m_pSymbol1);
+}
+
+TEST(SymbolTable, AddSameLineInfoTwiceToSymbolAndMakeSureThatSecondIsIgnored)
+{
+    m_pSymbolTable = SymbolTable_Create(1);
+    createOneSymbol();
+    Symbol_LineReferenceAdd(m_pSymbol1, &m_lineInfo1);
+    Symbol_LineReferenceAdd(m_pSymbol1, &m_lineInfo1);
+
+    Symbol_LineReferenceEnumStart(m_pSymbol1);
+    LineInfo* pLineInfo = Symbol_LineReferenceEnumNext(m_pSymbol1);
+    POINTERS_EQUAL(&m_lineInfo1, pLineInfo);
+    nextLineEnumAttemptShouldFail(m_pSymbol1);
+}
+
+TEST(SymbolTable, AddTwoLineInfoToSymbolAndVerifyEnumerateInReverseOrder)
+{
+    m_pSymbolTable = SymbolTable_Create(1);
+    createOneSymbol();
+    Symbol_LineReferenceAdd(m_pSymbol1, &m_lineInfo1);
+    Symbol_LineReferenceAdd(m_pSymbol1, &m_lineInfo2);
+
+    Symbol_LineReferenceEnumStart(m_pSymbol1);
+    LineInfo* pLineInfo = Symbol_LineReferenceEnumNext(m_pSymbol1);
+    POINTERS_EQUAL(&m_lineInfo2, pLineInfo);
+    pLineInfo = Symbol_LineReferenceEnumNext(m_pSymbol1);
+    POINTERS_EQUAL(&m_lineInfo1, pLineInfo);
+    nextLineEnumAttemptShouldFail(m_pSymbol1);
+}
+
+TEST(SymbolTable, EnumerateEmptyLineReferenceList)
+{
+    m_pSymbolTable = SymbolTable_Create(1);
+    createOneSymbol();
+
+    Symbol_LineReferenceEnumStart(m_pSymbol1);
+    nextLineEnumAttemptShouldFail(m_pSymbol1);
+}
+
+TEST(SymbolTable, RemoveOneItemFromLineReferenceList)
+{
+    m_pSymbolTable = SymbolTable_Create(1);
+    createOneSymbol();
+    Symbol_LineReferenceAdd(m_pSymbol1, &m_lineInfo1);
+    Symbol_LineReferenceRemove(m_pSymbol1, &m_lineInfo1);
+
+    Symbol_LineReferenceEnumStart(m_pSymbol1);
+    nextLineEnumAttemptShouldFail(m_pSymbol1);
+}
+
+TEST(SymbolTable, AddTwoLineInfoToSymbolAndRemoveLastOne)
+{
+    m_pSymbolTable = SymbolTable_Create(1);
+    createOneSymbol();
+    Symbol_LineReferenceAdd(m_pSymbol1, &m_lineInfo1);
+    Symbol_LineReferenceAdd(m_pSymbol1, &m_lineInfo2);
+    Symbol_LineReferenceRemove(m_pSymbol1, &m_lineInfo1);
+    
+    Symbol_LineReferenceEnumStart(m_pSymbol1);
+    LineInfo* pLineInfo = Symbol_LineReferenceEnumNext(m_pSymbol1);
+    POINTERS_EQUAL(&m_lineInfo2, pLineInfo);
+    nextLineEnumAttemptShouldFail(m_pSymbol1);
 }

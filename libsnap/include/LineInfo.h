@@ -17,7 +17,9 @@
 
 #define LINEINFO_FLAG_WAS_EQU 1
 
-typedef struct LineInfo
+typedef struct Symbol Symbol;
+
+struct LineInfo
 {
     const char*      pLineText;
     Symbol*          pSymbol;
@@ -27,6 +29,6 @@ typedef struct LineInfo
     unsigned int     flags;
     unsigned short   address;
     unsigned char    machineCode[32];
-} LineInfo;
+};
 
 #endif /* _LINE_INFO_H_ */

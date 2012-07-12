@@ -14,18 +14,23 @@
 #define _SYMBOL_H_
 
 #include "ExpressionEval.h"
+#include "LineInfo.h"
 
 
 #define SYMBOL_FLAG_DEFINED 1
 
+typedef struct LineInfo LineInfo;
+typedef struct SymbolLineReference SymbolLineReference;
 
-typedef struct Symbol Symbol;
+
 struct Symbol
 {
-    const char*    pKey;
-    Expression     expression;
-    Symbol*        pNext;
-    unsigned int   flags;
+    const char*          pKey;
+    SymbolLineReference* pLineReferences;
+    SymbolLineReference* pEnumLineReference;
+    struct Symbol*       pNext;
+    Expression           expression;
+    unsigned int         flags;
 };
 
 

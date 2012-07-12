@@ -30,5 +30,12 @@ __throws Symbol*      SymbolTable_Add(SymbolTable* pThis, const char* pKey);
          
          void         SymbolTable_EnumStart(SymbolTable* pThis);
          Symbol*      SymbolTable_EnumNext(SymbolTable* pThis);
+         
+__throws void         Symbol_LineReferenceAdd(Symbol* pSymbol, LineInfo* pLineInfo);
+         int          Symbol_LineReferenceExist(Symbol* pSymbol, LineInfo* pLineInfo);
+         void         Symbol_LineReferenceRemove(Symbol* pSymbol, LineInfo* pLineInfo);
+         void         Symbol_LineReferenceEnumStart(Symbol* pSymbol);
+         LineInfo*    Symbol_LineReferenceEnumNext(Symbol* pSymbol);
+
 
 #endif /* _SYMBOL_TABLE_H_ */

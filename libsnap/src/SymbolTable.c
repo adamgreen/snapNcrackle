@@ -13,7 +13,7 @@
 #include <string.h>
 #include "SymbolTable.h"
 #include "SymbolTableTest.h"
-
+#include "util.h"
 
 struct SymbolTable
 {
@@ -23,6 +23,20 @@ struct SymbolTable
     size_t    bucketCount;
     size_t    symbolCount;
 };
+
+struct SymbolLineReference
+{
+    LineInfo*                   pLineInfo;
+    struct SymbolLineReference* pNext;
+};
+
+typedef struct LineReferenceFind
+{
+    Symbol*              pSymbol;
+    LineInfo*            pLineInfo;
+    SymbolLineReference* pPrev;
+    SymbolLineReference* pFound;
+} LineReferenceFind;
 
 
 
@@ -67,7 +81,9 @@ static void allocateBuckets(SymbolTable* pThis, size_t bucketCount)
 
 
 static void freeBuckets(SymbolTable* pThis);
-static void freeBucketList(Symbol* pEntry);
+static void freeBucket(Symbol* pEntry);
+static void freeSymbol(Symbol* pSymbol);
+static void freeLineReferences(Symbol* pSymbol);
 void SymbolTable_Free(SymbolTable* pThis)
 {
     if (!pThis)
@@ -85,18 +101,36 @@ static void freeBuckets(SymbolTable* pThis)
         return;
         
     for (i = 0 ; i < pThis->bucketCount ; i++)
-        freeBucketList(pThis->ppBuckets[i]);
+        freeBucket(pThis->ppBuckets[i]);
     free(pThis->ppBuckets);
 }
 
-static void freeBucketList(Symbol* pEntry)
+static void freeBucket(Symbol* pEntry)
 {
     while (pEntry)
     {
         Symbol* pNext = pEntry->pNext;
-        free((char*)pEntry->pKey);
-        free(pEntry);
-        pEntry = pNext;;
+        freeSymbol(pEntry);
+        pEntry = pNext;
+    }
+}
+
+static void freeSymbol(Symbol* pSymbol)
+{
+    free((char*)pSymbol->pKey);
+    freeLineReferences(pSymbol);
+    free(pSymbol);
+}
+
+static void freeLineReferences(Symbol* pSymbol)
+{
+    SymbolLineReference* pCurr = pSymbol->pLineReferences;
+    
+    while(pCurr)
+    {
+        SymbolLineReference* pNext = pCurr->pNext;
+        free(pCurr);
+        pCurr = pNext;
     }
 }
 
@@ -246,4 +280,92 @@ static void walkToNextSymbol(SymbolTable* pThis)
 static int encounteredEndOfBucketList(SymbolTable* pThis)
 {
     return pThis->pEnumBucketItem == NULL;
+}
+
+
+__throws void Symbol_LineReferenceAdd(Symbol* pSymbol, LineInfo* pLineInfo)
+{
+    SymbolLineReference* pLineReference;
+    
+    if (Symbol_LineReferenceExist(pSymbol, pLineInfo))
+        return;
+        
+    pLineReference = malloc(sizeof(*pLineReference));
+    if (!pLineReference)
+        __throw(outOfMemoryException);
+        
+    memset(pLineReference, 0, sizeof(*pLineReference));
+    pLineReference->pLineInfo = pLineInfo;
+    pLineReference->pNext = pSymbol->pLineReferences;
+    pSymbol->pLineReferences = pLineReference;
+}
+
+
+static int findLineReference(LineReferenceFind* pFind);
+int Symbol_LineReferenceExist(Symbol* pSymbol, LineInfo* pLineInfo)
+{
+    LineReferenceFind find;
+    
+    find.pSymbol = pSymbol;
+    find.pLineInfo = pLineInfo;
+    return findLineReference(&find);
+}
+
+static int findLineReference(LineReferenceFind* pFind)
+{
+    SymbolLineReference* pPrev = NULL;
+    SymbolLineReference* pCurr = pFind->pSymbol->pLineReferences;
+    LineInfo*            pLineInfo = pFind->pLineInfo;
+    
+    while (pCurr)
+    {
+        if (pCurr->pLineInfo == pLineInfo)
+        {
+            pFind->pPrev = pPrev;
+            pFind->pFound = pCurr;
+            return TRUE;
+        }
+        pPrev = pCurr;
+        pCurr = pCurr->pNext;
+    }
+    
+    pFind->pPrev = NULL;
+    pFind->pFound = NULL;
+    return FALSE;
+}
+
+
+void Symbol_LineReferenceRemove(Symbol* pSymbol, LineInfo* pLineInfo)
+{
+    LineReferenceFind find;
+    
+    find.pSymbol = pSymbol;
+    find.pLineInfo = pLineInfo;
+    if (findLineReference(&find))
+    {
+        if (!find.pPrev)
+            pSymbol->pLineReferences = find.pFound->pNext;
+        else
+            find.pPrev->pNext = find.pFound->pNext;
+        free(find.pFound);
+    }
+}
+
+
+void Symbol_LineReferenceEnumStart(Symbol* pSymbol)
+{
+    pSymbol->pEnumLineReference = pSymbol->pLineReferences;
+}
+
+LineInfo* Symbol_LineReferenceEnumNext(Symbol* pSymbol)
+{
+    SymbolLineReference* pLineReference = pSymbol->pEnumLineReference;
+    LineInfo*            pReturn;
+    
+    if (!pLineReference)
+        return NULL;
+        
+    pReturn = pLineReference->pLineInfo;
+    pSymbol->pEnumLineReference = pLineReference->pNext;
+    return pReturn;
 }
