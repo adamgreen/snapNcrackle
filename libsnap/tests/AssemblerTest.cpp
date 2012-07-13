@@ -16,6 +16,7 @@ extern "C"
 {
     #include "CommandLine.h"
     #include "Assembler.h"
+    #include "../src/AssemblerPriv.h"
     #include "MallocFailureInject.h"
     #include "printfSpy.h"
     #include "util.h"
@@ -371,22 +372,115 @@ TEST(Assembler, LabelContainsInvalidCharacter)
 
 TEST(Assembler, ForwardReferenceLabel)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" sta label\n"
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " sta label\n"
                                                    "label sta $2b\n"));
     CHECK(m_pAssembler != NULL);
-    // UNDONE: The machine code for the last two bytes of first instruction will change once forward references are fully working.
-    runAssemblerAndValidateOutputIsTwoLinesOf("0000: 8D 00 00     1  sta label\n",
-                                              "0003: 85 2B        2 label sta $2b\n");
+    runAssemblerAndValidateOutputIsTwoLinesOf("0800: 8D 03 08     2  sta label\n",
+                                              "0803: 85 2B        3 label sta $2b\n", 3);
+}
+
+TEST(Assembler, FailLineInfoAllocationDuringForwardReferenceLabelFixup)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " sta label\n"
+                                                   "label sta $2b\n"));
+    CHECK(m_pAssembler != NULL);
+
+    MallocFailureInject_FailAllocation(8);
+    runAssemblerAndValidateFailure("filename:3: error: Failed to allocate space for updating forward references to 'label' symbol.\n",
+                                   "0803: 85 2B        3 label sta $2b\n", 4);
+    MallocFailureInject_Restore();
 }
 
 TEST(Assembler, FailToDefineLabelTwiceAfterForwardReferenced)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" sta label\n"
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " sta label\n"
                                                    "label sta $2b\n"
                                                    "label sta $2c\n"));
     CHECK(m_pAssembler != NULL);
-    runAssemblerAndValidateFailure("filename:3: error: 'label' symbol has already been defined.\n",
-                                   "0005: 85 2C        3 label sta $2c\n", 4);
+    runAssemblerAndValidateFailure("filename:4: error: 'label' symbol has already been defined.\n",
+                                   "0805: 85 2C        4 label sta $2c\n", 5);
+}
+
+TEST(Assembler, LocalLabelPlusOffsetBackwardReference)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("func1 sta $20\n"
+                                                   ":local sta $20\n"
+                                                   "func2 sta $21\n"
+                                                   ":local sta $22\n"
+                                                   " sta :local+1\n"));
+    runAssemblerAndValidateLastLineIs("0008: 85 07        5  sta :local+1\n", 5);
+}
+
+TEST(Assembler, LocalLabelPlusOffsetForwardReference)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   "func1 sta $20\n"
+                                                   ":local sta $20\n"
+                                                   "func2 sta $21\n"
+                                                   " sta :local+1\n"
+                                                   ":local sta $22\n"));
+    
+    runAssemblerAndValidateOutputIsTwoLinesOf("0806: 8D 0A 08     5  sta :local+1\n",
+                                              "0809: 85 22        6 :local sta $22\n", 6);
+}
+
+TEST(Assembler, GlobalLabelPlusOffsetForwardReference)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " sta globalLabel+1\n"
+                                                   "globalLabel sta $22\n"));
+    
+    runAssemblerAndValidateOutputIsTwoLinesOf("0800: 8D 04 08     2  sta globalLabel+1\n",
+                                              "0803: 85 22        3 globalLabel sta $22\n", 3);
+}
+
+TEST(Assembler, CascadedForwardReferenceOfEQUToLabel)
+{
+    LineInfo* pSecondLine;
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " sta 1+equLabel\n"
+                                                   "equLabel equ lineLabel\n"
+                                                   "lineLabel sta $22\n"));
+    Assembler_Run(m_pAssembler);
+    pSecondLine = m_pAssembler->linesHead.pNext->pNext;
+    LONGS_EQUAL(3, pSecondLine->machineCodeSize);
+    CHECK(0 == memcmp(pSecondLine->machineCode, "\x8d\x04\x08", 3));
+}
+
+TEST(Assembler, MultipleForwardReferencesToSameLabel)
+{
+    LineInfo* pSecondLine;
+    LineInfo* pThirdLine;
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " sta 1+label\n"
+                                                   " sta label+1\n"
+                                                   "label sta $22\n"));
+    Assembler_Run(m_pAssembler);
+    pSecondLine = m_pAssembler->linesHead.pNext->pNext;
+    LONGS_EQUAL(3, pSecondLine->machineCodeSize);
+    CHECK(0 == memcmp(pSecondLine->machineCode, "\x8d\x07\x08", 3));
+    pThirdLine = pSecondLine->pNext;
+    LONGS_EQUAL(3, pSecondLine->machineCodeSize);
+    CHECK(0 == memcmp(pSecondLine->machineCode, "\x8d\x07\x08", 3));
+}
+
+TEST(Assembler, FailZeroPageForwardReference)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta globalLabel\n"
+                                                   "globalLabel sta $22\n"));
+    
+    runAssemblerAndValidateFailure("filename:2: error: Couldn't properly infer size of 'globalLabel' forward reference.\n",
+                                   "0003: 85 22        2 globalLabel sta $22\n", 3);
+}
+
+TEST(Assembler, ReferenceNonExistantLabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta badLabel\n"));
+    runAssemblerAndValidateFailure("filename:1: error: The 'badLabel' label is undefined.\n",
+                                   "0000: 8D 00 00     1  sta badLabel\n", 2);
 }
 
 TEST(Assembler, EQULabelStartsWithInvalidCharacter)
@@ -427,19 +521,18 @@ TEST(Assembler, ForwardReferenceEQULabel)
     m_pAssembler = Assembler_CreateFromString(dupe(" sta label\n"
                                                    "label equ $ffff\n"));
     CHECK(m_pAssembler != NULL);
-    // UNDONE: The machine code for the last two bytes of first instruction will change once forward references are fully working.
-    runAssemblerAndValidateOutputIsTwoLinesOf("0000: 8D 00 00     1  sta label\n",
+    runAssemblerAndValidateOutputIsTwoLinesOf("0000: 8D FF FF     1  sta label\n",
                                               "    :    =FFFF     2 label equ $ffff\n");
 }
 
 TEST(Assembler, FailToDefineEquLabelTwiceAfterForwardReferenced)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" sta label\n"
-                                                   "label equ $2b\n"
-                                                   "label equ $2c\n"));
+                                                   "label equ $ff2b\n"
+                                                   "label equ $ff2c\n"));
     CHECK(m_pAssembler != NULL);
     runAssemblerAndValidateFailure("filename:3: error: 'label' symbol has already been defined.\n",
-                                   "    :              3 label equ $2c\n", 4);
+                                   "    :              3 label equ $ff2c\n", 4);
 }
 
 TEST(Assembler, CommentLine)
@@ -451,7 +544,7 @@ TEST(Assembler, CommentLine)
 TEST(Assembler, InvalidOperatorFromStringSource)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" foo bar\n"));
-    runAssemblerAndValidateFailure("filename:1: error: 'foo' is not a recongized directive, mnemonic, or macro.\n", 
+    runAssemblerAndValidateFailure("filename:1: error: 'foo' is not a recognized mnemonic or macro.\n", 
                                    "    :              1  foo bar\n");
 }
 
@@ -459,7 +552,7 @@ TEST(Assembler, InvalidOperatorFromFileSource)
 {
     createSourceFile(" foo bar\n");
     m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
-    runAssemblerAndValidateFailure("AssemblerTest.S:1: error: 'foo' is not a recongized directive, mnemonic, or macro.\n", 
+    runAssemblerAndValidateFailure("AssemblerTest.S:1: error: 'foo' is not a recognized mnemonic or macro.\n", 
                                    "    :              1  foo bar\n");
 }
 
@@ -680,28 +773,6 @@ TEST(Assembler, STAInvalidInvalidExpress)
     m_pAssembler = Assembler_CreateFromString(dupe(" sta +ff\n"));
     runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
                                    "    :              1  sta +ff\n");
-}
-
-TEST(Assembler, STAToLocalLabelPlusOffset)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe("func1 sta $20\n"
-                                                   ":local sta $20\n"
-                                                   "func2 sta $21\n"
-                                                   ":local sta $22\n"
-                                                   " sta :local+1\n"));
-    runAssemblerAndValidateLastLineIs("0008: 85 07        5  sta :local+1\n", 5);
-}
-
-IGNORE_TEST(Assembler, STAToLocalLabelPlusOffsetForwardReference)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe("func1 sta $20\n"
-                                                   ":local sta $20\n"
-                                                   "func2 sta $21\n"
-                                                   " sta :local+1\n"
-                                                   ":local sta $22\n"));
-    
-    runAssemblerAndValidateOutputIsTwoLinesOf("0006: 8D 09 00     4  sta :local+1\n",
-                                              "0008: 85 22        5 :local sta $22\n", 5);
 }
 
 TEST(Assembler, JSRAbsolute)

@@ -57,6 +57,8 @@ static void commonObjectInit(Assembler* pThis)
         __throwing_func( pThis->pLineText = LineBuffer_Create() );
         __throwing_func( pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS) );
         pThis->pLineInfo = &pThis->linesHead;
+        pThis->pLocalLabelStart = pThis->labelBuffer;
+        pThis->maxLocalLabelSize = sizeof(pThis->labelBuffer)-1;
     }
     __catch
     {
@@ -120,9 +122,12 @@ static void firstPassAssembleLine(Assembler* pThis);
 static void handleEQU(Assembler* pThis);
 static void validateEQULabelFormat(Assembler* pThis);
 static void validateLabelFormat(Assembler* pThis);
-static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName);
-static int isSymbolDefined(Symbol* pSymbol);
-static void flagSymbolAsDefined(Symbol* pSymbol);
+static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName, Expression* pExpression);
+static int isSymbolAlreadyDefined(Symbol* pSymbol, LineInfo* pThisLine);
+static void flagSymbolAsDefined(Symbol* pSymbol, LineInfo* pThisLine);
+static void updateLinesWhichForwardReferencedThisLabel(Assembler* pThis, Symbol* pSymbol);
+static int symbolContainsForwardReferences(Symbol* pSymbol);
+static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, LineInfo* pLineInfo);
 static void ignoreOperator(Assembler* pThis);
 static void handleInvalidOperator(Assembler* pThis);
 static void handleHEX(Assembler* pThis);
@@ -150,15 +155,19 @@ static int wasEQUDirective(Assembler* pThis);
 static const char* expandedLabelName(Assembler* pThis, const char* pLabelName, size_t labelLength);
 static int isGlobalLabelName(const char* pLabelName);
 static int isLocalLabelName(const char* pLabelName);
+static char* copySizedLabel(Assembler* pThis, const char* pLabel, size_t labelLength);
 static void expandLocalLabelToGloballyUniqueName(Assembler* pThis, const char* pLocalLabelName, size_t length);
 static int seenGlobalLabel(Assembler* pThis);
 static void rememberGlobalLabel(Assembler* pThis);
+static void checkForUndefinedSymbols(Assembler* pThis);
+static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol* pSymbol);
 static void secondPass(Assembler* pThis);
 void Assembler_Run(Assembler* pThis)
 {
     __try
     {
         __throwing_func( firstPass(pThis) );
+        checkForUndefinedSymbols(pThis);
         __throwing_func( secondPass(pThis) );
     }
     __catch
@@ -260,8 +269,7 @@ static void handleEQU(Assembler* pThis)
         pThis->pLineInfo->flags |= LINEINFO_FLAG_WAS_EQU;
         __throwing_func( expression = ExpressionEval(pThis, pThis->parsedLine.pOperands) );
         __throwing_func( validateEQULabelFormat(pThis) );
-        __throwing_func( pSymbol = attemptToAddSymbol(pThis, pThis->parsedLine.pLabel) );
-        pSymbol->expression = expression;
+        __throwing_func( pSymbol = attemptToAddSymbol(pThis, pThis->parsedLine.pLabel, &expression) );
         pThis->pLineInfo->pSymbol = pSymbol;
     }
     __catch
@@ -303,10 +311,10 @@ static void validateLabelFormat(Assembler* pThis)
     }
 }
 
-static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName)
+static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName, Expression* pExpression)
 {
     Symbol* pSymbol = SymbolTable_Find(pThis->pSymbols, pSymbolName);
-    if (pSymbol && isSymbolDefined(pSymbol))
+    if (pSymbol && isSymbolAlreadyDefined(pSymbol, pThis->pLineInfo))
     {
         LOG_ERROR(pThis, "'%s' symbol has already been defined.", pSymbolName);
         __throw_and_return(invalidArgumentException, NULL);
@@ -322,20 +330,86 @@ static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName)
             LOG_ERROR(pThis, "Failed to allocate space for '%s' symbol.", pSymbolName);
             __rethrow_and_return(NULL);
         }
-    }    
-    flagSymbolAsDefined(pSymbol);
+    }
+    flagSymbolAsDefined(pSymbol, pThis->pLineInfo);
+    pSymbol->expression = *pExpression;
+
+    __try
+    {
+        updateLinesWhichForwardReferencedThisLabel(pThis, pSymbol);
+    }
+    __catch
+    {
+        LOG_ERROR(pThis, "Failed to allocate space for updating forward references to '%s' symbol.", pSymbolName);
+        __rethrow_and_return(NULL);
+    }
 
     return pSymbol;
 }
 
-static int isSymbolDefined(Symbol* pSymbol)
+static int isSymbolAlreadyDefined(Symbol* pSymbol, LineInfo* pThisLine)
 {
-    return pSymbol->flags & SYMBOL_FLAG_DEFINED;
+    return pSymbol->pDefinedLine != NULL && pSymbol->pDefinedLine != pThisLine;
 }
 
-static void flagSymbolAsDefined(Symbol* pSymbol)
+static void flagSymbolAsDefined(Symbol* pSymbol, LineInfo* pThisLine)
 {
-    pSymbol->flags |= SYMBOL_FLAG_DEFINED;
+    pSymbol->pDefinedLine = pThisLine;
+}
+
+static void updateLinesWhichForwardReferencedThisLabel(Assembler* pThis, Symbol* pSymbol)
+{
+    LineInfo* pCurr = NULL;
+    
+    if (symbolContainsForwardReferences(pSymbol))
+        return;
+        
+    Symbol_LineReferenceEnumStart(pSymbol);
+    while (NULL != (pCurr = Symbol_LineReferenceEnumNext(pSymbol)))
+    {
+        __try
+            updateLineWithForwardReference(pThis, pSymbol, pCurr);
+        __catch
+            __rethrow;
+    }
+}
+
+static int symbolContainsForwardReferences(Symbol* pSymbol)
+{
+    return pSymbol->expression.flags & EXPRESSION_FLAG_FORWARD_REFERENCE;
+}
+
+static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, LineInfo* pLineInfo)
+{
+    LineBuffer* pLineBuffer = NULL;
+    size_t      machineCodeSizeOrig;
+    LineInfo*   pLineInfoSave;
+    ParsedLine  parsedLineSave;
+    
+    machineCodeSizeOrig = pLineInfo->machineCodeSize;
+    pLineInfoSave = pThis->pLineInfo;
+    parsedLineSave = pThis->parsedLine;
+    pThis->pLineInfo = pLineInfo;
+
+    __try
+    {
+        Symbol_LineReferenceRemove(pSymbol, pLineInfo);
+        __throwing_func( pLineBuffer = LineBuffer_Create() );
+        __throwing_func( LineBuffer_Set(pLineBuffer, pLineInfo->pLineText) );
+        ParseLine(&pThis->parsedLine, LineBuffer_Get(pLineBuffer));
+        firstPassAssembleLine(pThis);
+    }
+    __catch
+    {
+        /* Fall through to cleanup code below. */
+    }
+    
+    pThis->parsedLine = parsedLineSave;
+    LineBuffer_Free(pLineBuffer);
+    pThis->pLineInfo = pLineInfoSave;
+
+    if (machineCodeSizeOrig != pLineInfo->machineCodeSize)
+        LOG_ERROR(pThis, "Couldn't properly infer size of '%s' forward reference.", pSymbol->pKey);
 }
 
 static void ignoreOperator(Assembler* pThis)
@@ -344,7 +418,7 @@ static void ignoreOperator(Assembler* pThis)
 
 static void handleInvalidOperator(Assembler* pThis)
 {
-    LOG_ERROR(pThis, "'%s' is not a recongized directive, mnemonic, or macro.", pThis->parsedLine.pOperator);
+    LOG_ERROR(pThis, "'%s' is not a recognized mnemonic or macro.", pThis->parsedLine.pOperator);
 }
 
 static void handleHEX(Assembler* pThis)
@@ -607,12 +681,13 @@ static void rememberLabel(Assembler* pThis)
     {
         const char* pExpandedLabelName = NULL;
         Symbol*     pSymbol = NULL;
+        Expression  expression;
     
         __throwing_func( validateLabelFormat(pThis) );
         __throwing_func( pExpandedLabelName = expandedLabelName(pThis, pThis->parsedLine.pLabel, strlen(pThis->parsedLine.pLabel)) );
-        __throwing_func( pSymbol = attemptToAddSymbol(pThis, pExpandedLabelName) );
+        expression = ExpressionEval_CreateAbsoluteExpression(pThis->programCounter);
+        __throwing_func( pSymbol = attemptToAddSymbol(pThis, pExpandedLabelName, &expression) );
         __throwing_func( rememberGlobalLabel(pThis) );
-        pSymbol->expression = ExpressionEval_CreateAbsoluteExpression(pThis->programCounter);
     }
     __catch
     {
@@ -638,7 +713,7 @@ static int wasEQUDirective(Assembler* pThis)
 static const char* expandedLabelName(Assembler* pThis, const char* pLabelName, size_t labelLength)
 {
     if (isGlobalLabelName(pLabelName))
-        return pLabelName;
+        return copySizedLabel(pThis, pLabelName, labelLength);
     
     expandLocalLabelToGloballyUniqueName(pThis, pLabelName, labelLength);    
     return pThis->labelBuffer;
@@ -654,6 +729,19 @@ static int isLocalLabelName(const char* pLabelName)
     return *pLabelName == ':';
 }
 
+static char* copySizedLabel(Assembler* pThis, const char* pLabel, size_t labelLength)
+{
+    if (labelLength > pThis->maxLocalLabelSize)
+    {
+        LOG_ERROR(pThis, "'%.*s' label is too long.", labelLength, pLabel);
+        __throw_and_return(bufferOverrunException, NULL);
+    }
+    memcpy(pThis->pLocalLabelStart, pLabel, labelLength);
+    pThis->pLocalLabelStart[labelLength] = '\0';
+    
+    return pThis->pLocalLabelStart;
+}
+
 static void expandLocalLabelToGloballyUniqueName(Assembler* pThis, const char* pLocalLabelName, size_t length)
 {
     if (!seenGlobalLabel(pThis))
@@ -661,14 +749,7 @@ static void expandLocalLabelToGloballyUniqueName(Assembler* pThis, const char* p
         LOG_ERROR(pThis, "'%.*s' local label isn't allowed before first global label.", length, pLocalLabelName);
         __throw(invalidArgumentException);
     }
-    if (length > pThis->maxLocalLabelSize)
-    {
-        LOG_ERROR(pThis, "'%.*s' label is too long.", length, pLocalLabelName);
-        __throw(bufferOverrunException);
-    }
-    
-    memcpy(pThis->pLocalLabelStart, pLocalLabelName, length);
-    pThis->pLocalLabelStart[length] = '\0';
+    copySizedLabel(pThis, pLocalLabelName, length);
 }
 
 static int seenGlobalLabel(Assembler* pThis)
@@ -691,6 +772,30 @@ static void rememberGlobalLabel(Assembler* pThis)
     memcpy(pThis->labelBuffer, pThis->parsedLine.pLabel, length);
     pThis->pLocalLabelStart = &pThis->labelBuffer[length];
     pThis->maxLocalLabelSize = sizeof(pThis->labelBuffer) - length - 1;
+}
+
+static void checkForUndefinedSymbols(Assembler* pThis)
+{
+    Symbol* pSymbol;
+    
+    SymbolTable_EnumStart(pThis->pSymbols);
+    while (NULL != (pSymbol = SymbolTable_EnumNext(pThis->pSymbols)))
+        checkSymbolForOutstandingForwardReferences(pThis, pSymbol);
+}
+
+static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol* pSymbol)
+{
+    LineInfo* pLineInfo;
+    
+    if (!pSymbol->pLineReferences)
+        return;
+        
+    Symbol_LineReferenceEnumStart(pSymbol);
+    while (NULL != (pLineInfo = Symbol_LineReferenceEnumNext(pSymbol)))
+    {
+        pThis->pLineInfo = pLineInfo;
+        LOG_ERROR(pThis, "The '%s' label is undefined.", pSymbol->pKey);
+    }
 }
 
 static void secondPass(Assembler* pThis)
@@ -722,7 +827,7 @@ __throws Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName, s
         pSymbol = SymbolTable_Find(pThis->pSymbols, pExpandedName);
         if (!pSymbol)
             __throwing_func( pSymbol = SymbolTable_Add(pThis->pSymbols, pExpandedName) );
-        if (!isSymbolDefined(pSymbol))
+        if (!isSymbolAlreadyDefined(pSymbol, NULL))
             __throwing_func( Symbol_LineReferenceAdd(pSymbol, pThis->pLineInfo) );
     }
     __catch
@@ -732,111 +837,3 @@ __throws Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName, s
 
     return pSymbol;
 }
-
-
-
-
-
-
-
-#ifdef UNDONE
-static void rememberNewOperators(Assembler* pThis, const char* pOperator)
-{
-    Symbol* pSymbol;
-    
-    if (!pOperator)
-        return;
-        
-    pSymbol = SymbolTable_Find(pThis->pSymbols, pOperator);
-    if (pSymbol)
-        return;
-        
-    __try
-        SymbolTable_Add(pThis->pSymbols, pOperator, NULL);
-    __catch
-        __rethrow;
-}
-
-static void listOperators(Assembler* pThis)
-{
-    Symbol* pSymbol;
-    
-    printf("Operators encountered in this assembly language file.\r\n");
-    SymbolTable_EnumStart(pThis->pSymbols);
-    while (NULL != (pSymbol = SymbolTable_EnumNext(pThis->pSymbols)))
-    {
-        printf("%s\r\n", pSymbol->pKey);
-    }
-}
-
-
-__throws Assembler* Assembler_CreateFromCommandLine(CommandLine* pCommandLine)
-{
-    Assembler* pThis = NULL;
-    
-    __try
-    {
-        __throwing_func( pThis = allocateObject() );
-        __throwing_func( commonObjectInit(pThis) );
-        pThis->pCommandLine = pCommandLine;
-    }
-    __catch
-    {
-        Assembler_Free(pThis);
-        __rethrow_and_return(NULL);
-    }
-
-    return pThis;
-}
-
-
-typedef struct ListNode
-{
-    TextFile*        pFileToFree;
-    struct ListNode* pNext;
-} ListNode;
-
-void Assembler_RunMultiple(Assembler* pThis)
-{
-    ListNode* pFilesToFree = NULL;
-    int       i;
-    
-    for (i = 0 ; i < pThis->pCommandLine->sourceFileCount ; i++)
-    {
-        ListNode* pNode;
-        
-        __try
-        {
-            pThis->pTextFile = TextFile_CreateFromFile(pThis->pCommandLine->pSourceFiles[i]);
-        }
-        __catch
-        {
-            printf("Failed to open %s\n", pThis->pCommandLine->pSourceFiles[i]);
-            __rethrow;
-        }
-    
-        parseSource(pThis);
-        
-        /* Using this hack to keep the symbols around across files. */
-        pNode = malloc(sizeof(*pNode));
-        pNode->pFileToFree = pThis->pTextFile;
-        pNode->pNext = pFilesToFree;
-        pFilesToFree = pNode;
-        pThis->pTextFile = NULL;
-    }
-    
-    listOperators(pThis);
-    
-    /* Free up all of the files now that we are done with their symbols. */
-    while (pFilesToFree)
-    {
-        ListNode* pNext = pFilesToFree->pNext;
-        TextFile_Free(pFilesToFree->pFileToFree);
-        free(pFilesToFree);
-        pFilesToFree = pNext;
-    }
-    
-    return;
-}
-
-#endif /* UNDONE */

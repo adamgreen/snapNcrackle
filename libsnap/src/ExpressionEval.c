@@ -39,6 +39,7 @@ static void divisionHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLe
 static void xorHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
 static void orHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
 static void andHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
+static void combineExpressionTypeAndFlags(Expression* pLeftExpression, Expression* pRightExpression);
 static int isHexPrefix(char prefixChar);
 static void parseHexValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static unsigned short parseHexDigit(char digit);
@@ -155,6 +156,7 @@ static void evaluateOperation(Assembler* pAssembler, ExpressionEvaluation* pEval
         rightEval.pCurrent = pEval->pCurrent + 1;
         __throwing_func( evaluatePrimitive(pAssembler, &rightEval) );
         __throwing_func( handleOperator(pAssembler, pEval, &rightEval) );
+        combineExpressionTypeAndFlags(&pEval->expression, &rightEval.expression);
         pEval->pCurrent = rightEval.pNext;
     }
     __catch
@@ -220,6 +222,13 @@ static void orHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, Ex
 static void andHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight)
 {
     pEvalLeft->expression.value &= pEvalRight->expression.value;
+}
+
+static void combineExpressionTypeAndFlags(Expression* pLeftExpression, Expression* pRightExpression)
+{
+    pLeftExpression->flags |= pRightExpression->flags;
+    if (pRightExpression->type < pLeftExpression->type)
+        pLeftExpression->type = pRightExpression->type;
 }
 
 static int isHexPrefix(char prefixChar)
@@ -414,7 +423,7 @@ static size_t lengthOfLabel(const char* pLabel)
 
 static void flagForwardReferenceOnExpressionIfUndefinedLabel(ExpressionEvaluation* pEval, Symbol* pSymbol)
 {
-    if (!(pSymbol->flags & SYMBOL_FLAG_DEFINED))
+    if (pSymbol->pDefinedLine == NULL)
         pEval->expression.flags |= EXPRESSION_FLAG_FORWARD_REFERENCE;
 }
 

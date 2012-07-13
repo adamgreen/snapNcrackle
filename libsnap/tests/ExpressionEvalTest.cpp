@@ -270,6 +270,24 @@ TEST(ExpressionEval, ForwardLabelReference)
     CHECK(pLineInfo);
 }
 
+TEST(ExpressionEval, ForwardLabelReferenceAsFirstTerm)
+{
+    static const char labelName[] = "fwd_label+1";
+    m_expression = ExpressionEval(m_pAssembler, labelName);
+    LONGS_EQUAL(0x1, m_expression.value);
+    LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
+    CHECK_TRUE(m_expression.flags & EXPRESSION_FLAG_FORWARD_REFERENCE);
+}
+
+TEST(ExpressionEval, ForwardLabelReferenceAsSecondTerm)
+{
+    static const char labelName[] = "1+fwd_label";
+    m_expression = ExpressionEval(m_pAssembler, labelName);
+    LONGS_EQUAL(0x1, m_expression.value);
+    LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
+    CHECK_TRUE(m_expression.flags & EXPRESSION_FLAG_FORWARD_REFERENCE);
+}
+
 TEST(ExpressionEval, BackwardLabelReference)
 {
     static const char labelName[] = "backLabel";

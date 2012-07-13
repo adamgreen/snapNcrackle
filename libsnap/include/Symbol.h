@@ -17,8 +17,6 @@
 #include "LineInfo.h"
 
 
-#define SYMBOL_FLAG_DEFINED 1
-
 typedef struct LineInfo LineInfo;
 typedef struct SymbolLineReference SymbolLineReference;
 
@@ -28,6 +26,7 @@ struct Symbol
     const char*          pKey;
     SymbolLineReference* pLineReferences;
     SymbolLineReference* pEnumLineReference;
+    LineInfo*            pDefinedLine;
     struct Symbol*       pNext;
     Expression           expression;
     unsigned int         flags;
