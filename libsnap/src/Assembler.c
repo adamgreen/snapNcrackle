@@ -11,6 +11,7 @@
     GNU General Public License for more details.
 */
 #include <string.h>
+#include <assert.h>
 #include "AssemblerPriv.h"
 #include "ExpressionEval.h"
 
@@ -737,6 +738,10 @@ static int wasEQUDirective(Assembler* pThis)
 
 static const char* expandedLabelName(Assembler* pThis, const char* pLabelName, size_t labelLength)
 {
+    /* UNDONE: I don't like taking the copy of the global label here as it is really just a hack.  Might be better
+               to pass around a SizedString between these routines...all the way into the SymbolTable routines. Sized 
+               string could even be passed around between other routines to decrease the number of memory allocations
+               made to take copies of const char* pointers. */
     if (isGlobalLabelName(pLabelName))
         return copySizedLabel(pThis, pLabelName, labelLength);
     
@@ -789,11 +794,9 @@ static void rememberGlobalLabel(Assembler* pThis)
     if (!isGlobalLabelName(pThis->parsedLine.pLabel))
         return;
 
-    if (length >= sizeof(pThis->labelBuffer))
-    {
-        LOG_ERROR(pThis, "'%s' label is too long.", pThis->parsedLine.pLabel);
-        __throw(bufferOverrunException);
-    }
+    /* The length of the global label was already validated earlier in the expandedLabelName()'s call to 
+       copySizedLabel. */
+    assert ( length < sizeof(pThis->labelBuffer) );
     memcpy(pThis->labelBuffer, pThis->parsedLine.pLabel, length);
     pThis->pLocalLabelStart = &pThis->labelBuffer[length];
     pThis->maxLocalLabelSize = sizeof(pThis->labelBuffer) - length - 1;
