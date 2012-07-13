@@ -893,3 +893,44 @@ TEST(Assembler, ORANotYetImplementedAddressMode)
     runAssemblerAndValidateFailure("filename:1: error: '$c0' specifies invalid addressing mode for this instruction.\n",
                                    "    :              1  ora $c0\n");
 }
+
+TEST(Assembler, LDYAbsolute)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ldy $100\n"));
+    runAssemblerAndValidateOutputIs("0000: AC 00 01     1  ldy $100\n");
+}
+
+TEST(Assembler, LDYZeroPageAbsolute)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ldy $2b\n"));
+    runAssemblerAndValidateOutputIs("0000: A4 2B        1  ldy $2b\n");
+}
+
+TEST(Assembler, LDYAbsoluteSymbol)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("label equ $100\n"
+                                                   " ldy label\n"));
+    runAssemblerAndValidateLastLineIs("0000: AC 00 01     2  ldy label\n", 2);
+}
+
+TEST(Assembler, LDYZeroPageAbsoluteSymbol)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("SLOT = $2b\n"
+                                                   " ldy SLOT\n"));
+    runAssemblerAndValidateLastLineIs("0000: A4 2B        2  ldy SLOT\n", 2);
+}
+
+TEST(Assembler, LDYWithInvalidExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ldy +ff\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
+                                   "    :              1  ldy +ff\n");
+}
+
+TEST(Assembler, LDYWithInvalidAddressingMode)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ldy #$5c\n"));
+    runAssemblerAndValidateFailure("filename:1: error: '#$5c' specifies invalid addressing mode for this instruction.\n",
+                                   "    :              1  ldy #$5c\n");
+}
+

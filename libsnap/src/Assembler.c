@@ -148,6 +148,7 @@ static void handleTXA(Assembler* pThis);
 static void emitImpliedInstruction(Assembler* pThis, unsigned char opCode);
 static void handleLSR(Assembler* pThis);
 static void handleORA(Assembler* pThis);
+static void handleLDY(Assembler* pThis);
 static void rememberLabel(Assembler* pThis);
 static int isLabelToRemember(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
@@ -240,7 +241,8 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"LDX", handleLDX},
         {"TXA", handleTXA},
         {"LSR", handleLSR},
-        {"ORA", handleORA}
+        {"ORA", handleORA},
+        {"LDY", handleLDY}
     };
     
     
@@ -670,6 +672,29 @@ static void handleORA(Assembler* pThis)
     }
     
     emitImmediateInstruction(pThis, 0x09, &expression);
+}
+
+static void handleLDY(Assembler* pThis)
+{
+    Expression expression;
+    
+    __try
+        expression = ExpressionEval(pThis, pThis->parsedLine.pOperands);
+    __catch
+        __nothrow;
+    
+    switch (expression.type)
+    {
+    case TYPE_ZEROPAGE_ABSOLUTE:
+        emitZeroPageAbsoluteInstruction(pThis, 0xa4, &expression);
+        return;
+    case TYPE_ABSOLUTE:
+        emitAbsoluteInstruction(pThis, 0xac, &expression);
+        return;
+    default:
+        logInvalidAddressingMode(pThis);
+        return;
+    }
 }
 
 static void rememberLabel(Assembler* pThis)
