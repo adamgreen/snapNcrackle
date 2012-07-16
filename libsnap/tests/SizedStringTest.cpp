@@ -52,7 +52,7 @@ TEST_GROUP(SizedString)
         m_expectedStringLength = stringLength;
     }
     
-    void testStringInit(const char* pString)
+    void testSizedStringInit(const char* pString)
     {
         m_sizedString = SizedString_InitFromString(pString);
         m_pExpectedString = pString;
@@ -87,10 +87,97 @@ TEST(SizedString, FailTruncateStringInit)
 
 TEST(SizedString, EmptyInit)
 {
-    testStringInit("");
+    testSizedStringInit("");
 }
 
 TEST(SizedString, OneCharInit)
 {
-    testStringInit("A");
+    testSizedStringInit("A");
+}
+
+TEST(SizedString, strchrInEmptyString)
+{
+    testSizedStringInit("");
+    CHECK_TRUE(NULL == SizedString_strchr(&m_sizedString, ' '));
+}
+
+TEST(SizedString, strchrOnlyCharInString)
+{
+    testSizedStringInit("A");
+    const char* pResult = SizedString_strchr(&m_sizedString, 'A');
+    CHECK_TRUE(pResult != NULL);
+    CHECK_TRUE(*pResult == 'A');
+}
+
+TEST(SizedString, strchrCaseSensitive)
+{
+    testSizedStringInit("A");
+    POINTERS_EQUAL(NULL, SizedString_strchr(&m_sizedString, 'a'));
+}
+
+TEST(SizedString, strchrLastCharInTruncatedString)
+{
+    testSizedStringInit("123456789", 8);
+    const char* pResult = SizedString_strchr(&m_sizedString, '8');
+    CHECK_TRUE(pResult != NULL);
+    CHECK_TRUE(*pResult == '8');
+}
+
+TEST(SizedString, strchrPastLastCharInTruncatedString)
+{
+    testSizedStringInit("123456789", 8);
+    POINTERS_EQUAL(NULL, SizedString_strchr(&m_sizedString, '9'));
+}
+
+TEST(SizedString, strcmpMatchWholeString)
+{
+    testSizedStringInit("Test String");
+    LONGS_EQUAL(strcmp("Test String", "Test String"), SizedString_strcmp(&m_sizedString, "Test String"));
+}
+
+TEST(SizedString, strcmpMatchWholeTruncatedString)
+{
+    testSizedStringInit("Test String", 4);
+    LONGS_EQUAL(strcmp("Test", "Test"), SizedString_strcmp(&m_sizedString, "Test"));
+}
+
+TEST(SizedString, strcmpFailMatchDueToCaseSensitivity)
+{
+    testSizedStringInit("Test string");
+    LONGS_EQUAL(strcmp("Test string", "Test String"), SizedString_strcmp(&m_sizedString, "Test String"));
+}
+
+TEST(SizedString, strcmpFailMatchDueToSearchStringBeingTooShort)
+{
+    testSizedStringInit("Test string");
+    LONGS_EQUAL(strcmp("Test string", "Test"), SizedString_strcmp(&m_sizedString, "Test"));
+}
+
+TEST(SizedString, strcmpFailMatchDueToSizedStringBeingTooShort)
+{
+    testSizedStringInit("Test string", 4);
+    LONGS_EQUAL(strcmp("Test", "Test string"), SizedString_strcmp(&m_sizedString, "Test string"));
+}
+
+TEST(SizedString, splitStringAroundComma)
+{
+    testSizedStringInit("256,X");
+    
+    SizedString beforeComma;
+    SizedString afterComma;
+    SizedString_SplitString(&m_sizedString, ',', &beforeComma, &afterComma);
+    LONGS_EQUAL(0, SizedString_strcmp(&beforeComma, "256"));
+    LONGS_EQUAL(0, SizedString_strcmp(&afterComma, "X"));
+}
+
+TEST(SizedString, splitStringFailToFindSeparator)
+{
+    testSizedStringInit("256.X");
+    
+    SizedString beforeComma;
+    SizedString afterComma;
+    SizedString_SplitString(&m_sizedString, ',', &beforeComma, &afterComma);
+    LONGS_EQUAL(0, SizedString_strcmp(&beforeComma, "256.X"));
+    POINTERS_EQUAL(NULL, afterComma.pString);
+    LONGS_EQUAL(0, afterComma.stringLength);
 }

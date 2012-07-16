@@ -23,4 +23,8 @@ typedef struct SizedString
 SizedString SizedString_Init(const char* pString, size_t stringLength);
 SizedString SizedString_InitFromString(const char* pString);
 
+const char* SizedString_strchr(const SizedString* pString, char searchChar);
+int         SizedString_strcmp(const SizedString* pString, const char* pSearchString);
+void        SizedString_SplitString(const SizedString* pInput, char splitAtChar, SizedString* pBefore, SizedString* pAfter);
+
 #endif /* _SIZED_STRING_H_ */

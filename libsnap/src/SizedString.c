@@ -29,3 +29,55 @@ SizedString SizedString_InitFromString(const char* pString)
 {
     return SizedString_Init(pString, strlen(pString));
 }
+
+
+const char* SizedString_strchr(const SizedString* pString, char searchChar)
+{
+    size_t      charsLeft = pString->stringLength;
+    const char* pCurr = pString->pString;
+
+    while (charsLeft-- > 0)
+    {
+        if (*pCurr == searchChar)
+            return pCurr;
+        pCurr++;
+    }
+
+    return NULL;
+}
+
+int SizedString_strcmp(const SizedString* pString, const char* pSearchString)
+{
+    static const char  terminator = '\0';
+    size_t             charsLeft = pString->stringLength;
+    const char*        p1 = pString->pString;
+    const char*        p2 = pSearchString;
+    
+    while (charsLeft > 0 && *p2)
+    {
+        int diff = *p1++ - *p2++;
+        if (diff != 0)
+            return diff;
+        charsLeft--;
+    }
+    
+    if (charsLeft == 0)
+        p1 = &terminator;
+    return *p1 - *p2;
+}
+
+void SizedString_SplitString(const SizedString* pInput, char splitAtChar, SizedString* pBefore, SizedString* pAfter)
+{
+    const char* pSplitChar;
+    
+    *pBefore = *pInput;
+    memset(pAfter, 0, sizeof(*pAfter));
+    
+    pSplitChar = SizedString_strchr(pInput, splitAtChar);
+    if (!pSplitChar)
+        return;
+        
+    pBefore->stringLength = pSplitChar - pInput->pString;
+    pAfter->pString = pSplitChar + 1;
+    pAfter->stringLength = pInput->stringLength - pBefore->stringLength - 1;
+}
