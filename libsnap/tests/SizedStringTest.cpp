@@ -57,7 +57,7 @@ TEST_GROUP(SizedString)
         m_sizedString = SizedString_InitFromString(pString);
         m_pExpectedString = pString;
         m_pExpectedContent = pString;
-        m_expectedStringLength = strlen(pString);
+        m_expectedStringLength = pString ? strlen(pString) : 0;
     }
 };
 
@@ -83,6 +83,11 @@ TEST(SizedString, FailTruncateStringInit)
 {
     testSizedStringInit("123456789abcdef", 8);
     CHECK_FALSE(0 == strncmp("1234567", m_sizedString.pString, m_sizedString.stringLength));
+}
+
+TEST(SizedString, NullStringInit)
+{
+    testSizedStringInit(NULL);
 }
 
 TEST(SizedString, EmptyInit)
@@ -157,6 +162,36 @@ TEST(SizedString, strcmpFailMatchDueToSizedStringBeingTooShort)
 {
     testSizedStringInit("Test string", 4);
     LONGS_EQUAL(strcmp("Test", "Test string"), SizedString_strcmp(&m_sizedString, "Test string"));
+}
+
+TEST(SizedString, strcasecmpMatchWholeStringWithDifferentCase)
+{
+    testSizedStringInit("Test String");
+    LONGS_EQUAL(strcasecmp("Test String", "tEST sTRING"), SizedString_strcasecmp(&m_sizedString, "tEST sTRING"));
+}
+
+TEST(SizedString, strcasecmpMatchWholeTruncatedString)
+{
+    testSizedStringInit("Test String", 4);
+    LONGS_EQUAL(strcasecmp("Test", "tEST"), SizedString_strcasecmp(&m_sizedString, "tEST"));
+}
+
+TEST(SizedString, strcasecmpFailMatch)
+{
+    testSizedStringInit("Test string");
+    LONGS_EQUAL(strcasecmp("Test string", "Tst"), SizedString_strcasecmp(&m_sizedString, "Tst"));
+}
+
+TEST(SizedString, strcasecmpFailMatchDueToSearchStringBeingTooShort)
+{
+    testSizedStringInit("Test string");
+    LONGS_EQUAL(strcasecmp("Test string", "Test"), SizedString_strcasecmp(&m_sizedString, "Test"));
+}
+
+TEST(SizedString, strcasecmpFailMatchDueToSizedStringBeingTooShort)
+{
+    testSizedStringInit("Test string", 4);
+    LONGS_EQUAL(strcasecmp("Test", "Test string"), SizedString_strcasecmp(&m_sizedString, "Test string"));
 }
 
 TEST(SizedString, splitStringAroundComma)

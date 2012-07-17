@@ -11,6 +11,7 @@
     GNU General Public License for more details.
 */
 #include <string.h>
+#include <ctype.h>
 #include "SizedString.h"
 
 
@@ -27,7 +28,7 @@ SizedString SizedString_Init(const char* pString, size_t stringLength)
 
 SizedString SizedString_InitFromString(const char* pString)
 {
-    return SizedString_Init(pString, strlen(pString));
+    return SizedString_Init(pString, pString ? strlen(pString) : 0);
 }
 
 
@@ -45,6 +46,7 @@ const char* SizedString_strchr(const SizedString* pString, char searchChar)
 
     return NULL;
 }
+
 
 int SizedString_strcmp(const SizedString* pString, const char* pSearchString)
 {
@@ -65,6 +67,28 @@ int SizedString_strcmp(const SizedString* pString, const char* pSearchString)
         p1 = &terminator;
     return *p1 - *p2;
 }
+
+
+int SizedString_strcasecmp(const SizedString* pString, const char* pSearchString)
+{
+    static const char  terminator = '\0';
+    size_t             charsLeft = pString->stringLength;
+    const char*        p1 = pString->pString;
+    const char*        p2 = pSearchString;
+    
+    while (charsLeft > 0 && *p2)
+    {
+        int diff = tolower(*p1++) - tolower(*p2++);
+        if (diff != 0)
+            return diff;
+        charsLeft--;
+    }
+    
+    if (charsLeft == 0)
+        p1 = &terminator;
+    return tolower(*p1) - tolower(*p2);
+}
+
 
 void SizedString_SplitString(const SizedString* pInput, char splitAtChar, SizedString* pBefore, SizedString* pAfter)
 {
