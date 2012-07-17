@@ -21,15 +21,24 @@ typedef struct ExpressionEvaluation
 {
     Expression  expression;
     const char* pCurrent;
+    const char* pEnd;
     const char* pNext;
 } ExpressionEvaluation;
 
 typedef void (*operatorHandler)(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
 
 
+__throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
+{
+    SizedString sizedString = SizedString_InitFromString(pOperands);
+    return ExpressionEvalSizedString(pAssembler, &sizedString);
+}
+
+
 static int isImmediatePrefix(char prefixChar);
 static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval);
+static size_t stringLength(ExpressionEvaluation* pEval);
 static void evaluateOperation(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static operatorHandler determineHandlerForOperator(Assembler* pAssembler, char operatorChar);
 static void addHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
@@ -58,12 +67,13 @@ static int isLabelReference(char prefixChar);
 static void parseLabelReference(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static size_t lengthOfLabel(const char* pLabel);
 static void flagForwardReferenceOnExpressionIfUndefinedLabel(ExpressionEvaluation* pEval, Symbol* pSymbol);
-__throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
+__throws Expression ExpressionEvalSizedString(Assembler* pAssembler, const SizedString* pOperands)
 {
     ExpressionEvaluation eval;
     
     memset(&eval.expression, 0, sizeof(eval.expression));
-    eval.pCurrent = pOperands;
+    eval.pCurrent = pOperands->pString;
+    eval.pEnd = pOperands->pString + pOperands->stringLength;
 
     if (isImmediatePrefix(*eval.pCurrent))
     {
@@ -72,7 +82,7 @@ __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
         eval.expression.type = TYPE_IMMEDIATE;
         if (eval.expression.value > 0xFF)
         {
-            LOG_ERROR(pAssembler, "Immediate expression '%s' doesn't fit in 8-bits.", &pOperands[1]);
+            LOG_ERROR(pAssembler, "Immediate expression '%.*s' doesn't fit in 8-bits.", pOperands->stringLength-1, &pOperands->pString[1]);
             __throw_and_return(invalidArgumentException, eval.expression);
         }
     }
@@ -98,7 +108,7 @@ static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
         __rethrow;
         
     pEval->pCurrent = pEval->pNext;
-    while (*pEval->pCurrent)
+    while (pEval->pCurrent < pEval->pEnd)
     {
         __try
             evaluateOperation(pAssembler, pEval);
@@ -137,11 +147,16 @@ static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval
     }
     else
     {
-        LOG_ERROR(pAssembler, "Unexpected prefix in '%s' expression.", pEval->pCurrent);
+        LOG_ERROR(pAssembler, "Unexpected prefix in '%.*s' expression.", stringLength(pEval), pEval->pCurrent);
         __throw(invalidArgumentException);
     }
     
     pEval->pCurrent = pEval->pNext;
+}
+
+static size_t stringLength(ExpressionEvaluation* pEval)
+{
+    return pEval->pEnd - pEval->pCurrent;
 }
 
 static void evaluateOperation(Assembler* pAssembler, ExpressionEvaluation* pEval)

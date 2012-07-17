@@ -15,6 +15,8 @@
 
 #include "try_catch.h"
 #include "Assembler.h"
+#include "SizedString.h"
+
 
 #define EXPRESSION_FLAG_FORWARD_REFERENCE 1
 
@@ -34,6 +36,7 @@ typedef struct Expression
 } Expression;
 
 __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands);
+__throws Expression ExpressionEvalSizedString(Assembler* pAssembler, const SizedString* pOperands);
          Expression ExpressionEval_CreateAbsoluteExpression(unsigned short value);
 
 #endif /* _EXPRESSION_EVAL_H_ */
