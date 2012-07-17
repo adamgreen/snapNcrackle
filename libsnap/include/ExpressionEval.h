@@ -24,7 +24,7 @@
 typedef enum ExpressionType
 {
     TYPE_ABSOLUTE = 0,
-    TYPE_ZEROPAGE_ABSOLUTE,
+    TYPE_ZEROPAGE,
     TYPE_IMMEDIATE
 } ExpressionType;
 

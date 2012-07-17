@@ -450,7 +450,7 @@ Expression ExpressionEval_CreateAbsoluteExpression(unsigned short value)
     memset(&expression, 0, sizeof(expression));
     expression.value = value;
     if (value <= 0xff)
-        expression.type = TYPE_ZEROPAGE_ABSOLUTE;
+        expression.type = TYPE_ZEROPAGE;
     else
         expression.type = TYPE_ABSOLUTE;
     return expression;

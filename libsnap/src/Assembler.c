@@ -304,7 +304,7 @@ static void handleOpcode(Assembler* pThis, OpCodeEntry* pOpcodeEntry)
         emitImmediateInstruction(pThis, pOpcodeEntry->opcodeImmediate, &expression);
         return;
     }
-    else if (expression.type == TYPE_ZEROPAGE_ABSOLUTE && pOpcodeEntry->opcodeZeroPage != _xXX)
+    else if (expression.type == TYPE_ZEROPAGE && pOpcodeEntry->opcodeZeroPage != _xXX)
     {
         emitZeroPageAbsoluteInstruction(pThis, pOpcodeEntry->opcodeZeroPage, &expression);
         return;
@@ -351,7 +351,7 @@ static void emitZeroPageAbsoluteInstruction(Assembler* pThis, unsigned char opCo
 
 static int isTypeAbsolute(Expression* pExpression)
 {
-    return pExpression->type == TYPE_ZEROPAGE_ABSOLUTE ||
+    return pExpression->type == TYPE_ZEROPAGE ||
            pExpression->type == TYPE_ABSOLUTE;
 }
 

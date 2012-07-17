@@ -79,7 +79,7 @@ TEST(AddressingMode, ZeroPageAbsoluteMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, "255");
     LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_addressingMode.expression.type);
+    LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
     LONGS_EQUAL(255, m_addressingMode.expression.value);
 }
 
@@ -109,7 +109,7 @@ TEST(AddressingMode, ZeroPageAbsoluteIndexedXMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, "255,x");
     LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE_INDEXED_X, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_addressingMode.expression.type);
+    LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
     LONGS_EQUAL(255, m_addressingMode.expression.value);
 }
 
@@ -133,7 +133,7 @@ TEST(AddressingMode, ZeroPageAbsoluteIndexedYMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, "255,y");
     LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE_INDEXED_Y, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ZEROPAGE_ABSOLUTE, m_addressingMode.expression.type);
+    LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
     LONGS_EQUAL(255, m_addressingMode.expression.value);
 }
 
