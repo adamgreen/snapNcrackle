@@ -14,6 +14,8 @@
 #include "AddressingMode.h"
 #include "AddressingModeTest.h"
 #include "SizedString.h"
+#include "AssemblerPriv.h"
+
 
 static int usesImpliedAddressing(const char* pOperands);
 static int usesImmediateAddressing(const char* pOperands);
@@ -23,7 +25,7 @@ __throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, const char* p
     SizedString    operandsString = SizedString_InitFromString(pOperands);
     const char*    pComma = SizedString_strchr(&operandsString, ',');
     const char*    pOpenParen = SizedString_strchr(&operandsString, '(');
-// UNDONE:    const char*    pCloseParen;
+    const char*    pCloseParen = SizedString_strchr(&operandsString, ')');
 
     memset(&addressingMode, 0, sizeof(addressingMode));
     addressingMode.mode = ADDRESSING_MODE_INVALID;
@@ -32,31 +34,56 @@ __throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, const char* p
         addressingMode.mode = ADDRESSING_MODE_IMPLIED;
         return addressingMode;
     }
-    if (pOpenParen && pComma)
+    else if (pOpenParen && pCloseParen && pComma && 
+             pOpenParen == operandsString.pString && pComma > pOpenParen && pCloseParen > pComma)
     {
-        if (pOpenParen == operandsString.pString &&
-            pComma > pOpenParen)
+        SizedString beforeOpenParen;
+        SizedString afterOpenParen;
+        SizedString beforeComma;
+        SizedString afterComma;
+
+        SizedString_SplitString(&operandsString, '(', &beforeOpenParen, &afterOpenParen);
+        SizedString_SplitString(&afterOpenParen, ',', &beforeComma, &afterComma);
+        if (0 == SizedString_strcasecmp(&afterComma, "X)"))
         {
-            SizedString beforeOpenParen;
-            SizedString afterOpenParen;
-            SizedString beforeComma;
-            SizedString afterComma;
+            __try
+                addressingMode.expression = ExpressionEvalSizedString(pAssembler, &beforeComma);
+            __catch
+                __rethrow_and_return(addressingMode);
 
-            SizedString_SplitString(&operandsString, '(', &beforeOpenParen, &afterOpenParen);
-            SizedString_SplitString(&afterOpenParen, ',', &beforeComma, &afterComma);
-            if (0 == SizedString_strcasecmp(&afterComma, "X)"))
-            {
-                __try
-                    addressingMode.expression = ExpressionEvalSizedString(pAssembler, &beforeComma);
-                __catch
-                    __rethrow_and_return(addressingMode);
-
-                addressingMode.mode = ADDRESSING_MODE_INDEXED_INDIRECT;
-                return addressingMode;
-            }
+            addressingMode.mode = ADDRESSING_MODE_INDEXED_INDIRECT;
+            return addressingMode;
         }
     }
-    else if (pComma)
+    else if (pOpenParen && pCloseParen && pComma && 
+             pOpenParen == operandsString.pString && pComma > pOpenParen && pComma > pCloseParen)
+    {
+        SizedString beforeOpenParen;
+        SizedString afterOpenParen;
+        SizedString beforeCloseParen;
+        SizedString afterCloseParen;
+
+        SizedString_SplitString(&operandsString, '(', &beforeOpenParen, &afterOpenParen);
+        SizedString_SplitString(&afterOpenParen, ')', &beforeCloseParen, &afterCloseParen);
+        if (0 == SizedString_strcasecmp(&afterCloseParen, ",Y"))
+        {
+            __try
+                addressingMode.expression = ExpressionEvalSizedString(pAssembler, &beforeCloseParen);
+            __catch
+                __rethrow_and_return(addressingMode);
+                
+            if (addressingMode.expression.type != TYPE_ZEROPAGE)
+            {
+                LOG_ERROR(pAssembler, "'%.*s' isn't in page zero as required for indirect indexed addressing.", 
+                          beforeCloseParen.stringLength, beforeCloseParen.pString);
+                __throw_and_return(invalidArgumentException, addressingMode);
+            }
+
+            addressingMode.mode = ADDRESSING_MODE_INDIRECT_INDEXED;
+            return addressingMode;
+        }
+    }
+    else if (pComma && !pOpenParen && !pCloseParen)
     {
         SizedString beforeComma;
         SizedString afterComma;

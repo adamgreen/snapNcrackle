@@ -217,3 +217,37 @@ TEST(AddressingMode, InvalidIndexedIndirectModeWithMissingCloseParen)
     m_addressingMode = AddressingMode_Eval(m_pAssembler, "(256,x");
     validateInvalidArgumentExceptionThrown();
 }
+
+TEST(AddressingMode, InvalidIndexedIndirectModeRegister)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(255,Y)");
+    validateInvalidArgumentExceptionThrown();
+}
+
+TEST(AddressingMode, IndirectIndexedMode)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(0),Y");
+    LONGS_EQUAL(ADDRESSING_MODE_INDIRECT_INDEXED, m_addressingMode.mode);
+    LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
+    LONGS_EQUAL(0, m_addressingMode.expression.value);
+}
+
+TEST(AddressingMode, InvalidIndirectIndexedModeValue)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(-0),Y");
+    validateInvalidArgumentExceptionThrown();
+}
+
+TEST(AddressingMode, InvalidIndirectIndexedModeNotInZeroPage)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(256),Y");
+    STRCMP_EQUAL("filename:0: error: '256' isn't in page zero as required for indirect indexed addressing.\n",
+                 printfSpy_GetLastOutput());
+    validateInvalidArgumentExceptionThrown();
+}
+
+TEST(AddressingMode, InvalidIndirectIndexedModeRegister)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(0),X");
+    validateInvalidArgumentExceptionThrown();
+}
