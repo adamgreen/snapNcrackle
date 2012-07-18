@@ -23,6 +23,7 @@ typedef enum AddressingModes
     ADDRESSING_MODE_IMPLIED,
     ADDRESSING_MODE_ABSOLUTE_INDEXED_X,
     ADDRESSING_MODE_ABSOLUTE_INDEXED_Y,
+    ADDRESSING_MODE_INDEXED_INDIRECT,
     ADDRESSING_MODE_INVALID
 } AddressingModes;
 
@@ -33,6 +34,6 @@ typedef struct AddressingMode
 } AddressingMode;
 
 
-AddressingMode AddressingMode_Eval(Assembler* pAssembler, const char* pOperands);
+__throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, const char* pOperands);
 
 #endif /* _ADDRESSING_MODE_H_ */
