@@ -251,3 +251,25 @@ TEST(AddressingMode, InvalidIndirectIndexedModeRegister)
     m_addressingMode = AddressingMode_Eval(m_pAssembler, "(0),X");
     validateInvalidArgumentExceptionThrown();
 }
+
+TEST(AddressingMode, ZeroPageIndirectMode)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(255)");
+    LONGS_EQUAL(ADDRESSING_MODE_INDIRECT, m_addressingMode.mode);
+    LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
+    LONGS_EQUAL(255, m_addressingMode.expression.value);
+}
+
+TEST(AddressingMode, AbsolutePageIndirectMode)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(256)");
+    LONGS_EQUAL(ADDRESSING_MODE_INDIRECT, m_addressingMode.mode);
+    LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
+    LONGS_EQUAL(256, m_addressingMode.expression.value);
+}
+
+TEST(AddressingMode, InvalidIndirectModeValue)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(-0)");
+    validateInvalidArgumentExceptionThrown();
+}

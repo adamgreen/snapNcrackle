@@ -83,6 +83,23 @@ __throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, const char* p
             return addressingMode;
         }
     }
+    else if (pOpenParen && pCloseParen && !pComma && pOpenParen < pCloseParen)
+    {
+        SizedString beforeOpenParen;
+        SizedString afterOpenParen;
+        SizedString beforeCloseParen;
+        SizedString afterCloseParen;
+
+        SizedString_SplitString(&operandsString, '(', &beforeOpenParen, &afterOpenParen);
+        SizedString_SplitString(&afterOpenParen, ')', &beforeCloseParen, &afterCloseParen);
+        __try
+            addressingMode.expression = ExpressionEvalSizedString(pAssembler, &beforeCloseParen);
+        __catch
+            __rethrow_and_return(addressingMode);
+            
+        addressingMode.mode = ADDRESSING_MODE_INDIRECT;
+        return addressingMode;
+    }
     else if (pComma && !pOpenParen && !pCloseParen)
     {
         SizedString beforeComma;
