@@ -14,6 +14,7 @@
 #include <assert.h>
 #include "AssemblerPriv.h"
 #include "ExpressionEval.h"
+#include "AddressingMode.h"
 
 
 typedef struct OpCodeEntry
@@ -141,13 +142,18 @@ static void firstPass(Assembler* pThis);
 static void parseLine(Assembler* pThis, char* pLine);
 static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine);
 static void firstPassAssembleLine(Assembler* pThis);
-static void handleOpcode(Assembler* pThis, OpCodeEntry* pOpcodeEntry);
-static void emitImpliedInstruction(Assembler* pThis, unsigned char opCode);
-static void emitImmediateInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression);
-static void emitAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression);
-static void emitZeroPageAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression);
-static int isTypeAbsolute(Expression* pExpression);
-static void logInvalidAddressingMode(Assembler* pThis);
+static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry);
+static void handleImpliedAddressingMode(Assembler* pThis, unsigned char opcodeImplied);
+static void logInvalidAddressingModeError(Assembler* pThis);
+static void emitSingleByteInstruction(Assembler* pThis, unsigned char opCode);
+static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis, 
+                                                   AddressingMode*    pAddressingMode, 
+                                                   const OpCodeEntry* pOpcodeEntry);
+static void emitTwoByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value);
+static void emitThreeByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value);
+static void handleImmediateAddressingMode(Assembler*      pThis, 
+                                          AddressingMode* pAddressingMode, 
+                                          unsigned char   opcodeImmediate);
 static void handleEQU(Assembler* pThis);
 static void validateEQULabelFormat(Assembler* pThis);
 static void validateLabelFormat(Assembler* pThis);
@@ -164,6 +170,7 @@ static unsigned char getNextHexByte(const char* pStart, const char** ppNext);
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
 static void handleORG(Assembler* pThis);
+static int isTypeAbsolute(Expression* pExpression);
 static void rememberLabel(Assembler* pThis);
 static int isLabelToRemember(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
@@ -241,8 +248,7 @@ static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine)
 
 static void firstPassAssembleLine(Assembler* pThis)
 {
-    size_t i;
-    OpCodeEntry opcodeTable[] =
+    static const OpCodeEntry opcodeTable[] =
     {
         /* Assembler Directives */
         {"=",   handleEQU, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
@@ -252,6 +258,7 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"ORG", handleORG, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         
         /* 6502 Instructions */
+        {"CMP", NULL, 0xC9, 0xCD, 0xC5, _xXX, 0xC1, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"JSR", NULL, _xXX, 0x20, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"LDA", NULL, 0xA9, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"LDX", NULL, _xXX, 0xAE, 0xA6, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
@@ -261,6 +268,7 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"STA", NULL, _xXX, 0x8D, 0x85, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"TXA", NULL, _xXX, _xXX, _xXX, 0x8A, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     };
+    size_t i;
     
     if (pThis->parsedLine.pOperator == NULL)
         return;
@@ -277,9 +285,9 @@ static void firstPassAssembleLine(Assembler* pThis)
     handleInvalidOperator(pThis);
 }
 
-static void handleOpcode(Assembler* pThis, OpCodeEntry* pOpcodeEntry)
+static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
 {
-    Expression expression;
+    AddressingMode addressingMode;
 
     if (pOpcodeEntry->directiveHandler)
     {
@@ -287,77 +295,87 @@ static void handleOpcode(Assembler* pThis, OpCodeEntry* pOpcodeEntry)
         return;
     }
     
-    if (pThis->parsedLine.pOperands == NULL && pOpcodeEntry->opcodeImplied != _xXX)
-    {
-        emitImpliedInstruction(pThis, pOpcodeEntry->opcodeImplied);
-        return;
-    }
-    
-    
     __try
-        expression = ExpressionEval(pThis, pThis->parsedLine.pOperands);
+        addressingMode = AddressingMode_Eval(pThis, pThis->parsedLine.pOperands);
     __catch
         __nothrow;
-    
-    if (expression.type == TYPE_IMMEDIATE && pOpcodeEntry->opcodeImmediate != _xXX)
+        
+    switch (addressingMode.mode)
     {
-        emitImmediateInstruction(pThis, pOpcodeEntry->opcodeImmediate, &expression);
-        return;
-    }
-    else if (expression.type == TYPE_ZEROPAGE && pOpcodeEntry->opcodeZeroPage != _xXX)
-    {
-        emitZeroPageAbsoluteInstruction(pThis, pOpcodeEntry->opcodeZeroPage, &expression);
-        return;
-    }
-    else if (isTypeAbsolute(&expression) && pOpcodeEntry->opcodeAbsolute != _xXX)
-    {
-        emitAbsoluteInstruction(pThis, pOpcodeEntry->opcodeAbsolute, &expression);
-        return;
-    }
-    else
-    {
-        logInvalidAddressingMode(pThis);
-        return;
+    case ADDRESSING_MODE_ABSOLUTE:
+        handleZeroPageOrAbsoluteAddressingMode(pThis, &addressingMode, pOpcodeEntry);
+        break;
+    case ADDRESSING_MODE_IMMEDIATE:
+        handleImmediateAddressingMode(pThis, &addressingMode, pOpcodeEntry->opcodeImmediate);
+        break;
+    case ADDRESSING_MODE_IMPLIED:
+        handleImpliedAddressingMode(pThis, pOpcodeEntry->opcodeImplied);
+        break;
+    default:
+        logInvalidAddressingModeError(pThis);
+        break;
     }
 }
 
-static void emitImpliedInstruction(Assembler* pThis, unsigned char opCode)
+static void handleImpliedAddressingMode(Assembler* pThis, unsigned char opcodeImplied)
+{
+    if (opcodeImplied == _xXX)
+    {
+        logInvalidAddressingModeError(pThis);
+        return;
+    }
+    emitSingleByteInstruction(pThis, opcodeImplied);
+}
+
+static void logInvalidAddressingModeError(Assembler* pThis)
+{
+    LOG_ERROR(pThis, "Addressing mode of '%s' is not supported for '%s' instruction.", 
+              pThis->parsedLine.pOperands, pThis->parsedLine.pOperator);
+}
+
+static void emitSingleByteInstruction(Assembler* pThis, unsigned char opCode)
 {
     pThis->pLineInfo->machineCode[0] = opCode;
     pThis->pLineInfo->machineCodeSize = 1;
 }
 
-static void emitImmediateInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression)
+static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis, 
+                                                   AddressingMode*    pAddressingMode, 
+                                                   const OpCodeEntry* pOpcodeEntry)
+{
+    if (pAddressingMode->expression.type == TYPE_ZEROPAGE && pOpcodeEntry->opcodeZeroPage != _xXX)
+        emitTwoByteInstruction(pThis, pOpcodeEntry->opcodeZeroPage, pAddressingMode->expression.value);
+    else if (pOpcodeEntry->opcodeAbsolute != _xXX)
+        emitThreeByteInstruction(pThis, pOpcodeEntry->opcodeAbsolute, pAddressingMode->expression.value);
+    else
+        logInvalidAddressingModeError(pThis);
+}
+
+static void emitTwoByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value)
 {
     pThis->pLineInfo->machineCode[0] = opCode;
-    pThis->pLineInfo->machineCode[1] = LO_BYTE(pExpression->value);
+    pThis->pLineInfo->machineCode[1] = LO_BYTE(value);
     pThis->pLineInfo->machineCodeSize = 2;
 }
 
-static void emitAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression)
+static void emitThreeByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value)
 {
     pThis->pLineInfo->machineCode[0] = opCode;
-    pThis->pLineInfo->machineCode[1] = LO_BYTE(pExpression->value);
-    pThis->pLineInfo->machineCode[2] = HI_BYTE(pExpression->value);
+    pThis->pLineInfo->machineCode[1] = LO_BYTE(value);
+    pThis->pLineInfo->machineCode[2] = HI_BYTE(value);
     pThis->pLineInfo->machineCodeSize = 3;
 }
 
-static void emitZeroPageAbsoluteInstruction(Assembler* pThis, unsigned char opCode, Expression* pExpression)
+static void handleImmediateAddressingMode(Assembler*      pThis, 
+                                          AddressingMode* pAddressingMode, 
+                                          unsigned char   opcodeImmediate)
 {
-    pThis->pLineInfo->machineCode[0] = opCode;
-    pThis->pLineInfo->machineCode[1] = LO_BYTE(pExpression->value);
-    pThis->pLineInfo->machineCodeSize = 2;
-}
-
-static int isTypeAbsolute(Expression* pExpression)
-{
-    return pExpression->type == TYPE_ZEROPAGE ||
-           pExpression->type == TYPE_ABSOLUTE;
-}
-
-static void logInvalidAddressingMode(Assembler* pThis)
-{
-    LOG_ERROR(pThis, "'%s' specifies invalid addressing mode for this instruction.", pThis->parsedLine.pOperands);
+    if (opcodeImmediate == _xXX)
+    {
+        logInvalidAddressingModeError(pThis);
+        return;
+    }
+    emitTwoByteInstruction(pThis, opcodeImmediate, pAddressingMode->expression.value);
 }
 
 static void handleEQU(Assembler* pThis)
@@ -614,6 +632,12 @@ static void handleORG(Assembler* pThis)
     {
         __nothrow;
     }
+}
+
+static int isTypeAbsolute(Expression* pExpression)
+{
+    return pExpression->type == TYPE_ZEROPAGE ||
+           pExpression->type == TYPE_ABSOLUTE;
 }
 
 static void rememberLabel(Assembler* pThis)

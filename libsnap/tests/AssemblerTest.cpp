@@ -730,7 +730,7 @@ TEST(Assembler, LDAInvalidImmediateValue)
 TEST(Assembler, LDAAbsoluteNotYetImplemented)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" lda $900\n"));
-    runAssemblerAndValidateFailure("filename:1: error: '$900' specifies invalid addressing mode for this instruction.\n",
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '$900' is not supported for 'lda' instruction.\n",
                                    "    :              1  lda $900\n");
 }
 
@@ -764,7 +764,7 @@ TEST(Assembler, STAZeroPageAbsoluteViaLabel)
 TEST(Assembler, STAInvalidImmediateValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" sta #$ff\n"));
-    runAssemblerAndValidateFailure("filename:1: error: '#$ff' specifies invalid addressing mode for this instruction.\n",
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '#$ff' is not supported for 'sta' instruction.\n",
                                    "    :              1  sta #$ff\n");
 }
 
@@ -797,7 +797,7 @@ TEST(Assembler, JSRToAbsoluteEQU)
 TEST(Assembler, JSRWithInvalidAddressingMode)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" jsr #$5c\n"));
-    runAssemblerAndValidateFailure("filename:1: error: '#$5c' specifies invalid addressing mode for this instruction.\n",
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '#$5c' is not supported for 'jsr' instruction.\n",
                                    "    :              1  jsr #$5c\n");
 }
 
@@ -844,7 +844,7 @@ TEST(Assembler, LDXWithInvalidExpression)
 TEST(Assembler, LDXWithInvalidAddressingMode)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" ldx #$5c\n"));
-    runAssemblerAndValidateFailure("filename:1: error: '#$5c' specifies invalid addressing mode for this instruction.\n",
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '#$5c' is not supported for 'ldx' instruction.\n",
                                    "    :              1  ldx #$5c\n");
 }
 
@@ -852,6 +852,13 @@ TEST(Assembler, TXA)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" txa\n"));
     runAssemblerAndValidateOutputIs("0000: 8A           1  txa\n");
+}
+
+TEST(Assembler, TXA_WithInvalidAddressingModeOfImmediate)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" txa #1\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '#1' is not supported for 'txa' instruction.\n",
+                                   "    :              1  txa #1\n");
 }
 
 TEST(Assembler, LSRAccumulator)
@@ -863,14 +870,14 @@ TEST(Assembler, LSRAccumulator)
 TEST(Assembler, LSRInvalidAddressMode)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" lsr #$5c\n"));
-    runAssemblerAndValidateFailure("filename:1: error: '#$5c' specifies invalid addressing mode for this instruction.\n",
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '#$5c' is not supported for 'lsr' instruction.\n",
                                    "    :              1  lsr #$5c\n");
 }
 
 TEST(Assembler, LSRNotYetImplementedAddressMode)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" lsr $5c\n"));
-    runAssemblerAndValidateFailure("filename:1: error: '$5c' specifies invalid addressing mode for this instruction.\n",
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '$5c' is not supported for 'lsr' instruction.\n",
                                    "    :              1  lsr $5c\n");
 }
 
@@ -890,7 +897,7 @@ TEST(Assembler, ORAWithInvalidExpression)
 TEST(Assembler, ORANotYetImplementedAddressMode)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" ora $c0\n"));
-    runAssemblerAndValidateFailure("filename:1: error: '$c0' specifies invalid addressing mode for this instruction.\n",
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '$c0' is not supported for 'ora' instruction.\n",
                                    "    :              1  ora $c0\n");
 }
 
@@ -930,7 +937,37 @@ TEST(Assembler, LDYWithInvalidExpression)
 TEST(Assembler, LDYWithInvalidAddressingMode)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" ldy #$5c\n"));
-    runAssemblerAndValidateFailure("filename:1: error: '#$5c' specifies invalid addressing mode for this instruction.\n",
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '#$5c' is not supported for 'ldy' instruction.\n",
                                    "    :              1  ldy #$5c\n");
 }
 
+TEST(Assembler, CMPImmediate)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" cmp #$ff\n"));
+    runAssemblerAndValidateOutputIs("0000: C9 FF        1  cmp #$ff\n");
+}
+
+TEST(Assembler, CMPAbsolute)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" cmp $100\n"));
+    runAssemblerAndValidateOutputIs("0000: CD 00 01     1  cmp $100\n");
+}
+
+TEST(Assembler, CMPZeroPage)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" cmp $ff\n"));
+    runAssemblerAndValidateOutputIs("0000: C5 FF        1  cmp $ff\n");
+}
+
+IGNORE_TEST(Assembler, CMPZeroPageIndexedIndirect)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" cmp ($fe,x)\n"));
+    runAssemblerAndValidateOutputIs("0000: C1 FE        1  cmp ($fe,x)\n");
+}
+
+TEST(Assembler, CMPInvalidAddressingModeOfImplied)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" cmp\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '(null)' is not supported for 'cmp' instruction.\n",
+                                   "    :              1  cmp\n");
+}

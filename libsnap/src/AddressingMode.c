@@ -51,6 +51,8 @@ static AddressingMode indexedAddressing(Assembler* pAssembler, SizedString* pOpe
 static int hasNoCommaOrParens(CharLocations* pLocations);
 static AddressingMode immediateOrAbsoluteAddressing(Assembler* pAssembler, SizedString* pOperandsString);
 static int usesImmediateAddressing(SizedString* pOperandsString);
+
+
 __throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, const char* pOperands)
 {
     SizedString    operandsString = SizedString_InitFromString(pOperands);
