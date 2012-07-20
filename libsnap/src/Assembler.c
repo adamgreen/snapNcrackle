@@ -280,6 +280,8 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"ORG", handleORG, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         
         /* 6502 Instructions */
+//        {"ASL", NULL, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"ASL", NULL, _xXX, 0x0E, 0x06, 0x0A, _xXX, _xXX, 0x16, _xXX, 0x1E, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"CMP", NULL, 0xC9, 0xCD, 0xC5, _xXX, 0xC1, 0xD1, 0xD5, _xXX, 0xDD, 0xD9, _xXX, _xXX, _xXX, 0xD2},
         {"JSR", NULL, _xXX, 0x20, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"LDA", NULL, 0xA9, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},

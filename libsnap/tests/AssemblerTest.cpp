@@ -1001,11 +1001,6 @@ TEST(Assembler, CMPZeroPageIndirect)
     runAssemblerAndValidateOutputIs("0000: D2 FF        1  cmp ($ff)\n");
 }
 
-
-
-
-
-
 TEST(Assembler, CMPInvalidAddressingModeOfImplied)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" cmp\n"));
@@ -1025,4 +1020,91 @@ TEST(Assembler, CMPInvalidAddressingModeOfAbsoluteIndexedIndirect)
     m_pAssembler = Assembler_CreateFromString(dupe(" cmp ($100,x)\n"));
     runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($100,x)' is not supported for 'cmp' instruction.\n",
                                    "    :              1  cmp ($100,x)\n");
+}
+
+
+TEST(Assembler, ASL_InvalidAddressingModeOfImmediate)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asl #$ff\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '#$ff' is not supported for 'asl' instruction.\n",
+                                   "    :              1  asl #$ff\n");
+}
+
+TEST(Assembler, ASL_Absolute)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asl $100\n"));
+    runAssemblerAndValidateOutputIs("0000: 0E 00 01     1  asl $100\n");
+}
+
+TEST(Assembler, ASL_ZeroPage)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asl $ff\n"));
+    runAssemblerAndValidateOutputIs("0000: 06 FF        1  asl $ff\n");
+}
+
+TEST(Assembler, ASL_ImpliedAkaAccumulator)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asl\n"));
+    runAssemblerAndValidateOutputIs("0000: 0A           1  asl\n");
+}
+
+TEST(Assembler, ASL_InvalidAddressingModeOfZeroPageIndexedIndirect)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asl ($fe,x)\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($fe,x)' is not supported for 'asl' instruction.\n",
+                                   "    :              1  asl ($fe,x)\n");
+}
+
+TEST(Assembler, ASL_InvalidAddressingModeOfZeroPageIndirectIndexed)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asl ($fe),y\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($fe),y' is not supported for 'asl' instruction.\n",
+                                   "    :              1  asl ($fe),y\n");
+}
+
+TEST(Assembler, ASL_ZeroPageIndexedX)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asl $ff,x\n"));
+    runAssemblerAndValidateOutputIs("0000: 16 FF        1  asl $ff,x\n");
+}
+
+TEST(Assembler, ASL_InvalidAddressingModeOfZeroPageIndexedY)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asl $ff,y\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '$ff,y' is not supported for 'asl' instruction.\n",
+                                   "    :              1  asl $ff,y\n");
+}
+
+TEST(Assembler, ASL_AbsoluteIndexedX)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asl $100,x\n"));
+    runAssemblerAndValidateOutputIs("0000: 1E 00 01     1  asl $100,x\n");
+}
+
+TEST(Assembler, ASL_InvalidAddressingModeOfAbsoluteIndexedY)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asl $100,y\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '$100,y' is not supported for 'asl' instruction.\n",
+                                   "    :              1  asl $100,y\n");
+}
+
+TEST(Assembler, ASL_InvalidAddressingModeOfAbsoluteIndirect)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asl ($100)\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($100)' is not supported for 'asl' instruction.\n",
+                                   "    :              1  asl ($100)\n");
+}
+
+TEST(Assembler, ASL_InvalidAddressingModeOfAbsoluteIndexedIndirect)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asl ($100,x)\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($100,x)' is not supported for 'asl' instruction.\n",
+                                   "    :              1  asl ($100,x)\n");
+}
+
+TEST(Assembler, ASL_InvalidAddressingModeOfZeroPageIndirect)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asl ($ff)\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($ff)' is not supported for 'asl' instruction.\n",
+                                   "    :              1  asl ($ff)\n");
 }
