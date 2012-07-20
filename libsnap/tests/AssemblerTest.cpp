@@ -12,6 +12,7 @@
 */
 
 // Include headers from C modules under test.
+#include <stdlib.h>
 extern "C"
 {
     #include "CommandLine.h"
@@ -30,11 +31,14 @@ const char* g_sourceFilename = "AssemblerTest.S";
 
 TEST_GROUP(Assembler)
 {
-    Assembler*  m_pAssembler;
-    const char* m_argv[10];
-    CommandLine m_commandLine;
-    int         m_argc;
-    char        m_buffer[128];
+    Assembler*    m_pAssembler;
+    const char*   m_argv[10];
+    CommandLine   m_commandLine;
+    int           m_argc;
+    int           m_isInvalidMode;
+    int           m_isZeroPageTreatedAsAbsolute;
+    char          m_buffer[128];
+    unsigned char m_expectedOpcode;
     
     void setup()
     {
@@ -127,6 +131,427 @@ TEST_GROUP(Assembler)
         STRCMP_EQUAL(pExpectedFailureMessage, printfSpy_GetLastErrorOutput());
         STRCMP_EQUAL(pExpectedListOutput, printfSpy_GetLastOutput());
         LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler) );
+    }
+    
+    void test6502Instruction(const char* pInstruction, const char* pInstructionTableEntry)
+    {
+        const char*        pCurr = pInstructionTableEntry;
+    
+        CHECK_TRUE(strlen(pInstructionTableEntry) >= 14*3-1);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testImmediateAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testAbsoluteAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testZeroPageAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testImpliedAddressing(pInstruction);
+
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testZeroPageIndexedIndirectAddressing(pInstruction);
+
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testIndirectIndexedAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testZeroPageIndexedXAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testZeroPageIndexedYAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testAbsoluteIndexedXAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testAbsoluteIndexedYAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testRelativeAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testAbsoluteIndirectAddressing(pInstruction);
+
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testAbsoluteIndexedIndirectAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testZeroPageIndirectAddressing(pInstruction);
+    }
+    
+    const char* parseEntryAndAdvanceToNextEntry(const char* pCurr)
+    {
+        m_isInvalidMode = FALSE;
+        m_isZeroPageTreatedAsAbsolute = FALSE;
+        if (0 == strncmp(pCurr, "XX", 2))
+            m_isInvalidMode = TRUE;
+        else
+        {
+            if (*pCurr == '^')
+            {
+                m_isZeroPageTreatedAsAbsolute = TRUE;
+                pCurr++;
+            }
+
+            m_expectedOpcode = strtoul(pCurr, NULL, 16);
+        }
+            
+        if (pCurr[2] == ',')
+            return pCurr + 3;
+        else
+            return pCurr + 2;
+    }
+    
+    void testImmediateAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
+
+        CHECK_FALSE(m_isZeroPageTreatedAsAbsolute);
+        
+        sprintf(testString, " %s #$ff\n", pInstruction);
+        runAssembler(testString);
+        if (!m_isInvalidMode)
+        {
+            sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
+        else
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '#$ff' is not supported for '%s' instruction.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+    }
+    
+    void testAbsoluteAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
+
+        CHECK_FALSE(m_isZeroPageTreatedAsAbsolute);
+        
+        sprintf(testString, " %s $100\n", pInstruction);
+        runAssembler(testString);
+        
+        if (!m_isInvalidMode)
+        {
+            sprintf(expectedListOutput, "0000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
+        else
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '$100' is not supported for '%s' instruction.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+    }
+    
+    void testZeroPageAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
+
+        sprintf(testString, " %s $ff\n", pInstruction);
+        runAssembler(testString);
+        
+        if (!m_isInvalidMode)
+        {
+            if (!m_isZeroPageTreatedAsAbsolute)
+                sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+            else
+                sprintf(expectedListOutput, "0000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
+        else
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '$ff' is not supported for '%s' instruction.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+    }
+    
+    void testImpliedAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
+
+        CHECK_FALSE(m_isZeroPageTreatedAsAbsolute);
+        
+        sprintf(testString, " %s\n", pInstruction);
+        runAssembler(testString);
+        if (!m_isInvalidMode)
+        {
+            sprintf(expectedListOutput, "0000: %02X           1 %s\n", m_expectedOpcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
+        else
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '(null)' is not supported for '%s' instruction.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+    }
+    
+    void testZeroPageIndexedIndirectAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
+
+        CHECK_FALSE(m_isZeroPageTreatedAsAbsolute);
+        
+        sprintf(testString, " %s ($ff,x)\n", pInstruction);
+        runAssembler(testString);
+        
+        if (!m_isInvalidMode)
+        {
+            sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
+        else
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '($ff,x)' is not supported for '%s' instruction.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+    }
+    
+    void testIndirectIndexedAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
+
+        CHECK_FALSE(m_isZeroPageTreatedAsAbsolute);
+        
+        sprintf(testString, " %s ($ff),y\n", pInstruction);
+        runAssembler(testString);
+        
+        if (!m_isInvalidMode)
+        {
+            sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
+        else
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '($ff),y' is not supported for '%s' instruction.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+    }
+    
+    void testZeroPageIndexedXAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
+
+        sprintf(testString, " %s $ff,x\n", pInstruction);
+        runAssembler(testString);
+        
+        if (!m_isInvalidMode)
+        {
+            if (!m_isZeroPageTreatedAsAbsolute)
+                sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+            else
+                sprintf(expectedListOutput, "0000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
+        else
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '$ff,x' is not supported for '%s' instruction.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+    }
+    
+    void testZeroPageIndexedYAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
+
+        sprintf(testString, " %s $ff,y\n", pInstruction);
+        runAssembler(testString);
+        
+        if (!m_isInvalidMode)
+        {
+            if (!m_isZeroPageTreatedAsAbsolute)
+                sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+            else
+                sprintf(expectedListOutput, "0000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
+        else
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '$ff,y' is not supported for '%s' instruction.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+    }
+    
+    void testAbsoluteIndexedXAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
+
+        CHECK_FALSE(m_isZeroPageTreatedAsAbsolute);
+        
+        sprintf(testString, " %s $100,x\n", pInstruction);
+        runAssembler(testString);
+        
+        if (!m_isInvalidMode)
+        {
+            sprintf(expectedListOutput, "0000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
+        else
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '$100,x' is not supported for '%s' instruction.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+    }
+    
+    void testAbsoluteIndexedYAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
+
+        CHECK_FALSE(m_isZeroPageTreatedAsAbsolute);
+        
+        sprintf(testString, " %s $100,y\n", pInstruction);
+        runAssembler(testString);
+        
+        if (!m_isInvalidMode)
+        {
+            sprintf(expectedListOutput, "0000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
+        else
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '$100,y' is not supported for '%s' instruction.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+    }
+    
+    void testRelativeAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+
+        CHECK_FALSE(m_isZeroPageTreatedAsAbsolute);
+        if (m_isInvalidMode)
+            return;
+        
+        sprintf(testString, " %s *\n", pInstruction);
+        runAssembler(testString);
+        sprintf(expectedListOutput, "0000: %02X FE        1 %s\n", m_expectedOpcode, testString);
+        validateSuccessfulOutput(expectedListOutput);
+    }
+    
+    void testAbsoluteIndirectAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
+
+        CHECK_FALSE(m_isZeroPageTreatedAsAbsolute);
+        
+        sprintf(testString, " %s ($100)\n", pInstruction);
+        runAssembler(testString);
+        
+        if (!m_isInvalidMode)
+        {
+            sprintf(expectedListOutput, "0000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
+        else
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '($100)' is not supported for '%s' instruction.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+    }
+    
+    void testAbsoluteIndexedIndirectAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
+
+        CHECK_FALSE(m_isZeroPageTreatedAsAbsolute);
+        
+        sprintf(testString, " %s ($100,x)\n", pInstruction);
+        runAssembler(testString);
+        
+        if (!m_isInvalidMode)
+        {
+            sprintf(expectedListOutput, "0000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
+        else
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '($100,x)' is not supported for '%s' instruction.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+    }
+    
+    void testZeroPageIndirectAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
+
+        sprintf(testString, " %s ($ff)\n", pInstruction);
+        runAssembler(testString);
+        
+        if (!m_isInvalidMode)
+        {
+            sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
+        else
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '($ff)' is not supported for '%s' instruction.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+    }
+    
+    void runAssembler(char* pTestString)
+    {
+        printfSpy_Unhook();
+        printfSpy_Hook(512);
+        m_pAssembler = Assembler_CreateFromString(pTestString);
+        Assembler_Run(m_pAssembler);
+        Assembler_Free(m_pAssembler);
+        m_pAssembler = NULL;
+    }
+    
+    void validateSuccessfulOutput(const char* pExpectedListOutput)
+    {
+        STRCMP_EQUAL(pExpectedListOutput, printfSpy_GetLastOutput());
+        LONGS_EQUAL(1, printfSpy_GetCallCount());
+    }
+    
+    void validateFailureOutput(const char* pExpectedErrorOutput, const char* pExpectedListOutput)
+    {
+        STRCMP_EQUAL(pExpectedErrorOutput, printfSpy_GetLastErrorOutput());
+        STRCMP_EQUAL(pExpectedListOutput, printfSpy_GetLastOutput());
+        LONGS_EQUAL(2, printfSpy_GetCallCount());
     }
 };
 
@@ -941,170 +1366,12 @@ TEST(Assembler, LDYWithInvalidAddressingMode)
                                    "    :              1  ldy #$5c\n");
 }
 
-TEST(Assembler, CMPImmediate)
+TEST(Assembler, CMP_TableDrivenTest)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" cmp #$ff\n"));
-    runAssemblerAndValidateOutputIs("0000: C9 FF        1  cmp #$ff\n");
+    test6502Instruction("cmp", "C9,CD,C5,XX,C1,D1,D5,^D9,DD,D9,XX,XX,XX,D2");
 }
 
-TEST(Assembler, CMPAbsolute)
+TEST(Assembler, ASL_TableDrivenTest)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" cmp $100\n"));
-    runAssemblerAndValidateOutputIs("0000: CD 00 01     1  cmp $100\n");
-}
-
-TEST(Assembler, CMPZeroPage)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" cmp $ff\n"));
-    runAssemblerAndValidateOutputIs("0000: C5 FF        1  cmp $ff\n");
-}
-
-TEST(Assembler, CMPZeroPageIndexedIndirect)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" cmp ($fe,x)\n"));
-    runAssemblerAndValidateOutputIs("0000: C1 FE        1  cmp ($fe,x)\n");
-}
-
-TEST(Assembler, CMPIndirectIndexed)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" cmp ($fe),y\n"));
-    runAssemblerAndValidateOutputIs("0000: D1 FE        1  cmp ($fe),y\n");
-}
-
-TEST(Assembler, CMPZeroPagedIndexedX)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" cmp $ff,x\n"));
-    runAssemblerAndValidateOutputIs("0000: D5 FF        1  cmp $ff,x\n");
-}
-
-TEST(Assembler, CMPZeroPagedIndexedYTreatedAsAbsoluteIndexed)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" cmp $ff,y\n"));
-    runAssemblerAndValidateOutputIs("0000: D9 FF 00     1  cmp $ff,y\n");
-}
-
-TEST(Assembler, CMPAbsoluteIndexedX)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" cmp $100,x\n"));
-    runAssemblerAndValidateOutputIs("0000: DD 00 01     1  cmp $100,x\n");
-}
-
-TEST(Assembler, CMPAbsoluteIndexedY)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" cmp $100,y\n"));
-    runAssemblerAndValidateOutputIs("0000: D9 00 01     1  cmp $100,y\n");
-}
-
-TEST(Assembler, CMPZeroPageIndirect)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" cmp ($ff)\n"));
-    runAssemblerAndValidateOutputIs("0000: D2 FF        1  cmp ($ff)\n");
-}
-
-TEST(Assembler, CMPInvalidAddressingModeOfImplied)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" cmp\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '(null)' is not supported for 'cmp' instruction.\n",
-                                   "    :              1  cmp\n");
-}
-
-TEST(Assembler, CMPInvalidAddressingModeOfAbsoluteIndirect)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" cmp ($100)\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($100)' is not supported for 'cmp' instruction.\n",
-                                   "    :              1  cmp ($100)\n");
-}
-
-TEST(Assembler, CMPInvalidAddressingModeOfAbsoluteIndexedIndirect)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" cmp ($100,x)\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($100,x)' is not supported for 'cmp' instruction.\n",
-                                   "    :              1  cmp ($100,x)\n");
-}
-
-
-TEST(Assembler, ASL_InvalidAddressingModeOfImmediate)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" asl #$ff\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '#$ff' is not supported for 'asl' instruction.\n",
-                                   "    :              1  asl #$ff\n");
-}
-
-TEST(Assembler, ASL_Absolute)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" asl $100\n"));
-    runAssemblerAndValidateOutputIs("0000: 0E 00 01     1  asl $100\n");
-}
-
-TEST(Assembler, ASL_ZeroPage)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" asl $ff\n"));
-    runAssemblerAndValidateOutputIs("0000: 06 FF        1  asl $ff\n");
-}
-
-TEST(Assembler, ASL_ImpliedAkaAccumulator)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" asl\n"));
-    runAssemblerAndValidateOutputIs("0000: 0A           1  asl\n");
-}
-
-TEST(Assembler, ASL_InvalidAddressingModeOfZeroPageIndexedIndirect)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" asl ($fe,x)\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($fe,x)' is not supported for 'asl' instruction.\n",
-                                   "    :              1  asl ($fe,x)\n");
-}
-
-TEST(Assembler, ASL_InvalidAddressingModeOfZeroPageIndirectIndexed)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" asl ($fe),y\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($fe),y' is not supported for 'asl' instruction.\n",
-                                   "    :              1  asl ($fe),y\n");
-}
-
-TEST(Assembler, ASL_ZeroPageIndexedX)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" asl $ff,x\n"));
-    runAssemblerAndValidateOutputIs("0000: 16 FF        1  asl $ff,x\n");
-}
-
-TEST(Assembler, ASL_InvalidAddressingModeOfZeroPageIndexedY)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" asl $ff,y\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '$ff,y' is not supported for 'asl' instruction.\n",
-                                   "    :              1  asl $ff,y\n");
-}
-
-TEST(Assembler, ASL_AbsoluteIndexedX)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" asl $100,x\n"));
-    runAssemblerAndValidateOutputIs("0000: 1E 00 01     1  asl $100,x\n");
-}
-
-TEST(Assembler, ASL_InvalidAddressingModeOfAbsoluteIndexedY)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" asl $100,y\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '$100,y' is not supported for 'asl' instruction.\n",
-                                   "    :              1  asl $100,y\n");
-}
-
-TEST(Assembler, ASL_InvalidAddressingModeOfAbsoluteIndirect)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" asl ($100)\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($100)' is not supported for 'asl' instruction.\n",
-                                   "    :              1  asl ($100)\n");
-}
-
-TEST(Assembler, ASL_InvalidAddressingModeOfAbsoluteIndexedIndirect)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" asl ($100,x)\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($100,x)' is not supported for 'asl' instruction.\n",
-                                   "    :              1  asl ($100,x)\n");
-}
-
-TEST(Assembler, ASL_InvalidAddressingModeOfZeroPageIndirect)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" asl ($ff)\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($ff)' is not supported for 'asl' instruction.\n",
-                                   "    :              1  asl ($ff)\n");
+    test6502Instruction("asl", "XX,0E,06,0A,XX,XX,16,XX,1E,XX,XX,XX,XX,XX");
 }
