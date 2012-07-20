@@ -959,15 +959,70 @@ TEST(Assembler, CMPZeroPage)
     runAssemblerAndValidateOutputIs("0000: C5 FF        1  cmp $ff\n");
 }
 
-IGNORE_TEST(Assembler, CMPZeroPageIndexedIndirect)
+TEST(Assembler, CMPZeroPageIndexedIndirect)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" cmp ($fe,x)\n"));
     runAssemblerAndValidateOutputIs("0000: C1 FE        1  cmp ($fe,x)\n");
 }
+
+TEST(Assembler, CMPIndirectIndexed)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" cmp ($fe),y\n"));
+    runAssemblerAndValidateOutputIs("0000: D1 FE        1  cmp ($fe),y\n");
+}
+
+TEST(Assembler, CMPZeroPagedIndexedX)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" cmp $ff,x\n"));
+    runAssemblerAndValidateOutputIs("0000: D5 FF        1  cmp $ff,x\n");
+}
+
+TEST(Assembler, CMPZeroPagedIndexedYTreatedAsAbsoluteIndexed)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" cmp $ff,y\n"));
+    runAssemblerAndValidateOutputIs("0000: D9 FF 00     1  cmp $ff,y\n");
+}
+
+TEST(Assembler, CMPAbsoluteIndexedX)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" cmp $100,x\n"));
+    runAssemblerAndValidateOutputIs("0000: DD 00 01     1  cmp $100,x\n");
+}
+
+TEST(Assembler, CMPAbsoluteIndexedY)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" cmp $100,y\n"));
+    runAssemblerAndValidateOutputIs("0000: D9 00 01     1  cmp $100,y\n");
+}
+
+TEST(Assembler, CMPZeroPageIndirect)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" cmp ($ff)\n"));
+    runAssemblerAndValidateOutputIs("0000: D2 FF        1  cmp ($ff)\n");
+}
+
+
+
+
+
 
 TEST(Assembler, CMPInvalidAddressingModeOfImplied)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" cmp\n"));
     runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '(null)' is not supported for 'cmp' instruction.\n",
                                    "    :              1  cmp\n");
+}
+
+TEST(Assembler, CMPInvalidAddressingModeOfAbsoluteIndirect)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" cmp ($100)\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($100)' is not supported for 'cmp' instruction.\n",
+                                   "    :              1  cmp ($100)\n");
+}
+
+TEST(Assembler, CMPInvalidAddressingModeOfAbsoluteIndexedIndirect)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" cmp ($100,x)\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '($100,x)' is not supported for 'cmp' instruction.\n",
+                                   "    :              1  cmp ($100,x)\n");
 }

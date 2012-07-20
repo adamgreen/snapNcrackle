@@ -149,11 +149,33 @@ static void emitSingleByteInstruction(Assembler* pThis, unsigned char opCode);
 static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis, 
                                                    AddressingMode*    pAddressingMode, 
                                                    const OpCodeEntry* pOpcodeEntry);
+static void handleZeroPageOrAbsoluteAddressingModes(Assembler*         pThis, 
+                                                    AddressingMode*    pAddressingMode, 
+                                                    unsigned char      opcodeZeroPage,
+                                                    unsigned char      opcodeAbsolute);
 static void emitTwoByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value);
 static void emitThreeByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value);
 static void handleImmediateAddressingMode(Assembler*      pThis, 
                                           AddressingMode* pAddressingMode, 
                                           unsigned char   opcodeImmediate);
+static void handleTwoByteAddressingMode(Assembler*      pThis, 
+                                        AddressingMode* pAddressingMode, 
+                                        unsigned char   opcode);
+static void handleZeroPageOrAbsoluteIndexedIndirectAddressingMode(Assembler*         pThis, 
+                                                                  AddressingMode*    pAddressingMode, 
+                                                                  const OpCodeEntry* pOpcodeEntry);
+static void handleIndirectIndexedAddressingMode(Assembler*      pThis, 
+                                                AddressingMode* pAddressingMode, 
+                                                unsigned char   opcodeIndirectIndexed);
+static void handleZeroPageOrAbsoluteIndexedXAddressingMode(Assembler*         pThis, 
+                                                           AddressingMode*    pAddressingMode, 
+                                                           const OpCodeEntry* pOpcodeEntry);
+static void handleZeroPageOrAbsoluteIndexedYAddressingMode(Assembler*         pThis, 
+                                                           AddressingMode*    pAddressingMode, 
+                                                           const OpCodeEntry* pOpcodeEntry);
+static void handleZeroPageOrAbsoluteIndirectAddressingMode(Assembler*         pThis, 
+                                                           AddressingMode*    pAddressingMode, 
+                                                           const OpCodeEntry* pOpcodeEntry);
 static void handleEQU(Assembler* pThis);
 static void validateEQULabelFormat(Assembler* pThis);
 static void validateLabelFormat(Assembler* pThis);
@@ -258,7 +280,7 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"ORG", handleORG, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         
         /* 6502 Instructions */
-        {"CMP", NULL, 0xC9, 0xCD, 0xC5, _xXX, 0xC1, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"CMP", NULL, 0xC9, 0xCD, 0xC5, _xXX, 0xC1, 0xD1, 0xD5, _xXX, 0xDD, 0xD9, _xXX, _xXX, _xXX, 0xD2},
         {"JSR", NULL, _xXX, 0x20, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"LDA", NULL, 0xA9, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"LDX", NULL, _xXX, 0xAE, 0xA6, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
@@ -311,6 +333,21 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
     case ADDRESSING_MODE_IMPLIED:
         handleImpliedAddressingMode(pThis, pOpcodeEntry->opcodeImplied);
         break;
+    case ADDRESSING_MODE_INDEXED_INDIRECT:
+        handleZeroPageOrAbsoluteIndexedIndirectAddressingMode(pThis, &addressingMode, pOpcodeEntry);
+        break;
+    case ADDRESSING_MODE_INDIRECT_INDEXED:
+        handleIndirectIndexedAddressingMode(pThis, &addressingMode, pOpcodeEntry->opcodeIndirectIndexed);
+        break;
+    case ADDRESSING_MODE_ABSOLUTE_INDEXED_X:
+        handleZeroPageOrAbsoluteIndexedXAddressingMode(pThis, &addressingMode, pOpcodeEntry);
+        break;
+    case ADDRESSING_MODE_ABSOLUTE_INDEXED_Y:
+        handleZeroPageOrAbsoluteIndexedYAddressingMode(pThis, &addressingMode, pOpcodeEntry);
+        break;
+    case ADDRESSING_MODE_INDIRECT:
+        handleZeroPageOrAbsoluteIndirectAddressingMode(pThis, &addressingMode, pOpcodeEntry);
+        break;
     default:
         logInvalidAddressingModeError(pThis);
         break;
@@ -343,10 +380,20 @@ static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis,
                                                    AddressingMode*    pAddressingMode, 
                                                    const OpCodeEntry* pOpcodeEntry)
 {
-    if (pAddressingMode->expression.type == TYPE_ZEROPAGE && pOpcodeEntry->opcodeZeroPage != _xXX)
-        emitTwoByteInstruction(pThis, pOpcodeEntry->opcodeZeroPage, pAddressingMode->expression.value);
-    else if (pOpcodeEntry->opcodeAbsolute != _xXX)
-        emitThreeByteInstruction(pThis, pOpcodeEntry->opcodeAbsolute, pAddressingMode->expression.value);
+    handleZeroPageOrAbsoluteAddressingModes(pThis, 
+                                            pAddressingMode, 
+                                            pOpcodeEntry->opcodeZeroPage, pOpcodeEntry->opcodeAbsolute);
+}
+
+static void handleZeroPageOrAbsoluteAddressingModes(Assembler*         pThis, 
+                                                    AddressingMode*    pAddressingMode, 
+                                                    unsigned char      opcodeZeroPage,
+                                                    unsigned char      opcodeAbsolute)
+{
+    if (pAddressingMode->expression.type == TYPE_ZEROPAGE && opcodeZeroPage != _xXX)
+        emitTwoByteInstruction(pThis, opcodeZeroPage, pAddressingMode->expression.value);
+    else if (opcodeAbsolute != _xXX)
+        emitThreeByteInstruction(pThis, opcodeAbsolute, pAddressingMode->expression.value);
     else
         logInvalidAddressingModeError(pThis);
 }
@@ -370,12 +417,66 @@ static void handleImmediateAddressingMode(Assembler*      pThis,
                                           AddressingMode* pAddressingMode, 
                                           unsigned char   opcodeImmediate)
 {
-    if (opcodeImmediate == _xXX)
+    handleTwoByteAddressingMode(pThis, pAddressingMode, opcodeImmediate);
+}
+
+static void handleTwoByteAddressingMode(Assembler*      pThis, 
+                                        AddressingMode* pAddressingMode, 
+                                        unsigned char   opcode)
+{
+    if (opcode == _xXX)
     {
         logInvalidAddressingModeError(pThis);
         return;
     }
-    emitTwoByteInstruction(pThis, opcodeImmediate, pAddressingMode->expression.value);
+    emitTwoByteInstruction(pThis, opcode, pAddressingMode->expression.value);
+}
+
+static void handleZeroPageOrAbsoluteIndexedIndirectAddressingMode(Assembler*         pThis, 
+                                                                  AddressingMode*    pAddressingMode, 
+                                                                  const OpCodeEntry* pOpcodeEntry)
+{
+    handleZeroPageOrAbsoluteAddressingModes(pThis, 
+                                            pAddressingMode, 
+                                            pOpcodeEntry->opcodeZeroPageIndexedIndirect, 
+                                            pOpcodeEntry->opcodeAbsoluteIndexedIndirect);
+}
+
+static void handleIndirectIndexedAddressingMode(Assembler*      pThis, 
+                                                AddressingMode* pAddressingMode, 
+                                                unsigned char   opcodeIndirectIndexed)
+{
+    handleTwoByteAddressingMode(pThis, pAddressingMode, opcodeIndirectIndexed);
+}
+
+static void handleZeroPageOrAbsoluteIndexedXAddressingMode(Assembler*         pThis, 
+                                                           AddressingMode*    pAddressingMode, 
+                                                           const OpCodeEntry* pOpcodeEntry)
+{
+    handleZeroPageOrAbsoluteAddressingModes(pThis, 
+                                            pAddressingMode, 
+                                            pOpcodeEntry->opcodeZeroPageIndexedX, 
+                                            pOpcodeEntry->opcodeAbsoluteIndexedX);
+}
+
+static void handleZeroPageOrAbsoluteIndexedYAddressingMode(Assembler*         pThis, 
+                                                           AddressingMode*    pAddressingMode, 
+                                                           const OpCodeEntry* pOpcodeEntry)
+{
+    handleZeroPageOrAbsoluteAddressingModes(pThis, 
+                                            pAddressingMode, 
+                                            pOpcodeEntry->opcodeZeroPageIndexedY, 
+                                            pOpcodeEntry->opcodeAbsoluteIndexedY);
+}
+
+static void handleZeroPageOrAbsoluteIndirectAddressingMode(Assembler*         pThis, 
+                                                           AddressingMode*    pAddressingMode, 
+                                                           const OpCodeEntry* pOpcodeEntry)
+{
+    handleZeroPageOrAbsoluteAddressingModes(pThis, 
+                                            pAddressingMode, 
+                                            pOpcodeEntry->opcodeZeroPageIndirect, 
+                                            pOpcodeEntry->opcodeAbsoluteIndirect);
 }
 
 static void handleEQU(Assembler* pThis)
