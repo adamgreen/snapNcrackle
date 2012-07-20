@@ -180,6 +180,8 @@ TEST_GROUP(Assembler)
         
         pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
         testZeroPageIndirectAddressing(pInstruction);
+        
+        CHECK_TRUE(*pCurr == '\0');
     }
     
     const char* parseEntryAndAdvanceToNextEntry(const char* pCurr)
