@@ -330,6 +330,9 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
         
     switch (addressingMode.mode)
     {
+    /* Invalid mode gets caught in try/catch block above but placing here silences compiler warning and keeps 
+       100% code coverage. */
+    case ADDRESSING_MODE_INVALID:
     case ADDRESSING_MODE_ABSOLUTE:
         handleZeroPageOrAbsoluteAddressingMode(pThis, &addressingMode, pOpcodeEntry);
         break;
@@ -353,9 +356,6 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
         break;
     case ADDRESSING_MODE_INDIRECT:
         handleZeroPageOrAbsoluteIndirectAddressingMode(pThis, &addressingMode, pOpcodeEntry);
-        break;
-    default:
-        logInvalidAddressingModeError(pThis);
         break;
     }
 }
