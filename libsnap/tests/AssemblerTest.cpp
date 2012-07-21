@@ -903,7 +903,7 @@ TEST(Assembler, FailZeroPageForwardReference)
     m_pAssembler = Assembler_CreateFromString(dupe(" sta globalLabel\n"
                                                    "globalLabel sta $22\n"));
     
-    runAssemblerAndValidateFailure("filename:2: error: Couldn't properly infer size of 'globalLabel' forward reference.\n",
+    runAssemblerAndValidateFailure("filename:1: error: Couldn't properly infer size of 'globalLabel' forward reference.\n",
                                    "0003: 85 22        2 globalLabel sta $22\n", 3);
 }
 
@@ -1425,6 +1425,16 @@ TEST(Assembler, BEQ_AbsoluteTarget)
     m_pAssembler = Assembler_CreateFromString(dupe(" org $0800\n"
                                                    " beq *+2\n"));
     runAssemblerAndValidateLastLineIs("0800: F0 00        2  beq *+2\n", 2);
+}
+
+IGNORE_TEST(Assembler, BEQ_ForwardLabelReference)
+{
+printfSpy_Unhook();
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0800\n"
+                                                   " beq label\n"
+                                                   "label\n"));
+    runAssemblerAndValidateOutputIsTwoLinesOf("0800: F0 00        2  beq label\n",
+                                              "    :              3 label\n", 3);
 }
 
 TEST(Assembler, BEQ_InvalidAddressingModes)

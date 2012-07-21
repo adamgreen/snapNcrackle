@@ -649,13 +649,13 @@ static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, Li
     {
         /* Fall through to cleanup code below. */
     }
+
+    if (machineCodeSizeOrig != pLineInfo->machineCodeSize)
+        LOG_ERROR(pThis, "Couldn't properly infer size of '%s' forward reference.", pSymbol->pKey);
     
     pThis->parsedLine = parsedLineSave;
     LineBuffer_Free(pLineBuffer);
     pThis->pLineInfo = pLineInfoSave;
-
-    if (machineCodeSizeOrig != pLineInfo->machineCodeSize)
-        LOG_ERROR(pThis, "Couldn't properly infer size of '%s' forward reference.", pSymbol->pKey);
 }
 
 static void ignoreOperator(Assembler* pThis)
