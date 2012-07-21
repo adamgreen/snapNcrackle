@@ -1173,6 +1173,29 @@ TEST(Assembler, STAZeroPageAbsoluteViaLabel)
     runAssemblerAndValidateLastLineIs("0002: 85 00        2  sta entry\n", 2);
 }
 
+TEST(Assembler, BCS_ValidAddressingMode)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" bcs *+129\n"));
+    runAssemblerAndValidateOutputIs("0000: B0 7F        1  bcs *+129\n");
+}
+
+TEST(Assembler, BCS_InvalidAddressingModes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" bcs #1\n"
+                                                   " bcs\n"
+                                                   " bcs ($ff,x)\n"
+                                                   " bcs ($ff),y\n"
+                                                   " bcs $ff,x\n"
+                                                   " bcs $ff,y\n"
+                                                   " bcs $100,x\n"
+                                                   " bcs $100,y\n"
+                                                   " bcs ($100)\n"
+                                                   " bcs ($100,x)\n"
+                                                   " bcs ($ff)\n"));
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(11, Assembler_GetErrorCount(m_pAssembler));
+}
+
 TEST(Assembler, BEQ_ZeroPageMaxNegativeTarget)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $0090\n"
@@ -1236,9 +1259,73 @@ TEST(Assembler, BEQ_InvalidAddressingModes)
     LONGS_EQUAL(11, Assembler_GetErrorCount(m_pAssembler));
 }
 
-TEST(Assembler, CMP_TableDrivenTest)
+TEST(Assembler, BMI_ValidAddressingMode)
 {
-    test6502Instruction("cmp", "C9,CD,C5,XX,C1,D1,D5,^D9,DD,D9,XX,XX,XX,D2");
+    m_pAssembler = Assembler_CreateFromString(dupe(" bmi *+129\n"));
+    runAssemblerAndValidateOutputIs("0000: 30 7F        1  bmi *+129\n");
+}
+
+TEST(Assembler, BMI_InvalidAddressingModes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" bmi #1\n"
+                                                   " bmi\n"
+                                                   " bmi ($ff,x)\n"
+                                                   " bmi ($ff),y\n"
+                                                   " bmi $ff,x\n"
+                                                   " bmi $ff,y\n"
+                                                   " bmi $100,x\n"
+                                                   " bmi $100,y\n"
+                                                   " bmi ($100)\n"
+                                                   " bmi ($100,x)\n"
+                                                   " bmi ($ff)\n"));
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(11, Assembler_GetErrorCount(m_pAssembler));
+}
+
+TEST(Assembler, BNE_ValidAddressingMode)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" bne *+129\n"));
+    runAssemblerAndValidateOutputIs("0000: D0 7F        1  bne *+129\n");
+}
+
+TEST(Assembler, BNE_InvalidAddressingModes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" bne #1\n"
+                                                   " bne\n"
+                                                   " bne ($ff,x)\n"
+                                                   " bne ($ff),y\n"
+                                                   " bne $ff,x\n"
+                                                   " bne $ff,y\n"
+                                                   " bne $100,x\n"
+                                                   " bne $100,y\n"
+                                                   " bne ($100)\n"
+                                                   " bne ($100,x)\n"
+                                                   " bne ($ff)\n"));
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(11, Assembler_GetErrorCount(m_pAssembler));
+}
+
+TEST(Assembler, BPL_ValidAddressingMode)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" bpl *+129\n"));
+    runAssemblerAndValidateOutputIs("0000: 10 7F        1  bpl *+129\n");
+}
+
+TEST(Assembler, BPL_InvalidAddressingModes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" bpl #1\n"
+                                                   " bpl\n"
+                                                   " bpl ($ff,x)\n"
+                                                   " bpl ($ff),y\n"
+                                                   " bpl $ff,x\n"
+                                                   " bpl $ff,y\n"
+                                                   " bpl $100,x\n"
+                                                   " bpl $100,y\n"
+                                                   " bpl ($100)\n"
+                                                   " bpl ($100,x)\n"
+                                                   " bpl ($ff)\n"));
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(11, Assembler_GetErrorCount(m_pAssembler));
 }
 
 TEST(Assembler, ASL_TableDrivenTest)
@@ -1246,9 +1333,39 @@ TEST(Assembler, ASL_TableDrivenTest)
     test6502Instruction("asl", "XX,0E,06,0A,XX,XX,16,XX,1E,XX,XX,XX,XX,XX");
 }
 
+TEST(Assembler, BIT_TableDrivenTest)
+{
+    test6502Instruction("bit", "89,2C,24,XX,XX,XX,34,XX,3C,XX,XX,XX,XX,XX");
+}
+
 TEST(Assembler, CLC_TableDrivenTest)
 {
     test6502Instruction("clc", "XX,XX,XX,18,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, CMP_TableDrivenTest)
+{
+    test6502Instruction("cmp", "C9,CD,C5,XX,C1,D1,D5,^D9,DD,D9,XX,XX,XX,D2");
+}
+
+TEST(Assembler, DEC_TableDrivenTest)
+{
+    test6502Instruction("dec", "XX,CE,C6,XX,XX,XX,D6,XX,DE,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, DEX_TableDrivenTest)
+{
+    test6502Instruction("dex", "XX,XX,XX,CA,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, INC_TableDrivenTest)
+{
+    test6502Instruction("inc", "XX,EE,E6,XX,XX,XX,F6,XX,FE,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, INY_TableDrivenTest)
+{
+    test6502Instruction("iny", "XX,XX,XX,C8,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, JMP_TableDrivenTest)
@@ -1286,9 +1403,24 @@ TEST(Assembler, ORA_TableDrivenTest)
     test6502Instruction("ora", "09,0D,05,XX,01,11,15,^19,1D,19,XX,XX,XX,12");
 }
 
+TEST(Assembler, RTS_TableDrivenTest)
+{
+    test6502Instruction("rts", "XX,XX,XX,60,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
 TEST(Assembler, STA_TableDrivenTest)
 {
     test6502Instruction("sta", "XX,8D,85,XX,81,91,95,^99,9D,99,XX,XX,XX,92");
+}
+
+TEST(Assembler, STX_TableDrivenTest)
+{
+    test6502Instruction("stx", "XX,8E,86,XX,XX,XX,XX,96,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, STY_TableDrivenTest)
+{
+    test6502Instruction("sty", "XX,8C,84,XX,XX,XX,94,XX,XX,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, TXA_TableDrivenTest)
