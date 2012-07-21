@@ -1191,6 +1191,26 @@ TEST(Assembler, TwoDUMandDEND_Directive)
     validateLineInfo(pSeventhLine, 0x0800, 1, "\xfd");
 }
 
+TEST(Assembler, DUM_ORG_andDEND_Directive)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " dum $00\n"
+                                                   " hex ff\n"
+                                                   " org $100\n"
+                                                   " hex fe\n"
+                                                   " dend\n"
+                                                   " hex fd\n"));
+    Assembler_Run(m_pAssembler);
+    
+    LineInfo* pThirdLine = m_pAssembler->linesHead.pNext->pNext->pNext;
+    LineInfo* pFifthLine = pThirdLine->pNext->pNext;
+    LineInfo* pSeventhLine = pFifthLine->pNext->pNext;
+    
+    validateLineInfo(pThirdLine, 0x0000, 1, "\xff");
+    validateLineInfo(pFifthLine, 0x0100, 1, "\xfe");
+    validateLineInfo(pSeventhLine, 0x0800, 1, "\xfd");
+}
+
 TEST(Assembler, DUMDirectiveWithInvalidImmediateExpression)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" dum #$00\n"));
