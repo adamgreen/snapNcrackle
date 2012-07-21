@@ -150,6 +150,7 @@ static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis,
                                                    AddressingMode*    pAddressingMode, 
                                                    const OpCodeEntry* pOpcodeEntry);
 static void handleRelativeAddressingMode(Assembler* pThis, AddressingMode* pAddressingMode, unsigned char opcodeRelative);
+static int expressionContainsForwardReference(Expression* pExpression);
 static void handleZeroPageOrAbsoluteAddressingModes(Assembler*         pThis, 
                                                     AddressingMode*    pAddressingMode, 
                                                     unsigned char      opcodeZeroPage,
@@ -412,16 +413,21 @@ static void handleZeroPageOrAbsoluteAddressingModes(Assembler*         pThis,
 
 static void handleRelativeAddressingMode(Assembler* pThis, AddressingMode* pAddressingMode, unsigned char opcodeRelative)
 {
-    unsigned short currentProgramCounter = pThis->programCounter + 2;
-    int            offset = (int)pAddressingMode->expression.value - (int)currentProgramCounter;
+    unsigned short nextInstructionAddress = pThis->pLineInfo->address + 2;
+    int            offset = (int)pAddressingMode->expression.value - (int)nextInstructionAddress;
     
-    if (offset < -128 || offset > 127)
+    if (!expressionContainsForwardReference(&pAddressingMode->expression) && (offset < -128 || offset > 127))
     {
         LOG_ERROR(pThis, "Relative offset of '%s' exceeds the allowed -128 to 127 range.", pThis->parsedLine.pOperands);
         return;
     }
     
     emitTwoByteInstruction(pThis, opcodeRelative, (unsigned short)offset);
+}
+
+static int expressionContainsForwardReference(Expression* pExpression)
+{
+    return pExpression->flags & EXPRESSION_FLAG_FORWARD_REFERENCE;
 }
 
 static void emitTwoByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value)

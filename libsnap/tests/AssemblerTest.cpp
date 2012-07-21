@@ -1427,9 +1427,8 @@ TEST(Assembler, BEQ_AbsoluteTarget)
     runAssemblerAndValidateLastLineIs("0800: F0 00        2  beq *+2\n", 2);
 }
 
-IGNORE_TEST(Assembler, BEQ_ForwardLabelReference)
+TEST(Assembler, BEQ_ForwardLabelReference)
 {
-printfSpy_Unhook();
     m_pAssembler = Assembler_CreateFromString(dupe(" org $0800\n"
                                                    " beq label\n"
                                                    "label\n"));
