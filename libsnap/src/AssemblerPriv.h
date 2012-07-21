@@ -26,6 +26,9 @@
 
 #define NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS 511
 
+/* Bits in Assembler::flags field. */
+#define ASSEMBLER_FLAG_DUM     1
+
 
 struct Assembler
 {
@@ -39,8 +42,10 @@ struct Assembler
     size_t         maxLocalLabelSize;
     ParsedLine     parsedLine;
     LineInfo       linesHead;
+    unsigned int   flags;
     unsigned int   errorCount;
     unsigned short programCounter;
+    unsigned short programCounterBeforeDUM;
     char           labelBuffer[256];
 };
 

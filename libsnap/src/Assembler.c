@@ -189,12 +189,18 @@ static int symbolContainsForwardReferences(Symbol* pSymbol);
 static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, LineInfo* pLineInfo);
 static void ignoreOperator(Assembler* pThis);
 static void handleInvalidOperator(Assembler* pThis);
+static void handleDEND(Assembler* pThis);
+static Expression getAbsoluteExpression(Assembler* pThis);
+static int isTypeAbsolute(Expression* pExpression);
+static void clearDUMFlag(Assembler* pThis);
+static void handleDUM(Assembler* pThis);
+static int isAlreadyInDUMSection(Assembler* pThis);
+static void setDUMFlag(Assembler* pThis);
 static void handleHEX(Assembler* pThis);
 static unsigned char getNextHexByte(const char* pStart, const char** ppNext);
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
 static void handleORG(Assembler* pThis);
-static int isTypeAbsolute(Expression* pExpression);
 static void rememberLabel(Assembler* pThis);
 static int isLabelToRemember(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
@@ -276,6 +282,8 @@ static void firstPassAssembleLine(Assembler* pThis)
     {
         /* Assembler Directives */
         {"=",   handleEQU, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"DEND", handleDEND, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"DUM", handleDUM, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"EQU", handleEQU, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"LST", ignoreOperator, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"HEX", handleHEX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
@@ -685,6 +693,74 @@ static void handleInvalidOperator(Assembler* pThis)
     LOG_ERROR(pThis, "'%s' is not a recognized mnemonic or macro.", pThis->parsedLine.pOperator);
 }
 
+static void handleDEND(Assembler* pThis)
+{
+    if (!isAlreadyInDUMSection(pThis))
+    {
+        LOG_ERROR(pThis, "%s isn't allowed without a preceding DUM directive.", pThis->parsedLine.pOperator);
+        return;
+    }
+
+    pThis->programCounter = pThis->programCounterBeforeDUM;
+    clearDUMFlag(pThis);
+}
+
+static void clearDUMFlag(Assembler* pThis)
+{
+    pThis->flags &= ~ASSEMBLER_FLAG_DUM;
+}
+
+static void handleDUM(Assembler* pThis)
+{
+    Expression expression;
+    
+    __try
+        expression = getAbsoluteExpression(pThis);
+    __catch
+        __nothrow;
+
+    if (!isAlreadyInDUMSection(pThis))
+        pThis->programCounterBeforeDUM = pThis->programCounter;
+    pThis->programCounter = expression.value;
+    setDUMFlag(pThis);
+}
+
+static Expression getAbsoluteExpression(Assembler* pThis)
+{
+    Expression expression;
+    
+    __try
+    {
+        __throwing_func( expression = ExpressionEval(pThis, pThis->parsedLine.pOperands) );
+        if (!isTypeAbsolute(&expression))
+        {
+            LOG_ERROR(pThis, "'%s' doesn't specify an absolute address.", pThis->parsedLine.pOperands);
+            __throw_and_return(invalidArgumentException, expression);
+        }
+    }
+    __catch
+    {
+        __rethrow_and_return(expression);
+    }
+    return expression;
+}
+
+static int isTypeAbsolute(Expression* pExpression)
+{
+    return pExpression->type == TYPE_ZEROPAGE ||
+           pExpression->type == TYPE_ABSOLUTE;
+}
+
+static int isAlreadyInDUMSection(Assembler* pThis)
+{
+    return pThis->flags & ASSEMBLER_FLAG_DUM;
+}
+
+static void setDUMFlag(Assembler* pThis)
+{
+    pThis->flags |= ASSEMBLER_FLAG_DUM;
+}
+
 static void handleHEX(Assembler* pThis)
 {
     const char* pCurr = pThis->parsedLine.pOperands;
@@ -765,24 +841,13 @@ static void handleORG(Assembler* pThis)
     
     __try
     {
-        __throwing_func( expression = ExpressionEval(pThis, pThis->parsedLine.pOperands) );
-        if (!isTypeAbsolute(&expression))
-        {
-            LOG_ERROR(pThis, "'%s' doesn't specify an absolute address.", pThis->parsedLine.pOperands);
-            return;
-        }
+        __throwing_func( expression = getAbsoluteExpression(pThis) );
         pThis->programCounter = expression.value;
     }
     __catch
     {
         __nothrow;
     }
-}
-
-static int isTypeAbsolute(Expression* pExpression)
-{
-    return pExpression->type == TYPE_ZEROPAGE ||
-           pExpression->type == TYPE_ABSOLUTE;
 }
 
 static void rememberLabel(Assembler* pThis)

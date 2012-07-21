@@ -559,6 +559,16 @@ TEST_GROUP(Assembler)
         STRCMP_EQUAL(pExpectedListOutput, printfSpy_GetLastOutput());
         LONGS_EQUAL(2, printfSpy_GetCallCount());
     }
+    
+    void validateLineInfo(const LineInfo*      pLineInfo, 
+                          unsigned short       expectedAddress, 
+                          size_t               expectedMachineCodeSize,
+                          const char*          pExpectedMachineCode)
+    {
+        LONGS_EQUAL(expectedMachineCodeSize, pLineInfo->machineCodeSize);
+        CHECK_TRUE(0 == memcmp(pLineInfo->machineCode, pExpectedMachineCode, expectedMachineCodeSize));
+        LONGS_EQUAL(expectedAddress, pLineInfo->address);
+    }
 };
 
 
@@ -1144,6 +1154,57 @@ TEST(Assembler, ORGDirectiveWithInvalidImmediate)
     runAssemblerAndValidateFailure("filename:1: error: '#$00' doesn't specify an absolute address.\n",
                                    "    :              1  org #$00\n");
 }
+
+TEST(Assembler, DUMandDEND_Directive)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " dum $00\n"
+                                                   " hex ff\n"
+                                                   " dend\n"
+                                                   " hex fe\n"));
+    Assembler_Run(m_pAssembler);
+    
+    LineInfo* pThirdLine = m_pAssembler->linesHead.pNext->pNext->pNext;
+    LineInfo* pFifthLine = pThirdLine->pNext->pNext;
+    
+    validateLineInfo(pThirdLine, 0x0000, 1, "\xff");
+    validateLineInfo(pFifthLine, 0x0800, 1, "\xfe");
+}
+
+TEST(Assembler, TwoDUMandDEND_Directive)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " dum $00\n"
+                                                   " hex ff\n"
+                                                   " dum $100\n"
+                                                   " hex fe\n"
+                                                   " dend\n"
+                                                   " hex fd\n"));
+    Assembler_Run(m_pAssembler);
+    
+    LineInfo* pThirdLine = m_pAssembler->linesHead.pNext->pNext->pNext;
+    LineInfo* pFifthLine = pThirdLine->pNext->pNext;
+    LineInfo* pSeventhLine = pFifthLine->pNext->pNext;
+    
+    validateLineInfo(pThirdLine, 0x0000, 1, "\xff");
+    validateLineInfo(pFifthLine, 0x0100, 1, "\xfe");
+    validateLineInfo(pSeventhLine, 0x0800, 1, "\xfd");
+}
+
+TEST(Assembler, DUMDirectiveWithInvalidImmediateExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dum #$00\n"));
+    runAssemblerAndValidateFailure("filename:1: error: '#$00' doesn't specify an absolute address.\n",
+                                   "    :              1  dum #$00\n");
+}
+
+TEST(Assembler, DEND_DirectiveWithoutDUM)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dend\n"));
+    runAssemblerAndValidateFailure("filename:1: error: dend isn't allowed without a preceding DUM directive.\n",
+                                   "    :              1  dend\n");
+}
+
 TEST(Assembler, FailWithInvalidImmediateValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" lda #$100\n"));
