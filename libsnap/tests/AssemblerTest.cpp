@@ -1144,37 +1144,18 @@ TEST(Assembler, ORGDirectiveWithInvalidImmediate)
     runAssemblerAndValidateFailure("filename:1: error: '#$00' doesn't specify an absolute address.\n",
                                    "    :              1  org #$00\n");
 }
-
-TEST(Assembler, LDAImmediate)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda #$60\n"));
-    runAssemblerAndValidateOutputIs("0000: A9 60        1  lda #$60\n");
-}
-
-TEST(Assembler, LDAInvalidImmediateValue)
+TEST(Assembler, FailWithInvalidImmediateValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" lda #$100\n"));
     runAssemblerAndValidateFailure("filename:1: error: Immediate expression '$100' doesn't fit in 8-bits.\n",
                                    "    :              1  lda #$100\n");
 }
 
-TEST(Assembler, LDAAbsoluteNotYetImplemented)
+TEST(Assembler, FailWithInvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda $900\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '$900' is not supported for 'lda' instruction.\n",
-                                   "    :              1  lda $900\n");
-}
-
-TEST(Assembler, STAAbsolute)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" sta $4fb\n"));
-    runAssemblerAndValidateOutputIs("0000: 8D FB 04     1  sta $4fb\n");
-}
-
-TEST(Assembler, STAZeroPageAbsolute)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" sta $fb\n"));
-    runAssemblerAndValidateOutputIs("0000: 85 FB        1  sta $fb\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta +ff\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
+                                   "    :              1  sta +ff\n");
 }
 
 TEST(Assembler, STAAbsoluteViaLabel)
@@ -1190,204 +1171,6 @@ TEST(Assembler, STAZeroPageAbsoluteViaLabel)
     m_pAssembler = Assembler_CreateFromString(dupe("entry lda #$60\n"
                                                    " sta entry\n"));
     runAssemblerAndValidateLastLineIs("0002: 85 00        2  sta entry\n", 2);
-}
-
-TEST(Assembler, STAInvalidImmediateValue)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" sta #$ff\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '#$ff' is not supported for 'sta' instruction.\n",
-                                   "    :              1  sta #$ff\n");
-}
-
-TEST(Assembler, STAInvalidInvalidExpress)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" sta +ff\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
-                                   "    :              1  sta +ff\n");
-}
-
-TEST(Assembler, JSRAbsolute)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" jsr $180\n"));
-    runAssemblerAndValidateOutputIs("0000: 20 80 01     1  jsr $180\n");
-}
-
-TEST(Assembler, JSRAbsoluteToPageZeroWhichIsStillAbsolute)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" jsr $005c\n"));
-    runAssemblerAndValidateOutputIs("0000: 20 5C 00     1  jsr $005c\n");
-}
-
-TEST(Assembler, JSRToAbsoluteEQU)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe("text = $fb2f\n"
-                                                   " jsr text\n"));
-    runAssemblerAndValidateLastLineIs("0000: 20 2F FB     2  jsr text\n", 2);
-}
-
-TEST(Assembler, JSRWithInvalidAddressingMode)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" jsr #$5c\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '#$5c' is not supported for 'jsr' instruction.\n",
-                                   "    :              1  jsr #$5c\n");
-}
-
-TEST(Assembler, JSRWithInvalidExpression)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" jsr +ff\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
-                                   "    :              1  jsr +ff\n");
-}
-
-TEST(Assembler, LDXAbsolute)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" ldx $100\n"));
-    runAssemblerAndValidateOutputIs("0000: AE 00 01     1  ldx $100\n");
-}
-
-TEST(Assembler, LDXZeroPageAbsolute)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" ldx $2b\n"));
-    runAssemblerAndValidateOutputIs("0000: A6 2B        1  ldx $2b\n");
-}
-
-TEST(Assembler, LDXAbsoluteSymbol)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe("label equ $100\n"
-                                                   " ldx label\n"));
-    runAssemblerAndValidateLastLineIs("0000: AE 00 01     2  ldx label\n", 2);
-}
-
-TEST(Assembler, LDXZeroPageAbsoluteSymbol)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe("SLOT = $2b\n"
-                                                   " ldx SLOT\n"));
-    runAssemblerAndValidateLastLineIs("0000: A6 2B        2  ldx SLOT\n", 2);
-}
-
-TEST(Assembler, LDXWithInvalidExpression)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" ldx +ff\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
-                                   "    :              1  ldx +ff\n");
-}
-
-TEST(Assembler, TXA)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" txa\n"));
-    runAssemblerAndValidateOutputIs("0000: 8A           1  txa\n");
-}
-
-TEST(Assembler, TXA_WithInvalidAddressingModeOfImmediate)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" txa #1\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '#1' is not supported for 'txa' instruction.\n",
-                                   "    :              1  txa #1\n");
-}
-
-TEST(Assembler, LSRAccumulator)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" lsr\n"));
-    runAssemblerAndValidateOutputIs("0000: 4A           1  lsr\n");
-}
-
-TEST(Assembler, LSRInvalidAddressMode)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" lsr #$5c\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '#$5c' is not supported for 'lsr' instruction.\n",
-                                   "    :              1  lsr #$5c\n");
-}
-
-TEST(Assembler, LSRNotYetImplementedAddressMode)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" lsr $5c\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '$5c' is not supported for 'lsr' instruction.\n",
-                                   "    :              1  lsr $5c\n");
-}
-
-TEST(Assembler, ORAImmediate)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" ora #$c0\n"));
-    runAssemblerAndValidateOutputIs("0000: 09 C0        1  ora #$c0\n");
-}
-
-TEST(Assembler, ORAWithInvalidExpression)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" ora +ff\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
-                                   "    :              1  ora +ff\n");
-}
-
-TEST(Assembler, ORANotYetImplementedAddressMode)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" ora $c0\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '$c0' is not supported for 'ora' instruction.\n",
-                                   "    :              1  ora $c0\n");
-}
-
-TEST(Assembler, LDYAbsolute)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" ldy $100\n"));
-    runAssemblerAndValidateOutputIs("0000: AC 00 01     1  ldy $100\n");
-}
-
-TEST(Assembler, LDYZeroPageAbsolute)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" ldy $2b\n"));
-    runAssemblerAndValidateOutputIs("0000: A4 2B        1  ldy $2b\n");
-}
-
-TEST(Assembler, LDYAbsoluteSymbol)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe("label equ $100\n"
-                                                   " ldy label\n"));
-    runAssemblerAndValidateLastLineIs("0000: AC 00 01     2  ldy label\n", 2);
-}
-
-TEST(Assembler, LDYZeroPageAbsoluteSymbol)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe("SLOT = $2b\n"
-                                                   " ldy SLOT\n"));
-    runAssemblerAndValidateLastLineIs("0000: A4 2B        2  ldy SLOT\n", 2);
-}
-
-TEST(Assembler, LDYWithInvalidExpression)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" ldy +ff\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
-                                   "    :              1  ldy +ff\n");
-}
-
-TEST(Assembler, LDYWithInvalidAddressingMode)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" ldy #$5c\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '#$5c' is not supported for 'ldy' instruction.\n",
-                                   "    :              1  ldy #$5c\n");
-}
-
-TEST(Assembler, CMP_TableDrivenTest)
-{
-    test6502Instruction("cmp", "C9,CD,C5,XX,C1,D1,D5,^D9,DD,D9,XX,XX,XX,D2");
-}
-
-TEST(Assembler, ASL_TableDrivenTest)
-{
-    test6502Instruction("asl", "XX,0E,06,0A,XX,XX,16,XX,1E,XX,XX,XX,XX,XX");
-}
-
-TEST(Assembler, CLC_TableDrivenTest)
-{
-    test6502Instruction("clc", "XX,XX,XX,18,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
-}
-
-TEST(Assembler, JMP_TableDrivenTest)
-{
-    test6502Instruction("jmp", "XX,4C,^4C,XX,^7C,XX,XX,XX,XX,XX,XX,6C,7C,^6C");
-}
-
-TEST(Assembler, LDX_TableDrivenTest)
-{
-    test6502Instruction("ldx", "A2,AE,A6,XX,XX,XX,XX,B6,XX,BE,XX,XX,XX,XX");
 }
 
 TEST(Assembler, BEQ_ZeroPageMaxNegativeTarget)
@@ -1453,3 +1236,62 @@ TEST(Assembler, BEQ_InvalidAddressingModes)
     LONGS_EQUAL(11, Assembler_GetErrorCount(m_pAssembler));
 }
 
+TEST(Assembler, CMP_TableDrivenTest)
+{
+    test6502Instruction("cmp", "C9,CD,C5,XX,C1,D1,D5,^D9,DD,D9,XX,XX,XX,D2");
+}
+
+TEST(Assembler, ASL_TableDrivenTest)
+{
+    test6502Instruction("asl", "XX,0E,06,0A,XX,XX,16,XX,1E,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, CLC_TableDrivenTest)
+{
+    test6502Instruction("clc", "XX,XX,XX,18,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, JMP_TableDrivenTest)
+{
+    test6502Instruction("jmp", "XX,4C,^4C,XX,^7C,XX,XX,XX,XX,XX,XX,6C,7C,^6C");
+}
+
+TEST(Assembler, JSR_TableDrivenTest)
+{
+    test6502Instruction("jsr", "XX,20,^20,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, LDA_TableDrivenTest)
+{
+    test6502Instruction("lda", "A9,AD,A5,XX,A1,B1,B5,^B9,BD,B9,XX,XX,XX,B2");
+}
+
+TEST(Assembler, LDX_TableDrivenTest)
+{
+    test6502Instruction("ldx", "A2,AE,A6,XX,XX,XX,XX,B6,XX,BE,XX,XX,XX,XX");
+}
+
+TEST(Assembler, LDY_TableDrivenTest)
+{
+    test6502Instruction("ldy", "A0,AC,A4,XX,XX,XX,B4,XX,BC,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, LSR_TableDrivenTest)
+{
+    test6502Instruction("lsr", "XX,4E,46,4A,XX,XX,56,XX,5E,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, ORA_TableDrivenTest)
+{
+    test6502Instruction("ora", "09,0D,05,XX,01,11,15,^19,1D,19,XX,XX,XX,12");
+}
+
+TEST(Assembler, STA_TableDrivenTest)
+{
+    test6502Instruction("sta", "XX,8D,85,XX,81,91,95,^99,9D,99,XX,XX,XX,92");
+}
+
+TEST(Assembler, TXA_TableDrivenTest)
+{
+    test6502Instruction("txa", "XX,XX,XX,8A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
