@@ -149,6 +149,7 @@ static void emitSingleByteInstruction(Assembler* pThis, unsigned char opCode);
 static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis, 
                                                    AddressingMode*    pAddressingMode, 
                                                    const OpCodeEntry* pOpcodeEntry);
+static void handleRelativeAddressingMode(Assembler* pThis, AddressingMode* pAddressingMode, unsigned char opcodeRelative);
 static void handleZeroPageOrAbsoluteAddressingModes(Assembler*         pThis, 
                                                     AddressingMode*    pAddressingMode, 
                                                     unsigned char      opcodeZeroPage,
@@ -282,10 +283,13 @@ static void firstPassAssembleLine(Assembler* pThis)
         /* 6502 Instructions */
 //        {"ASL", NULL, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"ASL", NULL, _xXX, 0x0E, 0x06, 0x0A, _xXX, _xXX, 0x16, _xXX, 0x1E, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"BEQ", NULL, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, 0xF0, _xXX, _xXX, _xXX},
+        {"CLC", NULL, _xXX, _xXX, _xXX, 0x18, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"CMP", NULL, 0xC9, 0xCD, 0xC5, _xXX, 0xC1, 0xD1, 0xD5, _xXX, 0xDD, 0xD9, _xXX, _xXX, _xXX, 0xD2},
+        {"JMP", NULL, _xXX, 0x4C, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, 0x6C, 0x7C, _xXX},
         {"JSR", NULL, _xXX, 0x20, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"LDA", NULL, 0xA9, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
-        {"LDX", NULL, _xXX, 0xAE, 0xA6, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"LDX", NULL, 0xA2, 0xAE, 0xA6, _xXX, _xXX, _xXX, _xXX, 0xB6, _xXX, 0xBE, _xXX, _xXX, _xXX, _xXX},
         {"LDY", NULL, _xXX, 0xAC, 0xA4, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"LSR", NULL, _xXX, _xXX, _xXX, 0x4A, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"ORA", NULL, 0x09, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
@@ -382,6 +386,12 @@ static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis,
                                                    AddressingMode*    pAddressingMode, 
                                                    const OpCodeEntry* pOpcodeEntry)
 {
+    if (pOpcodeEntry->opcodeRelative != _xXX)
+    {
+        handleRelativeAddressingMode(pThis, pAddressingMode, pOpcodeEntry->opcodeRelative);
+        return;
+    }
+    
     handleZeroPageOrAbsoluteAddressingModes(pThis, 
                                             pAddressingMode, 
                                             pOpcodeEntry->opcodeZeroPage, pOpcodeEntry->opcodeAbsolute);
@@ -398,6 +408,20 @@ static void handleZeroPageOrAbsoluteAddressingModes(Assembler*         pThis,
         emitThreeByteInstruction(pThis, opcodeAbsolute, pAddressingMode->expression.value);
     else
         logInvalidAddressingModeError(pThis);
+}
+
+static void handleRelativeAddressingMode(Assembler* pThis, AddressingMode* pAddressingMode, unsigned char opcodeRelative)
+{
+    unsigned short currentProgramCounter = pThis->programCounter + 2;
+    int            offset = (int)pAddressingMode->expression.value - (int)currentProgramCounter;
+    
+    if (offset < -128 || offset > 127)
+    {
+        LOG_ERROR(pThis, "Relative offset of '%s' exceeds the allowed -128 to 127 range.", pThis->parsedLine.pOperands);
+        return;
+    }
+    
+    emitTwoByteInstruction(pThis, opcodeRelative, (unsigned short)offset);
 }
 
 static void emitTwoByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value)

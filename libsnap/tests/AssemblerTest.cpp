@@ -308,14 +308,15 @@ TEST_GROUP(Assembler)
         char               expectedListOutput[128];
         char               expectedErrorOutput[128];
 
-        CHECK_FALSE(m_isZeroPageTreatedAsAbsolute);
-        
         sprintf(testString, " %s ($ff,x)\n", pInstruction);
         runAssembler(testString);
         
         if (!m_isInvalidMode)
         {
-            sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+            if (!m_isZeroPageTreatedAsAbsolute)
+                sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+            else
+                sprintf(expectedListOutput, "0000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -522,7 +523,10 @@ TEST_GROUP(Assembler)
         
         if (!m_isInvalidMode)
         {
-            sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+            if (!m_isZeroPageTreatedAsAbsolute)
+                sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+            else
+                sprintf(expectedListOutput, "0000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -1268,13 +1272,6 @@ TEST(Assembler, LDXWithInvalidExpression)
                                    "    :              1  ldx +ff\n");
 }
 
-TEST(Assembler, LDXWithInvalidAddressingMode)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" ldx #$5c\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Addressing mode of '#$5c' is not supported for 'ldx' instruction.\n",
-                                   "    :              1  ldx #$5c\n");
-}
-
 TEST(Assembler, TXA)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" txa\n"));
@@ -1377,3 +1374,73 @@ TEST(Assembler, ASL_TableDrivenTest)
 {
     test6502Instruction("asl", "XX,0E,06,0A,XX,XX,16,XX,1E,XX,XX,XX,XX,XX");
 }
+
+TEST(Assembler, CLC_TableDrivenTest)
+{
+    test6502Instruction("clc", "XX,XX,XX,18,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, JMP_TableDrivenTest)
+{
+    test6502Instruction("jmp", "XX,4C,^4C,XX,^7C,XX,XX,XX,XX,XX,XX,6C,7C,^6C");
+}
+
+TEST(Assembler, LDX_TableDrivenTest)
+{
+    test6502Instruction("ldx", "A2,AE,A6,XX,XX,XX,XX,B6,XX,BE,XX,XX,XX,XX");
+}
+
+TEST(Assembler, BEQ_ZeroPageMaxNegativeTarget)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0090\n"
+                                                   " beq *-126\n"));
+    runAssemblerAndValidateLastLineIs("0090: F0 80        2  beq *-126\n", 2);
+}
+
+TEST(Assembler, BEQ_ZeroPageMaxPositiveTarget)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
+                                                   " beq *+129\n"));
+    runAssemblerAndValidateLastLineIs("0000: F0 7F        2  beq *+129\n", 2);
+}
+
+TEST(Assembler, BEQ_ZeroPageInvalidNegativeTarget)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0090\n"
+                                                   " beq *-127\n"));
+    runAssemblerAndValidateFailure("filename:2: error: Relative offset of '*-127' exceeds the allowed -128 to 127 range.\n",
+                                   "    :              2  beq *-127\n", 3);
+}
+
+TEST(Assembler, BEQ_ZeroPageInvalidPositiveTarget)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
+                                                   " beq *+130\n"));
+    runAssemblerAndValidateFailure("filename:2: error: Relative offset of '*+130' exceeds the allowed -128 to 127 range.\n",
+                                   "    :              2  beq *+130\n", 3);
+}
+
+TEST(Assembler, BEQ_AbsoluteTarget)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0800\n"
+                                                   " beq *+2\n"));
+    runAssemblerAndValidateLastLineIs("0800: F0 00        2  beq *+2\n", 2);
+}
+
+TEST(Assembler, BEQ_InvalidAddressingModes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" beq #1\n"
+                                                   " beq\n"
+                                                   " beq ($ff,x)\n"
+                                                   " beq ($ff),y\n"
+                                                   " beq $ff,x\n"
+                                                   " beq $ff,y\n"
+                                                   " beq $100,x\n"
+                                                   " beq $100,y\n"
+                                                   " beq ($100)\n"
+                                                   " beq ($100,x)\n"
+                                                   " beq ($ff)\n"));
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(11, Assembler_GetErrorCount(m_pAssembler));
+}
+
