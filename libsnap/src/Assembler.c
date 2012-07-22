@@ -196,6 +196,8 @@ static void clearDUMFlag(Assembler* pThis);
 static void handleDUM(Assembler* pThis);
 static int isAlreadyInDUMSection(Assembler* pThis);
 static void setDUMFlag(Assembler* pThis);
+static void handleDS(Assembler* pThis);
+static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount);
 static void handleHEX(Assembler* pThis);
 static unsigned char getNextHexByte(const char* pStart, const char** ppNext);
 static unsigned char hexCharToNibble(char value);
@@ -281,13 +283,14 @@ static void firstPassAssembleLine(Assembler* pThis)
     static const OpCodeEntry opcodeTable[] =
     {
         /* Assembler Directives */
-        {"=",   handleEQU, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"=",    handleEQU,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"DEND", handleDEND, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
-        {"DUM", handleDUM, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
-        {"EQU", handleEQU, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
-        {"LST", ignoreOperator, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
-        {"HEX", handleHEX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
-        {"ORG", handleORG, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"DS",   handleDS,   _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"DUM",  handleDUM,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"EQU",  handleEQU,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"LST",  ignoreOperator, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"HEX",  handleHEX,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"ORG",  handleORG,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         
         /* 6502 Instructions */
 //        {"ASL", NULL, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
@@ -759,6 +762,25 @@ static int isAlreadyInDUMSection(Assembler* pThis)
 static void setDUMFlag(Assembler* pThis)
 {
     pThis->flags |= ASSEMBLER_FLAG_DUM;
+}
+
+static void handleDS(Assembler* pThis)
+{
+    Expression expression;
+    
+    __try
+        expression = getAbsoluteExpression(pThis);
+    __catch
+        __nothrow;
+
+    saveDSInfoInLineInfo(pThis, expression.value);
+}
+
+static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount)
+{
+    pThis->pLineInfo->flags |= LINEINFO_FLAG_WAS_DS;
+    pThis->pLineInfo->machineCodeSize = repeatCount;
+    pThis->pLineInfo->machineCode[0] = 0;
 }
 
 static void handleHEX(Assembler* pThis)

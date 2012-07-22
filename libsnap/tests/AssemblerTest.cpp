@@ -1225,6 +1225,36 @@ TEST(Assembler, DEND_DirectiveWithoutDUM)
                                    "    :              1  dend\n");
 }
 
+TEST(Assembler, DS_DirectiveWithSmallRepeatValue)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds 1\n"
+                                                   " hex ff\n"));
+    runAssemblerAndValidateOutputIsTwoLinesOf("0000: 00           1  ds 1\n", 
+                                              "0001: FF           2  hex ff\n");
+}
+
+TEST(Assembler, DS_DirectiveWithRepeatValueGreaterThan32)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds 42\n"
+                                                   " hex ff\n"));
+    runAssemblerAndValidateOutputIsTwoLinesOf("0027: 00 00 00\n", 
+                                              "002A: FF           2  hex ff\n", 15);
+}
+
+TEST(Assembler, DS_DirectiveWithBackSlashUnsupported)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds \\\n"));
+    runAssemblerAndValidateFailure("filename:1: error: The '\\' label is undefined.\n",
+                                   "    :              1  ds \\\n");
+}
+
+TEST(Assembler, DS_DirectiveWithSecondExpressionToSpecifyFillValueUnsupported)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds 2,$ff\n"));
+    runAssemblerAndValidateFailure("filename:1: error: ',' is unexpected operator.\n",
+                                   "    :              1  ds 2,$ff\n");
+}
+
 TEST(Assembler, FailWithInvalidImmediateValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" lda #$100\n"));

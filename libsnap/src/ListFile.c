@@ -20,6 +20,7 @@ struct ListFile
     FILE*          pFile;
     unsigned char* pMachineCode;
     size_t         machineCodeSize;
+    int            flags;
     unsigned short address;
 };
 
@@ -68,6 +69,8 @@ static void initMachineCodeFields(ListFile* pThis, LineInfo* pLineInfo);
 static void fillAddressBuffer(LineInfo* pLineInfo, char* pOutputBuffer);
 static void fillMachineCodeOrSymbolBuffer(ListFile* pThis, LineInfo* pLineInfo, char* pOutputBuffer);
 static void fillMachineCodeBuffer(ListFile* pThis, char* pOutputBuffer);
+static int hasRepeatingDSValue(ListFile* pThis);
+static void fillMachineCodeBufferFromRepeatingDSValue(ListFile* pThis, char* pOutputBuffer);
 static void listOverflowMachineCodeLine(ListFile* pThis);
 void ListFile_OutputLine(ListFile* pThis, LineInfo* pLineInfo)
 {
@@ -92,6 +95,7 @@ static void initMachineCodeFields(ListFile* pThis, LineInfo* pLineInfo)
     pThis->address = pLineInfo->address;
     pThis->pMachineCode = pLineInfo->machineCode;
     pThis->machineCodeSize = pLineInfo->machineCodeSize;
+    pThis->flags = pLineInfo->flags;
 }
 
 static void fillAddressBuffer(LineInfo* pLineInfo, char* pOutputBuffer)
@@ -112,6 +116,12 @@ static void fillMachineCodeBuffer(ListFile* pThis, char* pOutputBuffer)
 {
     size_t bytesUsed = 0;
     
+    if (hasRepeatingDSValue(pThis))
+    {
+        fillMachineCodeBufferFromRepeatingDSValue(pThis, pOutputBuffer);
+        return;
+    }
+    
     if (pThis->machineCodeSize == 1)
     {
         sprintf(pOutputBuffer, "%02X      ", pThis->pMachineCode[0]);
@@ -129,6 +139,34 @@ static void fillMachineCodeBuffer(ListFile* pThis, char* pOutputBuffer)
     }
 
     pThis->pMachineCode += bytesUsed;
+    pThis->machineCodeSize -= bytesUsed;
+}
+
+static int hasRepeatingDSValue(ListFile* pThis)
+{
+    return pThis->flags & LINEINFO_FLAG_WAS_DS;
+}
+
+static void fillMachineCodeBufferFromRepeatingDSValue(ListFile* pThis, char* pOutputBuffer)
+{
+    size_t bytesUsed = 0;
+    
+    if (pThis->machineCodeSize == 1)
+    {
+        sprintf(pOutputBuffer, "%02X      ", pThis->pMachineCode[0]);
+        bytesUsed = 1;
+    }
+    else if (pThis->machineCodeSize == 2)
+    {
+        sprintf(pOutputBuffer, "%02X %02X   ", pThis->pMachineCode[0], pThis->pMachineCode[0]);
+        bytesUsed = 2;
+    }
+    else if (pThis->machineCodeSize >= 3)
+    {
+        sprintf(pOutputBuffer, "%02X %02X %02X", pThis->pMachineCode[0], pThis->pMachineCode[0], pThis->pMachineCode[0]);
+        bytesUsed = 3;
+    }
+
     pThis->machineCodeSize -= bytesUsed;
 }
 
