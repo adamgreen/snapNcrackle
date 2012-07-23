@@ -20,6 +20,7 @@ extern "C"
     #include "../src/AssemblerPriv.h"
     #include "MallocFailureInject.h"
     #include "printfSpy.h"
+    #include "BinaryBuffer.h"
     #include "util.h"
 }
 
@@ -1102,6 +1103,14 @@ TEST(Assembler, HEXDirectiveWithInvalidDigit)
                                    "    :              1  hex fg\n");
 }
 
+TEST(Assembler, FailBinaryBufferAllocationInHEXDirective)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex ff\n"));
+    BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
+    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
+                                   "    :              1  hex ff\n");
+}
+
 TEST(Assembler, ORGDirectiveWithLiteralValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $900\n"
@@ -1236,6 +1245,14 @@ TEST(Assembler, DS_DirectiveWithSecondExpressionToSpecifyFillValueUnsupported)
                                    "    :              1  ds 2,$ff\n");
 }
 
+TEST(Assembler, FailBinaryBufferAllocationInDSDirective)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds 1\n"));
+    BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
+    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
+                                   "    :              1  ds 1\n");
+}
+
 TEST(Assembler, ASC_DirectiveInDoubleQuotes)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" asc \"Tst\"\n"));
@@ -1255,6 +1272,14 @@ TEST(Assembler, ASC_DirectiveWithNoEndingDelimiter)
                                    "0000: 54 73 74     1  asc 'Tst\n");
 }
 
+TEST(Assembler, FailBinaryBufferAllocationInASCDirective)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst'\n"));
+    BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
+    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
+                                   "    :              1  asc 'Tst'\n");
+}
+
 TEST(Assembler, FailWithInvalidImmediateValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" lda #$100\n"));
@@ -1267,6 +1292,30 @@ TEST(Assembler, FailWithInvalidExpression)
     m_pAssembler = Assembler_CreateFromString(dupe(" sta +ff\n"));
     runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
                                    "    :              1  sta +ff\n");
+}
+
+TEST(Assembler, FailBinaryBufferAllocationOnEmitSingleByteInstruction)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" clc\n"));
+    BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
+    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
+                                   "    :              1  clc\n");
+}
+
+TEST(Assembler, FailBinaryBufferAllocationOnEmitTwoByteInstruction)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #1\n"));
+    BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
+    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
+                                   "    :              1  lda #1\n");
+}
+
+TEST(Assembler, FailBinaryBufferAllocationOnEmitThreeByteInstruction)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda $800\n"));
+    BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
+    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
+                                   "    :              1  lda $800\n");
 }
 
 TEST(Assembler, STAAbsoluteViaLabel)

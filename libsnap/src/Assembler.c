@@ -413,7 +413,7 @@ static void emitSingleByteInstruction(Assembler* pThis, unsigned char opCode)
     __try
         pThis->pLineInfo->pMachineCode = allocateObjectBytes(pThis, 1);
     __catch
-        __rethrow;
+        __nothrow;
     pThis->pLineInfo->pMachineCode[0] = opCode;
     pThis->pLineInfo->machineCodeSize = 1;
 }
@@ -491,7 +491,7 @@ static void emitTwoByteInstruction(Assembler* pThis, unsigned char opCode, unsig
     __try
         pThis->pLineInfo->pMachineCode = allocateObjectBytes(pThis, 2);
     __catch
-        __rethrow;
+        __nothrow;
     pThis->pLineInfo->pMachineCode[0] = opCode;
     pThis->pLineInfo->pMachineCode[1] = LO_BYTE(value);
     pThis->pLineInfo->machineCodeSize = 2;
@@ -502,7 +502,7 @@ static void emitThreeByteInstruction(Assembler* pThis, unsigned char opCode, uns
     __try
         pThis->pLineInfo->pMachineCode = allocateObjectBytes(pThis, 3);
     __catch
-        __rethrow;
+        __nothrow;
     pThis->pLineInfo->pMachineCode[0] = opCode;
     pThis->pLineInfo->pMachineCode[1] = LO_BYTE(value);
     pThis->pLineInfo->pMachineCode[2] = HI_BYTE(value);
@@ -841,7 +841,7 @@ static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount)
     __try
         pThis->pLineInfo->pMachineCode = allocateObjectBytes(pThis, repeatCount);
     __catch
-        __rethrow;
+        __nothrow;
 
     pThis->pLineInfo->machineCodeSize = repeatCount;
     memset(pThis->pLineInfo->pMachineCode, 0, repeatCount);
