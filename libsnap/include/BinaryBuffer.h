@@ -22,7 +22,12 @@ typedef struct BinaryBuffer BinaryBuffer;
 __throws BinaryBuffer* BinaryBuffer_Create(size_t bufferSize);
          void          BinaryBuffer_Free(BinaryBuffer* pThis);
          
-__throws unsigned char* BinaryBuffer_Allocate(BinaryBuffer* pThis, size_t bytesToAllocate);
+__throws unsigned char* BinaryBuffer_Alloc(BinaryBuffer* pThis, size_t bytesToAllocate);
+__throws unsigned char* BinaryBuffer_Realloc(BinaryBuffer* pThis, unsigned char* pToRealloc, size_t bytesToAllocate);
+         void           BinaryBuffer_FailAllocation(BinaryBuffer* pThis, size_t allocationToFail);
+         
+         void           BinaryBuffer_SetOrigin(BinaryBuffer* pThis, unsigned short origin);
+         unsigned short BinaryBuffer_GetOrigin(BinaryBuffer* pThis);
 __throws void           BinaryBuffer_WriteToFile(BinaryBuffer* pThis, const char* pFilename);
 
 #endif /* _BINARY_BUFFER_H_ */

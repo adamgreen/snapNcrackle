@@ -419,7 +419,7 @@ static unsigned char* allocateObjectBytes(Assembler* pThis, size_t bytesToAlloca
     unsigned char* pAlloc;
     __try
     {
-        pAlloc = BinaryBuffer_Allocate(pThis->pCurrentBuffer, bytesToAllocate);
+        pAlloc = BinaryBuffer_Alloc(pThis->pCurrentBuffer, bytesToAllocate);
     }
     __catch
     {

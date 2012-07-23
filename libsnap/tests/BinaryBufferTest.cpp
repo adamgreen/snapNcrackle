@@ -59,7 +59,7 @@ TEST_GROUP(BinaryBuffer)
     {
         m_allocSize = 2;
         m_pBinaryBuffer = BinaryBuffer_Create(64*1024);
-        m_pAlloc = BinaryBuffer_Allocate(m_pBinaryBuffer, m_allocSize);
+        m_pAlloc = BinaryBuffer_Alloc(m_pBinaryBuffer, m_allocSize);
         m_pAlloc[0] = 0x00;
         m_pAlloc[1] = 0xff;
     }
@@ -86,15 +86,15 @@ TEST(BinaryBuffer, Allocate1Item)
 {
     m_pBinaryBuffer = BinaryBuffer_Create(64*1024);
     CHECK_TRUE(NULL != m_pBinaryBuffer);    
-    unsigned char* pAlloc = BinaryBuffer_Allocate(m_pBinaryBuffer, 1);
+    unsigned char* pAlloc = BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
     CHECK_TRUE(NULL != pAlloc);
 }
 
 TEST(BinaryBuffer, Allocate2Items)
 {
-    m_pBinaryBuffer = BinaryBuffer_Create(64*1024);
-    unsigned char* pAlloc1 = BinaryBuffer_Allocate(m_pBinaryBuffer, 1);
-    unsigned char* pAlloc2 = BinaryBuffer_Allocate(m_pBinaryBuffer, 2);
+    m_pBinaryBuffer = BinaryBuffer_Create(64);
+    unsigned char* pAlloc1 = BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
+    unsigned char* pAlloc2 = BinaryBuffer_Alloc(m_pBinaryBuffer, 2);
     CHECK_TRUE(NULL != pAlloc2);
     CHECK_TRUE(pAlloc2 == pAlloc1+1);
 }
@@ -102,9 +102,46 @@ TEST(BinaryBuffer, Allocate2Items)
 TEST(BinaryBuffer, FailToAllocateItem)
 {
     m_pBinaryBuffer = BinaryBuffer_Create(1);
-    unsigned char* pAlloc = BinaryBuffer_Allocate(m_pBinaryBuffer, 2);
+    unsigned char* pAlloc = BinaryBuffer_Alloc(m_pBinaryBuffer, 2);
     validateOutOfMemoryExceptionThrown();
     POINTERS_EQUAL(NULL, pAlloc);
+}
+
+TEST(BinaryBuffer, ReallocFromNULLShouldBeSameAsAlloc)
+{
+    m_pBinaryBuffer = BinaryBuffer_Create(64);
+    unsigned char* pAlloc = BinaryBuffer_Realloc(m_pBinaryBuffer, NULL, 1);
+    CHECK_TRUE(NULL != pAlloc);
+}
+
+TEST(BinaryBuffer, ReallocToGrowBufferByOneByte)
+{
+    m_pBinaryBuffer = BinaryBuffer_Create(64);
+    unsigned char* pAlloc1 = BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
+    unsigned char* pAlloc2 = BinaryBuffer_Realloc(m_pBinaryBuffer, pAlloc1, 2);
+    CHECK_TRUE(pAlloc1 == pAlloc2);
+    unsigned char* pAlloc3 = BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
+    CHECK_TRUE(pAlloc3 == pAlloc2 + 2);
+}
+
+TEST(BinaryBuffer, FailReallocBySpecifyingPointerOtherThanLastAllocated)
+{
+    m_pBinaryBuffer = BinaryBuffer_Create(64);
+    unsigned char* pAlloc1 = BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
+                             BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
+    unsigned char* pAlloc3 = BinaryBuffer_Realloc(m_pBinaryBuffer, pAlloc1, 2);
+    POINTERS_EQUAL(NULL, pAlloc3);
+    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
+    clearExceptionCode();
+}
+
+TEST(BinaryBuffer, ForceFirstAllocToFail)
+{
+    m_pBinaryBuffer = BinaryBuffer_Create(64);
+    BinaryBuffer_FailAllocation(m_pBinaryBuffer, 1);
+    unsigned char* pAlloc1 = BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
+    POINTERS_EQUAL(NULL, pAlloc1);
+    validateOutOfMemoryExceptionThrown();
 }
 
 TEST(BinaryBuffer, WriteBufferToDisk)
@@ -139,4 +176,30 @@ TEST(BinaryBuffer, FailFWriteDuringWriteToFile)
     BinaryBuffer_WriteToFile(m_pBinaryBuffer, g_filename);
     LONGS_EQUAL(fileException, getExceptionCode());
     clearExceptionCode();
+}
+
+TEST(BinaryBuffer, SetOriginBeforeAnyAllocations)
+{
+    m_pBinaryBuffer = BinaryBuffer_Create(64);
+    LONGS_EQUAL(0, BinaryBuffer_GetOrigin(m_pBinaryBuffer));
+    BinaryBuffer_SetOrigin(m_pBinaryBuffer, 0x8000);
+    LONGS_EQUAL(0x8000, BinaryBuffer_GetOrigin(m_pBinaryBuffer));
+}
+
+TEST(BinaryBuffer, WritePartialBufferToDisk)
+{
+    char               readBuffer[4];
+    
+    placeSomeDataInBuffer();
+    BinaryBuffer_SetOrigin(m_pBinaryBuffer, 0x8000);
+    unsigned char* pAlloc = BinaryBuffer_Alloc(m_pBinaryBuffer, 2);
+    pAlloc[0] = 0xa5;
+    pAlloc[1] = 0x5a;
+    
+    BinaryBuffer_WriteToFile(m_pBinaryBuffer, g_filename);
+    FILE* pFile = fopen(g_filename, "r");
+    CHECK_TRUE(pFile != NULL);
+    LONGS_EQUAL(2, fread(readBuffer, 1, 4, pFile));
+    CHECK_TRUE(0 == memcmp(pAlloc, readBuffer, 2));
+    fclose(pFile);
 }
