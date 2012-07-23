@@ -16,7 +16,6 @@
 #include "Symbol.h"
 
 #define LINEINFO_FLAG_WAS_EQU 1
-#define LINEINFO_FLAG_WAS_DS  2
 
 
 typedef struct Symbol Symbol;
@@ -26,11 +25,11 @@ struct LineInfo
     const char*      pLineText;
     Symbol*          pSymbol;
     struct LineInfo* pNext;
+    unsigned char*   pMachineCode;
     size_t           machineCodeSize;
     unsigned int     lineNumber;
     unsigned int     flags;
     unsigned short   address;
-    unsigned char    machineCode[32];
 };
 
 #endif /* _LINE_INFO_H_ */

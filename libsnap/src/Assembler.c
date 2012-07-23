@@ -79,9 +79,12 @@ static void commonObjectInit(Assembler* pThis)
         __throwing_func( pThis->pListFile = ListFile_Create(stdout) );
         __throwing_func( pThis->pLineText = LineBuffer_Create() );
         __throwing_func( pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS) );
+        __throwing_func( pThis->pObjectBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS) )
+        __throwing_func( pThis->pDummyBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS) );
         pThis->pLineInfo = &pThis->linesHead;
         pThis->pLocalLabelStart = pThis->labelBuffer;
         pThis->maxLocalLabelSize = sizeof(pThis->labelBuffer)-1;
+        pThis->pCurrentBuffer = pThis->pObjectBuffer;
     }
     __catch
     {
@@ -120,6 +123,8 @@ void Assembler_Free(Assembler* pThis)
     freeLines(pThis);
     LineBuffer_Free(pThis->pLineText);
     ListFile_Free(pThis->pListFile);
+    BinaryBuffer_Free(pThis->pDummyBuffer);
+    BinaryBuffer_Free(pThis->pObjectBuffer);
     SymbolTable_Free(pThis->pSymbols);
     TextFile_Free(pThis->pTextFile);
     free(pThis);
@@ -146,6 +151,7 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry);
 static void handleImpliedAddressingMode(Assembler* pThis, unsigned char opcodeImplied);
 static void logInvalidAddressingModeError(Assembler* pThis);
 static void emitSingleByteInstruction(Assembler* pThis, unsigned char opCode);
+static unsigned char* allocateObjectBytes(Assembler* pThis, size_t bytesToAllocate);
 static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis, 
                                                    AddressingMode*    pAddressingMode, 
                                                    const OpCodeEntry* pOpcodeEntry);
@@ -192,10 +198,8 @@ static void handleInvalidOperator(Assembler* pThis);
 static void handleDEND(Assembler* pThis);
 static Expression getAbsoluteExpression(Assembler* pThis);
 static int isTypeAbsolute(Expression* pExpression);
-static void clearDUMFlag(Assembler* pThis);
 static void handleDUM(Assembler* pThis);
 static int isAlreadyInDUMSection(Assembler* pThis);
-static void setDUMFlag(Assembler* pThis);
 static void handleDS(Assembler* pThis);
 static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount);
 static void handleHEX(Assembler* pThis);
@@ -402,8 +406,28 @@ static void logInvalidAddressingModeError(Assembler* pThis)
 
 static void emitSingleByteInstruction(Assembler* pThis, unsigned char opCode)
 {
-    pThis->pLineInfo->machineCode[0] = opCode;
+    __try
+        pThis->pLineInfo->pMachineCode = allocateObjectBytes(pThis, 1);
+    __catch
+        __rethrow;
+    pThis->pLineInfo->pMachineCode[0] = opCode;
     pThis->pLineInfo->machineCodeSize = 1;
+}
+
+static unsigned char* allocateObjectBytes(Assembler* pThis, size_t bytesToAllocate)
+{
+    unsigned char* pAlloc;
+    __try
+    {
+        pAlloc = BinaryBuffer_Allocate(pThis->pCurrentBuffer, bytesToAllocate);
+    }
+    __catch
+    {
+        LOG_ERROR(pThis, "Exceeded the %d allowed bytes in the object file.", SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
+        __rethrow_and_return(NULL);
+    }
+    
+    return pAlloc;
 }
 
 static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis, 
@@ -455,16 +479,24 @@ static int expressionContainsForwardReference(Expression* pExpression)
 
 static void emitTwoByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value)
 {
-    pThis->pLineInfo->machineCode[0] = opCode;
-    pThis->pLineInfo->machineCode[1] = LO_BYTE(value);
+    __try
+        pThis->pLineInfo->pMachineCode = allocateObjectBytes(pThis, 2);
+    __catch
+        __rethrow;
+    pThis->pLineInfo->pMachineCode[0] = opCode;
+    pThis->pLineInfo->pMachineCode[1] = LO_BYTE(value);
     pThis->pLineInfo->machineCodeSize = 2;
 }
 
 static void emitThreeByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value)
 {
-    pThis->pLineInfo->machineCode[0] = opCode;
-    pThis->pLineInfo->machineCode[1] = LO_BYTE(value);
-    pThis->pLineInfo->machineCode[2] = HI_BYTE(value);
+    __try
+        pThis->pLineInfo->pMachineCode = allocateObjectBytes(pThis, 3);
+    __catch
+        __rethrow;
+    pThis->pLineInfo->pMachineCode[0] = opCode;
+    pThis->pLineInfo->pMachineCode[1] = LO_BYTE(value);
+    pThis->pLineInfo->pMachineCode[2] = HI_BYTE(value);
     pThis->pLineInfo->machineCodeSize = 3;
 }
 
@@ -705,12 +737,7 @@ static void handleDEND(Assembler* pThis)
     }
 
     pThis->programCounter = pThis->programCounterBeforeDUM;
-    clearDUMFlag(pThis);
-}
-
-static void clearDUMFlag(Assembler* pThis)
-{
-    pThis->flags &= ~ASSEMBLER_FLAG_DUM;
+    pThis->pCurrentBuffer = pThis->pObjectBuffer;
 }
 
 static void handleDUM(Assembler* pThis)
@@ -725,7 +752,7 @@ static void handleDUM(Assembler* pThis)
     if (!isAlreadyInDUMSection(pThis))
         pThis->programCounterBeforeDUM = pThis->programCounter;
     pThis->programCounter = expression.value;
-    setDUMFlag(pThis);
+    pThis->pCurrentBuffer = pThis->pDummyBuffer;
 }
 
 static Expression getAbsoluteExpression(Assembler* pThis)
@@ -756,12 +783,7 @@ static int isTypeAbsolute(Expression* pExpression)
 
 static int isAlreadyInDUMSection(Assembler* pThis)
 {
-    return pThis->flags & ASSEMBLER_FLAG_DUM;
-}
-
-static void setDUMFlag(Assembler* pThis)
-{
-    pThis->flags |= ASSEMBLER_FLAG_DUM;
+    return pThis->pCurrentBuffer == pThis->pDummyBuffer;
 }
 
 static void handleDS(Assembler* pThis)
@@ -778,26 +800,40 @@ static void handleDS(Assembler* pThis)
 
 static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount)
 {
-    pThis->pLineInfo->flags |= LINEINFO_FLAG_WAS_DS;
+    __try
+        pThis->pLineInfo->pMachineCode = allocateObjectBytes(pThis, repeatCount);
+    __catch
+        __rethrow;
+
     pThis->pLineInfo->machineCodeSize = repeatCount;
-    pThis->pLineInfo->machineCode[0] = 0;
+    memset(pThis->pLineInfo->pMachineCode, 0, repeatCount);
 }
 
 static void handleHEX(Assembler* pThis)
 {
-    const char* pCurr = pThis->parsedLine.pOperands;
-    size_t      i = 0;
+    unsigned char* pAllocLast = NULL;
+    const char*    pCurr = pThis->parsedLine.pOperands;
+    size_t         i = 0;
 
-    while (*pCurr && i < sizeof(pThis->pLineInfo->machineCode))
+    while (*pCurr && i < 32)
     {
         __try
         {
-            unsigned int byte;
-            const char*  pNext;
+            unsigned int   byte;
+            const char*    pNext;
+            unsigned char* pAlloc;
 
             __throwing_func( byte = getNextHexByte(pCurr, &pNext) );
-            pThis->pLineInfo->machineCode[i++] = byte;
+            __throwing_func( pAlloc = allocateObjectBytes(pThis, 1) );
+            
+            if (pAllocLast == NULL)
+                pThis->pLineInfo->pMachineCode = pAlloc;
+            else
+                assert ( pAlloc == pAllocLast + 1 );
+                
+            pThis->pLineInfo->pMachineCode[i++] = byte;
             pCurr = pNext;
+            pAllocLast = pAlloc;
         }
         __catch
         {

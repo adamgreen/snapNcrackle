@@ -566,45 +566,26 @@ TEST_GROUP(Assembler)
                           const char*          pExpectedMachineCode)
     {
         LONGS_EQUAL(expectedMachineCodeSize, pLineInfo->machineCodeSize);
-        CHECK_TRUE(0 == memcmp(pLineInfo->machineCode, pExpectedMachineCode, expectedMachineCodeSize));
+        CHECK_TRUE(0 == memcmp(pLineInfo->pMachineCode, pExpectedMachineCode, expectedMachineCodeSize));
         LONGS_EQUAL(expectedAddress, pLineInfo->address);
     }
 };
 
 
-TEST(Assembler, FailFirstInitAllocation)
+TEST(Assembler, FailAllInitAllocations)
 {
-    MallocFailureInject_FailAllocation(1);
-    m_pAssembler = Assembler_CreateFromString(dupe(""));
-    validateOutOfMemoryExceptionThrown();
-}
+    static const int allocationsToFail = 11;
+    for (int i = 1 ; i <= allocationsToFail ; i++)
+    {
+        MallocFailureInject_FailAllocation(i);
+        m_pAssembler = Assembler_CreateFromString(dupe(""));
+        POINTERS_EQUAL(NULL, m_pAssembler);
+        validateOutOfMemoryExceptionThrown();
+    }
 
-TEST(Assembler, FailSecondInitAllocation)
-{
-    MallocFailureInject_FailAllocation(2);
+    MallocFailureInject_FailAllocation(allocationsToFail + 1);
     m_pAssembler = Assembler_CreateFromString(dupe(""));
-    validateOutOfMemoryExceptionThrown();
-}
-
-TEST(Assembler, FailThirdInitAllocation)
-{
-    MallocFailureInject_FailAllocation(3);
-    m_pAssembler = Assembler_CreateFromString(dupe(""));
-    validateOutOfMemoryExceptionThrown();
-}
-
-TEST(Assembler, FailFourthInitAllocation)
-{
-    MallocFailureInject_FailAllocation(4);
-    m_pAssembler = Assembler_CreateFromString(dupe(""));
-    validateOutOfMemoryExceptionThrown();
-}
-
-TEST(Assembler, FailFifthInitAllocation)
-{
-    MallocFailureInject_FailAllocation(5);
-    m_pAssembler = Assembler_CreateFromString(dupe(""));
-    validateOutOfMemoryExceptionThrown();
+    CHECK_TRUE(m_pAssembler != NULL);
 }
 
 TEST(Assembler, EmptyString)
@@ -888,7 +869,7 @@ TEST(Assembler, CascadedForwardReferenceOfEQUToLabel)
     Assembler_Run(m_pAssembler);
     pSecondLine = m_pAssembler->linesHead.pNext->pNext;
     LONGS_EQUAL(3, pSecondLine->machineCodeSize);
-    CHECK(0 == memcmp(pSecondLine->machineCode, "\x8d\x04\x08", 3));
+    CHECK(0 == memcmp(pSecondLine->pMachineCode, "\x8d\x04\x08", 3));
 }
 
 TEST(Assembler, MultipleForwardReferencesToSameLabel)
@@ -902,10 +883,10 @@ TEST(Assembler, MultipleForwardReferencesToSameLabel)
     Assembler_Run(m_pAssembler);
     pSecondLine = m_pAssembler->linesHead.pNext->pNext;
     LONGS_EQUAL(3, pSecondLine->machineCodeSize);
-    CHECK(0 == memcmp(pSecondLine->machineCode, "\x8d\x07\x08", 3));
+    CHECK(0 == memcmp(pSecondLine->pMachineCode, "\x8d\x07\x08", 3));
     pThirdLine = pSecondLine->pNext;
     LONGS_EQUAL(3, pSecondLine->machineCodeSize);
-    CHECK(0 == memcmp(pSecondLine->machineCode, "\x8d\x07\x08", 3));
+    CHECK(0 == memcmp(pSecondLine->pMachineCode, "\x8d\x07\x08", 3));
 }
 
 TEST(Assembler, FailZeroPageForwardReference)

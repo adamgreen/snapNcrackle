@@ -21,13 +21,12 @@
 #include "ParseLine.h"
 #include "ListFile.h"
 #include "LineBuffer.h"
+#include "BinaryBuffer.h"
 #include "util.h"
 
 
 #define NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS 511
-
-/* Bits in Assembler::flags field. */
-#define ASSEMBLER_FLAG_DUM     1
+#define SIZE_OF_OBJECT_AND_DUMMY_BUFFERS    (64 * 1024)
 
 
 struct Assembler
@@ -39,10 +38,12 @@ struct Assembler
     LineBuffer*    pLineText;
     char*          pLocalLabelStart;
     LineInfo*      pLineInfo;
+    BinaryBuffer*  pObjectBuffer;
+    BinaryBuffer*  pDummyBuffer;
+    BinaryBuffer*  pCurrentBuffer;
     size_t         maxLocalLabelSize;
     ParsedLine     parsedLine;
     LineInfo       linesHead;
-    unsigned int   flags;
     unsigned int   errorCount;
     unsigned short programCounter;
     unsigned short programCounterBeforeDUM;
