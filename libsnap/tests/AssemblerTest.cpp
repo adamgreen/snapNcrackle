@@ -1236,6 +1236,25 @@ TEST(Assembler, DS_DirectiveWithSecondExpressionToSpecifyFillValueUnsupported)
                                    "    :              1  ds 2,$ff\n");
 }
 
+TEST(Assembler, ASC_DirectiveInDoubleQuotes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc \"Tst\"\n"));
+    runAssemblerAndValidateOutputIs("0000: D4 F3 F4     1  asc \"Tst\"\n");
+}
+
+TEST(Assembler, ASC_DirectiveInSingleQuotes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst'\n"));
+    runAssemblerAndValidateOutputIs("0000: 54 73 74     1  asc 'Tst'\n");
+}
+
+TEST(Assembler, ASC_DirectiveWithNoEndingDelimiter)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst\n"));
+    runAssemblerAndValidateFailure("filename:1: error: 'Tst didn't end with the expected ' delimiter.\n",
+                                   "0000: 54 73 74     1  asc 'Tst\n");
+}
+
 TEST(Assembler, FailWithInvalidImmediateValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" lda #$100\n"));

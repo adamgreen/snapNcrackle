@@ -196,6 +196,7 @@ static int symbolContainsForwardReferences(Symbol* pSymbol);
 static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, LineInfo* pLineInfo);
 static void ignoreOperator(Assembler* pThis);
 static void handleInvalidOperator(Assembler* pThis);
+static void handleASC(Assembler* pThis);
 static void handleDEND(Assembler* pThis);
 static Expression getAbsoluteExpression(Assembler* pThis);
 static int isTypeAbsolute(Expression* pExpression);
@@ -290,6 +291,7 @@ static void firstPassAssembleLine(Assembler* pThis)
     {
         /* Assembler Directives */
         {"=",    handleEQU,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"ASC",  handleASC, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"DEND", handleDEND, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"DS",   handleDS,   _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"DUM",  handleDUM,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
@@ -733,6 +735,35 @@ static void ignoreOperator(Assembler* pThis)
 static void handleInvalidOperator(Assembler* pThis)
 {
     LOG_ERROR(pThis, "'%s' is not a recognized mnemonic or macro.", pThis->parsedLine.pOperator);
+}
+
+static void handleASC(Assembler* pThis)
+{
+    char           delimiter = *pThis->parsedLine.pOperands;
+    unsigned char* pAlloc = NULL;
+    const char*    pCurr = &pThis->parsedLine.pOperands[1];
+    size_t         i = 0;
+    unsigned char  mask = delimiter < '\'' ? 0x80 : 0x00;
+
+    while (*pCurr && *pCurr != delimiter)
+    {
+        __try
+        {
+            unsigned char   byte = *pCurr | mask;
+            __throwing_func( pAlloc = reallocObjectBytes(pThis, pAlloc, i+1) );
+            pThis->pLineInfo->pMachineCode = pAlloc;
+            pThis->pLineInfo->pMachineCode[i++] = byte;
+            pCurr++;
+        }
+        __catch
+        {
+            __nothrow;
+        }
+    }
+    
+    if (*pCurr == '\0')
+        LOG_ERROR(pThis, "%s didn't end with the expected %c delimiter.", pThis->parsedLine.pOperands, delimiter);
+    pThis->pLineInfo->machineCodeSize = i;
 }
 
 static void handleDEND(Assembler* pThis)
