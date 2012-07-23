@@ -197,6 +197,7 @@ static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, Li
 static void ignoreOperator(Assembler* pThis);
 static void handleInvalidOperator(Assembler* pThis);
 static void handleASC(Assembler* pThis);
+static const char* fullOperandStringWithSpaces(Assembler* pThis);
 static void handleDEND(Assembler* pThis);
 static Expression getAbsoluteExpression(Assembler* pThis);
 static int isTypeAbsolute(Expression* pExpression);
@@ -739,9 +740,10 @@ static void handleInvalidOperator(Assembler* pThis)
 
 static void handleASC(Assembler* pThis)
 {
-    char           delimiter = *pThis->parsedLine.pOperands;
+    const char*    pOperands = fullOperandStringWithSpaces(pThis);
+    char           delimiter = *pOperands;
     unsigned char* pAlloc = NULL;
-    const char*    pCurr = &pThis->parsedLine.pOperands[1];
+    const char*    pCurr = &pOperands[1];
     size_t         i = 0;
     unsigned char  mask = delimiter < '\'' ? 0x80 : 0x00;
 
@@ -764,6 +766,12 @@ static void handleASC(Assembler* pThis)
     if (*pCurr == '\0')
         LOG_ERROR(pThis, "%s didn't end with the expected %c delimiter.", pThis->parsedLine.pOperands, delimiter);
     pThis->pLineInfo->machineCodeSize = i;
+}
+
+static const char* fullOperandStringWithSpaces(Assembler* pThis)
+{
+    int offsetOfOperandsWithInLine = pThis->parsedLine.pOperands - LineBuffer_Get(pThis->pLineText);
+    return pThis->pLineInfo->pLineText + offsetOfOperandsWithInLine;
 }
 
 static void handleDEND(Assembler* pThis)

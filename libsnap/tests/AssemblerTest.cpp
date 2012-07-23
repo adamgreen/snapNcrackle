@@ -1265,6 +1265,12 @@ TEST(Assembler, ASC_DirectiveInSingleQuotes)
     runAssemblerAndValidateOutputIs("0000: 54 73 74     1  asc 'Tst'\n");
 }
 
+TEST(Assembler, ASC_DirectiveWithNoSpacesBetweenQuotes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'a b'\n"));
+    runAssemblerAndValidateOutputIs("0000: 61 20 62     1  asc 'a b'\n");
+}
+
 TEST(Assembler, ASC_DirectiveWithNoEndingDelimiter)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst\n"));
