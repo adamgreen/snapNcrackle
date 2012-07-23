@@ -144,6 +144,17 @@ TEST(BinaryBuffer, ForceFirstAllocToFail)
     validateOutOfMemoryExceptionThrown();
 }
 
+TEST(BinaryBuffer, ForceSecondAllocToFail)
+{
+    m_pBinaryBuffer = BinaryBuffer_Create(64);
+    BinaryBuffer_FailAllocation(m_pBinaryBuffer, 2);
+    unsigned char* pAlloc1 = BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
+    CHECK_TRUE(NULL != pAlloc1);
+    unsigned char* pAlloc2 = BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
+    POINTERS_EQUAL(NULL, pAlloc2);
+    validateOutOfMemoryExceptionThrown();
+}
+
 TEST(BinaryBuffer, WriteBufferToDisk)
 {
     char               testBuffer[2];
