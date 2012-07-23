@@ -152,6 +152,7 @@ static void handleImpliedAddressingMode(Assembler* pThis, unsigned char opcodeIm
 static void logInvalidAddressingModeError(Assembler* pThis);
 static void emitSingleByteInstruction(Assembler* pThis, unsigned char opCode);
 static unsigned char* allocateObjectBytes(Assembler* pThis, size_t bytesToAllocate);
+static unsigned char* reallocObjectBytes(Assembler* pThis, unsigned char* pToRealloc, size_t bytesToAllocate);
 static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis, 
                                                    AddressingMode*    pAddressingMode, 
                                                    const OpCodeEntry* pOpcodeEntry);
@@ -206,6 +207,7 @@ static void handleHEX(Assembler* pThis);
 static unsigned char getNextHexByte(const char* pStart, const char** ppNext);
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
+static unsigned char* reallocObjectBytes(Assembler* pThis, unsigned char* pToRealloc, size_t bytesToAllocate);
 static void handleORG(Assembler* pThis);
 static void rememberLabel(Assembler* pThis);
 static int isLabelToRemember(Assembler* pThis);
@@ -416,10 +418,15 @@ static void emitSingleByteInstruction(Assembler* pThis, unsigned char opCode)
 
 static unsigned char* allocateObjectBytes(Assembler* pThis, size_t bytesToAllocate)
 {
+    return reallocObjectBytes(pThis, NULL, bytesToAllocate);
+}
+
+static unsigned char* reallocObjectBytes(Assembler* pThis, unsigned char* pToRealloc, size_t bytesToAllocate)
+{
     unsigned char* pAlloc;
     __try
     {
-        pAlloc = BinaryBuffer_Alloc(pThis->pCurrentBuffer, bytesToAllocate);
+        pAlloc = BinaryBuffer_Realloc(pThis->pCurrentBuffer, pToRealloc, bytesToAllocate);
     }
     __catch
     {
@@ -811,7 +818,7 @@ static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount)
 
 static void handleHEX(Assembler* pThis)
 {
-    unsigned char* pAllocLast = NULL;
+    unsigned char* pAlloc = NULL;
     const char*    pCurr = pThis->parsedLine.pOperands;
     size_t         i = 0;
 
@@ -821,19 +828,13 @@ static void handleHEX(Assembler* pThis)
         {
             unsigned int   byte;
             const char*    pNext;
-            unsigned char* pAlloc;
 
             __throwing_func( byte = getNextHexByte(pCurr, &pNext) );
-            __throwing_func( pAlloc = allocateObjectBytes(pThis, 1) );
+            __throwing_func( pAlloc = reallocObjectBytes(pThis, pAlloc, i+1) );
             
-            if (pAllocLast == NULL)
-                pThis->pLineInfo->pMachineCode = pAlloc;
-            else
-                assert ( pAlloc == pAllocLast + 1 );
-                
+            pThis->pLineInfo->pMachineCode = pAlloc;
             pThis->pLineInfo->pMachineCode[i++] = byte;
             pCurr = pNext;
-            pAllocLast = pAlloc;
         }
         __catch
         {
