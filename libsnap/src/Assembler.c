@@ -927,7 +927,7 @@ static unsigned char hexCharToNibble(char value)
     if (value >= 'a' && value <= 'f')
         return value - 'a' + 10;
     if (value >= 'A' && value <= 'F')
-        return value - 'a' + 10;
+        return value - 'A' + 10;
     __throw_and_return(invalidHexDigitException, 0);
 }
 

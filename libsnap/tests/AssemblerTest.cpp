@@ -1058,8 +1058,8 @@ TEST(Assembler, HEXDirectiveWithSingleValue)
 
 TEST(Assembler, HEXDirectiveWithThreeValuesAndCommas)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0e,0c,0a\n"));
-    runAssemblerAndValidateOutputIs("0000: 0E 0C 0A     1  hex 0e,0c,0a\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0e,0C,0a\n"));
+    runAssemblerAndValidateOutputIs("0000: 0E 0C 0A     1  hex 0e,0C,0a\n");
 }
 
 TEST(Assembler, HEXDirectiveWithThreeValues)
