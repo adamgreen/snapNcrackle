@@ -29,11 +29,14 @@ extern "C"
 
 
 const char* g_sourceFilename = "AssemblerTest.S";
+const char* g_objectFilename = "AssemblerTest.sav";
 
 TEST_GROUP(Assembler)
 {
     Assembler*    m_pAssembler;
     const char*   m_argv[10];
+    FILE*         m_pFile;
+    char*         m_pReadBuffer;
     CommandLine   m_commandLine;
     int           m_argc;
     int           m_isInvalidMode;
@@ -46,6 +49,8 @@ TEST_GROUP(Assembler)
         clearExceptionCode();
         printfSpy_Hook(512);
         m_pAssembler = NULL;
+        m_pFile = NULL;
+        m_pReadBuffer = NULL;
     }
 
     void teardown()
@@ -53,7 +58,11 @@ TEST_GROUP(Assembler)
         MallocFailureInject_Restore();
         printfSpy_Unhook();
         Assembler_Free(m_pAssembler);
+        if (m_pFile)
+            fclose(m_pFile);
+        free(m_pReadBuffer);
         remove(g_sourceFilename);
+        remove(g_objectFilename);
         LONGS_EQUAL(noException, getExceptionCode());
     }
     
@@ -570,6 +579,27 @@ TEST_GROUP(Assembler)
         CHECK_TRUE(0 == memcmp(pLineInfo->pMachineCode, pExpectedMachineCode, expectedMachineCodeSize));
         LONGS_EQUAL(expectedAddress, pLineInfo->address);
     }
+    
+    void validateObjectFileContains(const char* pExpectedContent, long expectedContentSize)
+    {
+        FILE* pFile = fopen(g_objectFilename, "r");
+        CHECK(pFile != NULL);
+        LONGS_EQUAL(expectedContentSize, getFileSize(pFile));
+        
+        m_pReadBuffer = (char*)malloc(expectedContentSize);
+        CHECK(pFile != NULL);
+        
+        LONGS_EQUAL(expectedContentSize, fread(m_pReadBuffer, 1, expectedContentSize, pFile));
+        CHECK(0 == memcmp(pExpectedContent, m_pReadBuffer, expectedContentSize));
+    }
+    
+    long getFileSize(FILE* pFile)
+    {
+        fseek(pFile, 0, SEEK_END);
+        long size = ftell(pFile);
+        fseek(pFile, 0, SEEK_SET);
+        return size;
+    }
 };
 
 
@@ -895,7 +925,7 @@ TEST(Assembler, FailZeroPageForwardReference)
     m_pAssembler = Assembler_CreateFromString(dupe(" sta globalLabel\n"
                                                    "globalLabel sta $22\n"));
     
-    runAssemblerAndValidateFailure("filename:1: error: Couldn't properly infer size of 'globalLabel' forward reference.\n",
+    runAssemblerAndValidateFailure("filename:1: error: Couldn't properly infer size of a forward reference in 'globalLabel' operand.\n",
                                    "0003: 85 22        2 globalLabel sta $22\n", 3);
 }
 
@@ -1066,7 +1096,7 @@ TEST(Assembler, HEXDirectiveWith33Values_1MoreThanSupported)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021\n"));
     runAssemblerAndValidateFailure("filename:1: error: '0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021' contains more than 32 values.\n", 
-                                   "    :              1  hex 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021\n");
+                                   "001E: 1F 20   \n", 12);
 }
 
 TEST(Assembler, HEXDirectiveOnTwoLines)
@@ -1276,6 +1306,18 @@ TEST(Assembler, ASC_DirectiveWithNoEndingDelimiter)
     m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst\n"));
     runAssemblerAndValidateFailure("filename:1: error: 'Tst didn't end with the expected ' delimiter.\n",
                                    "0000: 54 73 74     1  asc 'Tst\n");
+}
+
+// UNDONE: Can use SAV directive for this test once it is supported.
+TEST(Assembler, VerifyObjectFileWithForwardReferenceLabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " sta label\n"
+                                                   "label sta $2b\n"));
+    CHECK(m_pAssembler != NULL);
+    Assembler_Run(m_pAssembler);
+    BinaryBuffer_WriteToFile(m_pAssembler->pObjectBuffer, g_objectFilename);
+    validateObjectFileContains("\x8d\x03\x08\x85\x2b", 5);
 }
 
 TEST(Assembler, FailBinaryBufferAllocationInASCDirective)

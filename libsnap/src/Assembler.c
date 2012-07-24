@@ -151,8 +151,10 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry);
 static void handleImpliedAddressingMode(Assembler* pThis, unsigned char opcodeImplied);
 static void logInvalidAddressingModeError(Assembler* pThis);
 static void emitSingleByteInstruction(Assembler* pThis, unsigned char opCode);
-static unsigned char* allocateObjectBytes(Assembler* pThis, size_t bytesToAllocate);
-static unsigned char* reallocObjectBytes(Assembler* pThis, unsigned char* pToRealloc, size_t bytesToAllocate);
+static void allocateLineInfoMachineCodeBytes(Assembler* pThis, size_t bytesToAllocate);
+static int isMachineCodeAlreadyAllocatedFromForwardReference(Assembler* pThis);
+static void verifyThatMachineCodeSizeFromForwardReferenceMatches(Assembler* pThis, size_t bytesToAllocate);
+static void reallocLineInfoMachineCodeBytes(Assembler* pThis, size_t bytesToAllocate);
 static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis, 
                                                    AddressingMode*    pAddressingMode, 
                                                    const OpCodeEntry* pOpcodeEntry);
@@ -209,7 +211,6 @@ static void handleHEX(Assembler* pThis);
 static unsigned char getNextHexByte(const char* pStart, const char** ppNext);
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
-static unsigned char* reallocObjectBytes(Assembler* pThis, unsigned char* pToRealloc, size_t bytesToAllocate);
 static void handleORG(Assembler* pThis);
 static void rememberLabel(Assembler* pThis);
 static int isLabelToRemember(Assembler* pThis);
@@ -412,32 +413,50 @@ static void logInvalidAddressingModeError(Assembler* pThis)
 static void emitSingleByteInstruction(Assembler* pThis, unsigned char opCode)
 {
     __try
-        pThis->pLineInfo->pMachineCode = allocateObjectBytes(pThis, 1);
+        allocateLineInfoMachineCodeBytes(pThis, 1);
     __catch
         __nothrow;
     pThis->pLineInfo->pMachineCode[0] = opCode;
-    pThis->pLineInfo->machineCodeSize = 1;
 }
 
-static unsigned char* allocateObjectBytes(Assembler* pThis, size_t bytesToAllocate)
+static void allocateLineInfoMachineCodeBytes(Assembler* pThis, size_t bytesToAllocate)
 {
-    return reallocObjectBytes(pThis, NULL, bytesToAllocate);
+    if (isMachineCodeAlreadyAllocatedFromForwardReference(pThis))
+        verifyThatMachineCodeSizeFromForwardReferenceMatches(pThis, bytesToAllocate);
+    else
+        reallocLineInfoMachineCodeBytes(pThis, bytesToAllocate);
 }
 
-static unsigned char* reallocObjectBytes(Assembler* pThis, unsigned char* pToRealloc, size_t bytesToAllocate)
+static int isMachineCodeAlreadyAllocatedFromForwardReference(Assembler* pThis)
 {
-    unsigned char* pAlloc;
+    return pThis->pLineInfo->pMachineCode != NULL;
+}
+
+static void verifyThatMachineCodeSizeFromForwardReferenceMatches(Assembler* pThis, size_t bytesToAllocate)
+{
+    if (pThis->pLineInfo->machineCodeSize != bytesToAllocate)
+    {
+        LOG_ERROR(pThis, "Couldn't properly infer size of a forward reference in '%s' operand.", pThis->parsedLine.pOperands);
+        __throw(invalidArgumentException);
+    }
+}
+
+static void reallocLineInfoMachineCodeBytes(Assembler* pThis, size_t bytesToAllocate)
+{
     __try
     {
-        pAlloc = BinaryBuffer_Realloc(pThis->pCurrentBuffer, pToRealloc, bytesToAllocate);
+        __throwing_func( pThis->pLineInfo->pMachineCode = BinaryBuffer_Realloc(pThis->pCurrentBuffer, 
+                                                                               pThis->pLineInfo->pMachineCode, 
+                                                                               bytesToAllocate) );
+        pThis->pLineInfo->machineCodeSize = bytesToAllocate;
+                                                                               
     }
     __catch
     {
         LOG_ERROR(pThis, "Exceeded the %d allowed bytes in the object file.", SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
-        __rethrow_and_return(NULL);
+        pThis->pLineInfo->machineCodeSize = 0;
+        __rethrow;
     }
-    
-    return pAlloc;
 }
 
 static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis, 
@@ -490,24 +509,22 @@ static int expressionContainsForwardReference(Expression* pExpression)
 static void emitTwoByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value)
 {
     __try
-        pThis->pLineInfo->pMachineCode = allocateObjectBytes(pThis, 2);
+        allocateLineInfoMachineCodeBytes(pThis, 2);
     __catch
         __nothrow;
     pThis->pLineInfo->pMachineCode[0] = opCode;
     pThis->pLineInfo->pMachineCode[1] = LO_BYTE(value);
-    pThis->pLineInfo->machineCodeSize = 2;
 }
 
 static void emitThreeByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value)
 {
     __try
-        pThis->pLineInfo->pMachineCode = allocateObjectBytes(pThis, 3);
+        allocateLineInfoMachineCodeBytes(pThis, 3);
     __catch
         __nothrow;
     pThis->pLineInfo->pMachineCode[0] = opCode;
     pThis->pLineInfo->pMachineCode[1] = LO_BYTE(value);
     pThis->pLineInfo->pMachineCode[2] = HI_BYTE(value);
-    pThis->pLineInfo->machineCodeSize = 3;
 }
 
 static void handleImmediateAddressingMode(Assembler*      pThis, 
@@ -699,11 +716,9 @@ static int symbolContainsForwardReferences(Symbol* pSymbol)
 static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, LineInfo* pLineInfo)
 {
     LineBuffer* pLineBuffer = NULL;
-    size_t      machineCodeSizeOrig;
     LineInfo*   pLineInfoSave;
     ParsedLine  parsedLineSave;
     
-    machineCodeSizeOrig = pLineInfo->machineCodeSize;
     pLineInfoSave = pThis->pLineInfo;
     parsedLineSave = pThis->parsedLine;
     pThis->pLineInfo = pLineInfo;
@@ -721,9 +736,6 @@ static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, Li
         /* Fall through to cleanup code below. */
     }
 
-    if (machineCodeSizeOrig != pLineInfo->machineCodeSize)
-        LOG_ERROR(pThis, "Couldn't properly infer size of '%s' forward reference.", pSymbol->pKey);
-    
     pThis->parsedLine = parsedLineSave;
     LineBuffer_Free(pLineBuffer);
     pThis->pLineInfo = pLineInfoSave;
@@ -742,7 +754,6 @@ static void handleASC(Assembler* pThis)
 {
     const char*    pOperands = fullOperandStringWithSpaces(pThis);
     char           delimiter = *pOperands;
-    unsigned char* pAlloc = NULL;
     const char*    pCurr = &pOperands[1];
     size_t         i = 0;
     unsigned char  mask = delimiter < '\'' ? 0x80 : 0x00;
@@ -752,20 +763,19 @@ static void handleASC(Assembler* pThis)
         __try
         {
             unsigned char   byte = *pCurr | mask;
-            __throwing_func( pAlloc = reallocObjectBytes(pThis, pAlloc, i+1) );
-            pThis->pLineInfo->pMachineCode = pAlloc;
+            __throwing_func( reallocLineInfoMachineCodeBytes(pThis, i+1) );
             pThis->pLineInfo->pMachineCode[i++] = byte;
             pCurr++;
         }
         __catch
         {
+            reallocLineInfoMachineCodeBytes(pThis, 0);
             __nothrow;
         }
     }
     
     if (*pCurr == '\0')
         LOG_ERROR(pThis, "%s didn't end with the expected %c delimiter.", pThis->parsedLine.pOperands, delimiter);
-    pThis->pLineInfo->machineCodeSize = i;
 }
 
 static const char* fullOperandStringWithSpaces(Assembler* pThis)
@@ -847,17 +857,14 @@ static void handleDS(Assembler* pThis)
 static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount)
 {
     __try
-        pThis->pLineInfo->pMachineCode = allocateObjectBytes(pThis, repeatCount);
+        allocateLineInfoMachineCodeBytes(pThis, repeatCount);
     __catch
         __nothrow;
-
-    pThis->pLineInfo->machineCodeSize = repeatCount;
     memset(pThis->pLineInfo->pMachineCode, 0, repeatCount);
 }
 
 static void handleHEX(Assembler* pThis)
 {
-    unsigned char* pAlloc = NULL;
     const char*    pCurr = pThis->parsedLine.pOperands;
     size_t         i = 0;
 
@@ -869,15 +876,15 @@ static void handleHEX(Assembler* pThis)
             const char*    pNext;
 
             __throwing_func( byte = getNextHexByte(pCurr, &pNext) );
-            __throwing_func( pAlloc = reallocObjectBytes(pThis, pAlloc, i+1) );
+            __throwing_func( reallocLineInfoMachineCodeBytes(pThis, i+1) );
             
-            pThis->pLineInfo->pMachineCode = pAlloc;
             pThis->pLineInfo->pMachineCode[i++] = byte;
             pCurr = pNext;
         }
         __catch
         {
             logHexParseError(pThis);
+            reallocLineInfoMachineCodeBytes(pThis, 0);
             __nothrow;
         }
     }
@@ -887,7 +894,6 @@ static void handleHEX(Assembler* pThis)
         LOG_ERROR(pThis, "'%s' contains more than 32 values.", pThis->parsedLine.pOperands);
         return;
     }
-    pThis->pLineInfo->machineCodeSize = i;
 }
 
 static unsigned char getNextHexByte(const char* pStart, const char** ppNext)
