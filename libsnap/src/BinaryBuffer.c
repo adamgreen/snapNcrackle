@@ -16,23 +16,38 @@
 #include "util.h"
 
 
+typedef struct FileWriteEntry
+{
+    struct FileWriteEntry* pNext;
+    unsigned char*         pBase;
+    size_t                 length;
+    unsigned short         baseAddress;
+    char                   filename[256];
+} FileWriteEntry;
+
+
 struct BinaryBuffer
 {
-    unsigned char* pBuffer;
-    unsigned char* pEnd;
-    unsigned char* pCurrent;
-    unsigned char* pLastAlloc;
-    unsigned char* pBase;
-    size_t         allocationToFail;
-    unsigned short baseAddress;
+    unsigned char*  pBuffer;
+    unsigned char*  pEnd;
+    unsigned char*  pCurrent;
+    unsigned char*  pLastAlloc;
+    unsigned char*  pBase;
+    FileWriteEntry* pFileWriteHead;
+    FileWriteEntry* pFileWriteTail;
+    size_t          allocationToFail;
+    unsigned short  baseAddress;
 };
 
+static void* allocateAndZero(size_t sizeToAllocate);
 __throws BinaryBuffer* BinaryBuffer_Create(size_t bufferSize)
 {
-    BinaryBuffer* pThis = malloc(sizeof(*pThis));
-    if (!pThis)
-        __throw_and_return(outOfMemoryException, NULL);
-    memset(pThis, 0, sizeof(*pThis));
+    BinaryBuffer* pThis;
+    
+    __try
+        pThis = allocateAndZero(sizeof(*pThis));
+    __catch
+        __rethrow_and_return(NULL);
 
     pThis->pBuffer = malloc(bufferSize);
     if (!pThis->pBuffer)
@@ -47,14 +62,37 @@ __throws BinaryBuffer* BinaryBuffer_Create(size_t bufferSize)
     return pThis;
 }
 
+static void* allocateAndZero(size_t sizeToAllocate)
+{
+    void* pAlloc = malloc(sizeToAllocate);
+    if (!pAlloc)
+        __throw_and_return(outOfMemoryException, NULL);
+    memset(pAlloc, 0, sizeToAllocate);
+    return pAlloc;
+}
 
+
+static void freeFileWriteEntries(BinaryBuffer* pThis);
 void BinaryBuffer_Free(BinaryBuffer* pThis)
 {
     if (!pThis)
         return;
         
+    freeFileWriteEntries(pThis);
     free(pThis->pBuffer);
     free(pThis);
+}
+
+static void freeFileWriteEntries(BinaryBuffer* pThis)
+{
+    FileWriteEntry* pEntry = pThis->pFileWriteHead;
+    
+    while (pEntry)
+    {
+        FileWriteEntry* pNext = pEntry->pNext;
+        free(pEntry);
+        pEntry = pNext;
+    }
 }
 
 
@@ -109,23 +147,88 @@ void BinaryBuffer_SetOrigin(BinaryBuffer* pThis, unsigned short origin)
     pThis->pBase = pThis->pCurrent;
 }
 
+
 unsigned short BinaryBuffer_GetOrigin(BinaryBuffer* pThis)
 {
     return pThis->baseAddress;
 }
 
-__throws void BinaryBuffer_WriteToFile(BinaryBuffer* pThis, const char* pFilename)
+
+static void initializeFileWriteEntry(BinaryBuffer* pThis, FileWriteEntry* pEntry, const char* pFilename);
+static void addFileWriteEntryToList(BinaryBuffer* pThis, FileWriteEntry* pEntry);
+__throws void BinaryBuffer_QueueWriteToFile(BinaryBuffer* pThis, const char* pFilename)
 {
-    size_t bytesToWrite = pThis->pCurrent - pThis->pBase;
+    FileWriteEntry* pEntry = NULL;
+    
+    __try
+    {
+        __throwing_func( pEntry = allocateAndZero(sizeof(*pEntry)) );
+        __throwing_func( initializeFileWriteEntry(pThis, pEntry, pFilename) );
+        addFileWriteEntryToList(pThis, pEntry);
+    }
+    __catch
+    {
+        free(pEntry);
+        __rethrow;
+    }
+}
+
+static void initializeFileWriteEntry(BinaryBuffer* pThis, FileWriteEntry* pEntry, const char* pFilename)
+{
+    if (strlen(pFilename) > sizeof(pEntry->filename)-1)
+        __throw(invalidArgumentException);
+
+    strcpy(pEntry->filename, pFilename);
+    pEntry->baseAddress = pThis->baseAddress;
+    pEntry->pBase = pThis->pBase;
+    pEntry->length = pThis->pCurrent - pThis->pBase;
+}
+
+static void addFileWriteEntryToList(BinaryBuffer* pThis, FileWriteEntry* pEntry)
+{
+    if (!pThis->pFileWriteTail)
+    {
+        pThis->pFileWriteHead = pEntry;
+        pThis->pFileWriteTail = pEntry;
+    }
+    else
+    {
+        pThis->pFileWriteTail->pNext = pEntry;
+        pThis->pFileWriteTail = pEntry;
+    }
+}
+
+
+static void writeEntryToDisk(FileWriteEntry* pEntry);
+__throws void BinaryBuffer_ProcessWriteFileQueue(BinaryBuffer* pThis)
+{
+    FileWriteEntry* pEntry = pThis->pFileWriteHead;
+    int             exceptionThrown = noException;
+    
+    while (pEntry)
+    {
+        __try
+            writeEntryToDisk(pEntry);
+        __catch
+            exceptionThrown = getExceptionCode();
+        pEntry = pEntry->pNext;
+    }
+    
+    if (exceptionThrown != noException)
+        __throw(exceptionThrown);
+}
+
+static void writeEntryToDisk(FileWriteEntry* pEntry)
+{
     size_t bytesWritten;
     FILE*  pFile;
     
-    pFile = fopen(pFilename, "w");
+    pFile = fopen(pEntry->filename, "w");
     if (!pFile)
         __throw(fileException);
         
-    bytesWritten = fwrite(pThis->pBase, 1, bytesToWrite, pFile);
+    bytesWritten = fwrite(pEntry->pBase, 1, pEntry->length, pFile);
     fclose(pFile);
-    if (bytesWritten != bytesToWrite)
+    if (bytesWritten != pEntry->length)
         __throw(fileException);
 }

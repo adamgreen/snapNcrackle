@@ -23,13 +23,17 @@ extern "C"
 #include "CppUTest/TestHarness.h"
 
 
-static const char* g_filename = "BinaryBufferTest.test";
+static const char*         g_filename = "BinaryBufferTest.test";
+static const char*         g_filename2 = "BinaryBufferTest2.test";
+static const unsigned char g_testData[2] = { 0x00, 0xff };
 
 TEST_GROUP(BinaryBuffer)
 {
     BinaryBuffer*   m_pBinaryBuffer;
     unsigned char*  m_pAlloc;
     size_t          m_allocSize;
+    FILE*           m_pFile;
+    char*           m_pReadBuffer;
     
     void setup()
     {
@@ -37,6 +41,8 @@ TEST_GROUP(BinaryBuffer)
         m_pBinaryBuffer = NULL;
         m_pAlloc = NULL;
         m_allocSize = 0;
+        m_pFile = NULL;
+        m_pReadBuffer = NULL;
     }
 
     void teardown()
@@ -45,8 +51,12 @@ TEST_GROUP(BinaryBuffer)
         fopenRestore();
         fwriteRestore();
         LONGS_EQUAL(noException, getExceptionCode());
+        if (m_pFile)
+            fclose(m_pFile);
+        free(m_pReadBuffer);
         BinaryBuffer_Free(m_pBinaryBuffer);
         remove(g_filename);
+        remove(g_filename2);
     }
     
     void validateOutOfMemoryExceptionThrown()
@@ -55,13 +65,38 @@ TEST_GROUP(BinaryBuffer)
         clearExceptionCode();
     }
     
-    void placeSomeDataInBuffer()
+    void placeDataInBuffer(const unsigned char* pData, size_t dataSize)
     {
-        m_allocSize = 2;
-        m_pBinaryBuffer = BinaryBuffer_Create(64*1024);
+        m_allocSize = dataSize;
+        if (!m_pBinaryBuffer)
+            m_pBinaryBuffer = BinaryBuffer_Create(64*1024);
         m_pAlloc = BinaryBuffer_Alloc(m_pBinaryBuffer, m_allocSize);
-        m_pAlloc[0] = 0x00;
-        m_pAlloc[1] = 0xff;
+        memcpy(m_pAlloc, pData, dataSize);
+    }
+    
+    void validateObjectFileContains(const char* pFilename, const unsigned char* pExpectedContent, long expectedContentSize)
+    {
+        m_pFile = fopen(pFilename, "r");
+        CHECK(m_pFile != NULL);
+        LONGS_EQUAL(expectedContentSize, getFileSize(m_pFile));
+        
+        m_pReadBuffer = (char*)malloc(expectedContentSize);
+        CHECK(m_pReadBuffer != NULL);
+        
+        LONGS_EQUAL(expectedContentSize, fread(m_pReadBuffer, 1, expectedContentSize, m_pFile));
+        CHECK(0 == memcmp(pExpectedContent, m_pReadBuffer, expectedContentSize));
+        free(m_pReadBuffer);
+        m_pReadBuffer = NULL;
+        fclose(m_pFile);
+        m_pFile = NULL;
+    }
+    
+    long getFileSize(FILE* pFile)
+    {
+        fseek(pFile, 0, SEEK_END);
+        long size = ftell(pFile);
+        fseek(pFile, 0, SEEK_SET);
+        return size;
     }
 };
 
@@ -155,37 +190,54 @@ TEST(BinaryBuffer, ForceSecondAllocToFail)
     validateOutOfMemoryExceptionThrown();
 }
 
-TEST(BinaryBuffer, WriteBufferToDisk)
+TEST(BinaryBuffer, QueueWriteToFile)
 {
-    char               testBuffer[2];
-    
-    placeSomeDataInBuffer();
-    
-    BinaryBuffer_WriteToFile(m_pBinaryBuffer, g_filename);
-    FILE* pFile = fopen(g_filename, "r");
-    CHECK_TRUE(pFile != NULL);
-    LONGS_EQUAL(2, fread(testBuffer, 1, 2, pFile));
-    CHECK_TRUE(0 == memcmp(m_pAlloc, testBuffer, sizeof(testBuffer)));
-    fclose(pFile);
+    placeDataInBuffer(g_testData, sizeof(g_testData));
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
+    BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
+    validateObjectFileContains(g_filename, g_testData, sizeof(g_testData));
 }
 
 TEST(BinaryBuffer, FailFOpenDuringWriteToFile)
 {
-    placeSomeDataInBuffer();
+    placeDataInBuffer(g_testData, sizeof(g_testData));
     
     fopenFail(NULL);
-    BinaryBuffer_WriteToFile(m_pBinaryBuffer, g_filename);
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
+    BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
     LONGS_EQUAL(fileException, getExceptionCode());
     clearExceptionCode();
 }
 
 TEST(BinaryBuffer, FailFWriteDuringWriteToFile)
 {
-    placeSomeDataInBuffer();
+    placeDataInBuffer(g_testData, sizeof(g_testData));
     
     fwriteFail(0);
-    BinaryBuffer_WriteToFile(m_pBinaryBuffer, g_filename);
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
+    BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
     LONGS_EQUAL(fileException, getExceptionCode());
+    clearExceptionCode();
+}
+
+TEST(BinaryBuffer, FailMemoryAllocationDuringWriteQueue)
+{
+    placeDataInBuffer(g_testData, sizeof(g_testData));
+    MallocFailureInject_FailAllocation(1);
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
+    validateOutOfMemoryExceptionThrown();
+}
+
+TEST(BinaryBuffer, FailToQueueALongFilename)
+{
+    char longFilename[512];
+    
+    memset(longFilename, 'A', sizeof(longFilename)-1);
+    longFilename[sizeof(longFilename)-1] = '\0';
+    
+    placeDataInBuffer(g_testData, sizeof(g_testData));
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, longFilename);
+    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
     clearExceptionCode();
 }
 
@@ -197,20 +249,22 @@ TEST(BinaryBuffer, SetOriginBeforeAnyAllocations)
     LONGS_EQUAL(0x8000, BinaryBuffer_GetOrigin(m_pBinaryBuffer));
 }
 
-TEST(BinaryBuffer, WritePartialBufferToDisk)
+TEST(BinaryBuffer, QueueUPTwoWritesFromBuffer)
 {
-    char               readBuffer[4];
+    static const unsigned char testData1[2] = { 1, 2 };
+    static const unsigned char testData2[2] = { 3, 4 };
     
-    placeSomeDataInBuffer();
-    BinaryBuffer_SetOrigin(m_pBinaryBuffer, 0x8000);
-    unsigned char* pAlloc = BinaryBuffer_Alloc(m_pBinaryBuffer, 2);
-    pAlloc[0] = 0xa5;
-    pAlloc[1] = 0x5a;
+    m_pBinaryBuffer = BinaryBuffer_Create(4);
+    BinaryBuffer_SetOrigin(m_pBinaryBuffer, 0x800);
+    placeDataInBuffer(testData1, sizeof(testData1));
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
     
-    BinaryBuffer_WriteToFile(m_pBinaryBuffer, g_filename);
-    FILE* pFile = fopen(g_filename, "r");
-    CHECK_TRUE(pFile != NULL);
-    LONGS_EQUAL(2, fread(readBuffer, 1, 4, pFile));
-    CHECK_TRUE(0 == memcmp(pAlloc, readBuffer, 2));
-    fclose(pFile);
+    BinaryBuffer_SetOrigin(m_pBinaryBuffer, 0x900);
+    placeDataInBuffer(testData2, sizeof(testData2));
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename2);
+
+
+    BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
+    validateObjectFileContains(g_filename, testData1, sizeof(testData1));
+    validateObjectFileContains(g_filename2, testData2, sizeof(testData2));
 }
