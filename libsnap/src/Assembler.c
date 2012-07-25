@@ -212,6 +212,7 @@ static unsigned char getNextHexByte(const char* pStart, const char** ppNext);
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
 static void handleORG(Assembler* pThis);
+static void handleSAV(Assembler* pThis);
 static void rememberLabel(Assembler* pThis);
 static int isLabelToRemember(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
@@ -226,6 +227,7 @@ static void rememberGlobalLabel(Assembler* pThis);
 static void checkForUndefinedSymbols(Assembler* pThis);
 static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol* pSymbol);
 static void secondPass(Assembler* pThis);
+static void outputListFile(Assembler* pThis);
 void Assembler_Run(Assembler* pThis)
 {
     __try
@@ -301,6 +303,7 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"LST",  ignoreOperator, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"HEX",  handleHEX,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"ORG",  handleORG,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"SAV",  handleSAV,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         
         /* 6502 Instructions */
 //        {"ASL", NULL, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
@@ -954,6 +957,19 @@ static void handleORG(Assembler* pThis)
     }
 }
 
+static void handleSAV(Assembler* pThis)
+{
+    __try
+    {
+        BinaryBuffer_QueueWriteToFile(pThis->pObjectBuffer, pThis->parsedLine.pOperands);
+    }
+    __catch
+    {
+        LOG_ERROR(pThis, "Failed to queue up save to '%s'.", pThis->parsedLine.pOperands);
+        __nothrow;
+    }
+}
+
 static void rememberLabel(Assembler* pThis)
 {
     if (!isLabelToRemember(pThis))
@@ -1083,6 +1099,12 @@ static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol*
 }
 
 static void secondPass(Assembler* pThis)
+{
+    outputListFile(pThis);    
+    BinaryBuffer_ProcessWriteFileQueue(pThis->pObjectBuffer);
+}
+
+static void outputListFile(Assembler* pThis)
 {
     LineInfo* pCurr = pThis->linesHead.pNext;
     

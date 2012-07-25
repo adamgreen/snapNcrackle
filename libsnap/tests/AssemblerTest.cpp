@@ -582,15 +582,20 @@ TEST_GROUP(Assembler)
     
     void validateObjectFileContains(const char* pExpectedContent, long expectedContentSize)
     {
-        FILE* pFile = fopen(g_objectFilename, "r");
-        CHECK(pFile != NULL);
-        LONGS_EQUAL(expectedContentSize, getFileSize(pFile));
+        m_pFile = fopen(g_objectFilename, "r");
+        CHECK(m_pFile != NULL);
+        LONGS_EQUAL(expectedContentSize, getFileSize(m_pFile));
         
         m_pReadBuffer = (char*)malloc(expectedContentSize);
-        CHECK(pFile != NULL);
+        CHECK(m_pReadBuffer != NULL);
         
-        LONGS_EQUAL(expectedContentSize, fread(m_pReadBuffer, 1, expectedContentSize, pFile));
+        LONGS_EQUAL(expectedContentSize, fread(m_pReadBuffer, 1, expectedContentSize, m_pFile));
         CHECK(0 == memcmp(pExpectedContent, m_pReadBuffer, expectedContentSize));
+        
+        free(m_pReadBuffer);
+        m_pReadBuffer = NULL;
+        fclose(m_pFile);
+        m_pFile = NULL;
     }
     
     long getFileSize(FILE* pFile)
@@ -1056,10 +1061,16 @@ TEST(Assembler, HEXDirectiveWithSingleValue)
     runAssemblerAndValidateOutputIs("0000: 01           1  hex 01\n");
 }
 
+TEST(Assembler, HEXDirectiveWithMixedCase)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex cD,Cd\n"));
+    runAssemblerAndValidateOutputIs("0000: CD CD        1  hex cD,Cd\n");
+}
+
 TEST(Assembler, HEXDirectiveWithThreeValuesAndCommas)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0e,0C,0a\n"));
-    runAssemblerAndValidateOutputIs("0000: 0E 0C 0A     1  hex 0e,0C,0a\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0e,0c,0a\n"));
+    runAssemblerAndValidateOutputIs("0000: 0E 0C 0A     1  hex 0e,0c,0a\n");
 }
 
 TEST(Assembler, HEXDirectiveWithThreeValues)
@@ -1308,15 +1319,34 @@ TEST(Assembler, ASC_DirectiveWithNoEndingDelimiter)
                                    "0000: 54 73 74     1  asc 'Tst\n");
 }
 
-// UNDONE: Can use SAV directive for this test once it is supported.
+TEST(Assembler, SAV_DirectiveOnEmptyObjectFile)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sav AssemblerTest.sav\n"));
+    CHECK(m_pAssembler != NULL);
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler));
+    validateObjectFileContains("", 0);
+}
+
+TEST(Assembler, SAV_DirectiveOnSmallObjectFile)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " hex 00,ff\n"
+                                                   " sav AssemblerTest.sav\n"));
+    CHECK(m_pAssembler != NULL);
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler));
+    validateObjectFileContains("\x00\xff", 2);
+}
+
 TEST(Assembler, VerifyObjectFileWithForwardReferenceLabel)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    " sta label\n"
-                                                   "label sta $2b\n"));
+                                                   "label sta $2b\n"
+                                                   " sav AssemblerTest.sav\n"));
     CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
-    BinaryBuffer_WriteToFile(m_pAssembler->pObjectBuffer, g_objectFilename);
     validateObjectFileContains("\x8d\x03\x08\x85\x2b", 5);
 }
 
@@ -1364,6 +1394,15 @@ TEST(Assembler, FailBinaryBufferAllocationOnEmitThreeByteInstruction)
     BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
     runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
                                    "    :              1  lda $800\n");
+}
+
+TEST(Assembler, FailWriteFileQueueDuringSAVDirective)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sav AssemblerTest.sav\n"));
+    CHECK(m_pAssembler != NULL);
+    MallocFailureInject_FailAllocation(2);
+    runAssemblerAndValidateFailure("filename:1: error: Failed to queue up save to 'AssemblerTest.sav'.\n",
+                                   "    :              1  sav AssemblerTest.sav\n");
 }
 
 TEST(Assembler, STAAbsoluteViaLabel)
