@@ -14,6 +14,7 @@
 #define _UTIL_H_
 
 #include <string.h>
+#include <stdlib.h>
 #include "try_catch.h"
 
 #define ARRAYSIZE(X) (sizeof(X) / sizeof(X[0]))
