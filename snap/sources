@@ -2,5 +2,5 @@ TARGET=snap
 APPTYPE=EXE
 
 SOURCES=main.c MockDefaults.c
-INCLUDES=../libsnap/include
-LIBS=../libsnap/lib/libsnap.a
+INCLUDES=../include
+LIBS=../lib/libsnap.a
