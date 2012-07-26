@@ -2,14 +2,12 @@
 SILENCE = @
 
 #---- Outputs ----#
-COMPONENT_NAME = snap
+COMPONENT_NAME = trycatch
 CPPUTEST_LIB_DIR = ../lib/
 
 #--- Inputs ----#
 PROJECT_HOME_DIR = .
 CPPUTEST_HOME = ../CppUTest
-
-USER_LIBS = ../lib/libmocks.a ../lib/libtrycatch.a
 
 CPP_PLATFORM = Gcc
 
@@ -34,7 +32,7 @@ TEST_SRC_DIRS = \
 	
 INCLUDE_DIRS =\
   $(CPPUTEST_HOME)/include/ \
-  ../include/               \
+  ../include/                  \
   tests/                    \
 
 include $(CPPUTEST_HOME)/build/MakefileWorker.mk
