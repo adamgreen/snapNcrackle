@@ -38,7 +38,6 @@ typedef struct OpCodeEntry
 } OpCodeEntry;
 
 
-static Assembler* allocateAndZeroObject(void);
 static void commonObjectInit(Assembler* pThis);
 __throws Assembler* Assembler_CreateFromString(char* pText)
 {
@@ -46,7 +45,7 @@ __throws Assembler* Assembler_CreateFromString(char* pText)
     
     __try
     {
-        __throwing_func( pThis = allocateAndZeroObject() );
+        __throwing_func( pThis = allocateAndZero(sizeof(*pThis)) );
         __throwing_func( commonObjectInit(pThis) );
         __throwing_func( pThis->pTextFile = TextFile_CreateFromString(pText) );
         pThis->pSourceFilename = "filename";
@@ -57,16 +56,6 @@ __throws Assembler* Assembler_CreateFromString(char* pText)
         __rethrow_and_return(NULL);
     }
 
-    return pThis;
-}
-
-static Assembler* allocateAndZeroObject(void)
-{
-    Assembler* pThis = malloc(sizeof(*pThis));
-    if (!pThis)
-        __throw_and_return(outOfMemoryException, NULL);
-    memset(pThis, 0, sizeof(*pThis));
-    
     return pThis;
 }
 
@@ -99,7 +88,7 @@ __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename)
     
     __try
     {
-        __throwing_func( pThis = allocateAndZeroObject() );
+        __throwing_func( pThis = allocateAndZero(sizeof(*pThis)) );
         __throwing_func( commonObjectInit(pThis) );
         __throwing_func( pThis->pTextFile = TextFile_CreateFromFile(pSourceFilename) );
         pThis->pSourceFilename = pSourceFilename;

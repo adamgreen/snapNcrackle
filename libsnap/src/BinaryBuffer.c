@@ -62,15 +62,6 @@ __throws BinaryBuffer* BinaryBuffer_Create(size_t bufferSize)
     return pThis;
 }
 
-static void* allocateAndZero(size_t sizeToAllocate)
-{
-    void* pAlloc = malloc(sizeToAllocate);
-    if (!pAlloc)
-        __throw_and_return(outOfMemoryException, NULL);
-    memset(pAlloc, 0, sizeToAllocate);
-    return pAlloc;
-}
-
 
 static void freeFileWriteEntries(BinaryBuffer* pThis);
 void BinaryBuffer_Free(BinaryBuffer* pThis)

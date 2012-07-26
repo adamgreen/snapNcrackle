@@ -13,6 +13,9 @@
 #ifndef _UTIL_H_
 #define _UTIL_H_
 
+#include <string.h>
+#include "try_catch.h"
+
 #define ARRAYSIZE(X) (sizeof(X) / sizeof(X[0]))
 
 #define TRUE  1
@@ -22,5 +25,15 @@
 
 #define LO_BYTE(X) ((X) & 0xFF)
 #define HI_BYTE(X) (((X) >> 8) &0xFF)
+
+static inline void* allocateAndZero(size_t size)
+{
+    void* pAlloc = malloc(size);
+    if (!pAlloc)
+        __throw_and_return(outOfMemoryException, NULL);
+    memset(pAlloc, 0, size);
+    
+    return pAlloc;
+}
 
 #endif /* _UTIL_H_ */
