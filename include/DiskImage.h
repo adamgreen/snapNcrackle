@@ -16,14 +16,31 @@
 #include "try_catch.h"
 
 
-#define DISK_IMAGE_SIZE 232960
+#define DISK_IMAGE_BYTES_PER_SECTOR          256
+#define DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR 416
+#define DISK_IMAGE_RWTS16_SECTORS_PER_TRACK  16
+#define DISK_IMAGE_TRACKS_PER_DISK           35
+#define DISK_IMAGE_NIBBLES_PER_TRACK         (DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * DISK_IMAGE_RWTS16_SECTORS_PER_TRACK)
+#define DISK_IMAGE_SIZE                      (DISK_IMAGE_NIBBLES_PER_TRACK * DISK_IMAGE_TRACKS_PER_DISK)
 
+
+typedef struct DiskImageObject
+{
+    unsigned int    startOffset;
+    unsigned int    length;
+    unsigned int    track;
+    unsigned int    sector;
+} DiskImageObject;
 
 typedef struct DiskImage DiskImage;
 
 
 __throws DiskImage* DiskImage_Create(const char* pImageFilename);
          void       DiskImage_Free(DiskImage* pThis);
+         
+__throws void       DiskImage_InsertObjectAsRWTS16(DiskImage*           pThis, 
+                                                   const unsigned char* pData, 
+                                                   DiskImageObject*     pObject);
          
          const unsigned char* DiskImage_GetImagePointer(DiskImage* pThis);
          size_t               DiskImage_GetImageSize(DiskImage* pThis);
