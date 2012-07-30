@@ -16,6 +16,17 @@
 #include "try_catch.h"
 
 
+#define BINARY_BUFFER_SAV_SIGNATURE "SAV\x1a"
+
+
+typedef struct SavFileHeader
+{
+    char           signature[4];
+    unsigned short address;
+    unsigned short length;
+} SavFileHeader;
+
+
 typedef struct BinaryBuffer BinaryBuffer;
 
 

@@ -211,15 +211,22 @@ __throws void BinaryBuffer_ProcessWriteFileQueue(BinaryBuffer* pThis)
 
 static void writeEntryToDisk(FileWriteEntry* pEntry)
 {
-    size_t bytesWritten;
-    FILE*  pFile;
+    static const unsigned char signature[4] = BINARY_BUFFER_SAV_SIGNATURE;
+    SavFileHeader              header;
+    size_t                     bytesWritten;
+    FILE*                      pFile;
     
+    memcpy(header.signature, signature, sizeof(header.signature));
+    header.address = pEntry->baseAddress;
+    header.length = pEntry->length;
+
     pFile = fopen(pEntry->filename, "w");
     if (!pFile)
         __throw(fileException);
-        
-    bytesWritten = fwrite(pEntry->pBase, 1, pEntry->length, pFile);
+    
+    bytesWritten = fwrite(&header, 1, sizeof(header), pFile);
+    bytesWritten += fwrite(pEntry->pBase, 1, pEntry->length, pFile);
     fclose(pFile);
-    if (bytesWritten != pEntry->length)
+    if (bytesWritten != pEntry->length + sizeof(header))
         __throw(fileException);
 }

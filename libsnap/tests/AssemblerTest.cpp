@@ -580,15 +580,21 @@ TEST_GROUP(Assembler)
         LONGS_EQUAL(expectedAddress, pLineInfo->address);
     }
     
-    void validateObjectFileContains(const char* pExpectedContent, long expectedContentSize)
+    void validateObjectFileContains(unsigned short expectedAddress, const char* pExpectedContent, long expectedContentSize)
     {
+        SavFileHeader header;
+        
         m_pFile = fopen(g_objectFilename, "r");
         CHECK(m_pFile != NULL);
-        LONGS_EQUAL(expectedContentSize, getFileSize(m_pFile));
+        LONGS_EQUAL(expectedContentSize + sizeof(header), getFileSize(m_pFile));
+        
+        LONGS_EQUAL(sizeof(header), fread(&header, 1, sizeof(header), m_pFile));
+        CHECK(0 == memcmp(header.signature, BINARY_BUFFER_SAV_SIGNATURE, sizeof(header.signature)));
+        LONGS_EQUAL(expectedAddress, header.address);
+        LONGS_EQUAL(expectedContentSize, header.length);
         
         m_pReadBuffer = (char*)malloc(expectedContentSize);
         CHECK(m_pReadBuffer != NULL);
-        
         LONGS_EQUAL(expectedContentSize, fread(m_pReadBuffer, 1, expectedContentSize, m_pFile));
         CHECK(0 == memcmp(pExpectedContent, m_pReadBuffer, expectedContentSize));
         
@@ -1325,7 +1331,7 @@ TEST(Assembler, SAV_DirectiveOnEmptyObjectFile)
     CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler));
-    validateObjectFileContains("", 0);
+    validateObjectFileContains(0x0000, "", 0);
 }
 
 TEST(Assembler, SAV_DirectiveOnSmallObjectFile)
@@ -1336,7 +1342,7 @@ TEST(Assembler, SAV_DirectiveOnSmallObjectFile)
     CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler));
-    validateObjectFileContains("\x00\xff", 2);
+    validateObjectFileContains(0x0000, "\x00\xff", 2);
 }
 
 TEST(Assembler, VerifyObjectFileWithForwardReferenceLabel)
@@ -1347,7 +1353,7 @@ TEST(Assembler, VerifyObjectFileWithForwardReferenceLabel)
                                                    " sav AssemblerTest.sav\n"));
     CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
-    validateObjectFileContains("\x8d\x03\x08\x85\x2b", 5);
+    validateObjectFileContains(0x0000, "\x8d\x03\x08\x85\x2b", 5);
 }
 
 TEST(Assembler, FailBinaryBufferAllocationInASCDirective)

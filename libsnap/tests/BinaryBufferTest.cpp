@@ -74,15 +74,21 @@ TEST_GROUP(BinaryBuffer)
         memcpy(m_pAlloc, pData, dataSize);
     }
     
-    void validateObjectFileContains(const char* pFilename, const unsigned char* pExpectedContent, long expectedContentSize)
+    void validateObjectFileContains(const char* pFilename, unsigned short expectedAddress, const unsigned char* pExpectedContent, long expectedContentSize)
     {
+        SavFileHeader header;
+        
         m_pFile = fopen(pFilename, "r");
         CHECK(m_pFile != NULL);
-        LONGS_EQUAL(expectedContentSize, getFileSize(m_pFile));
+        LONGS_EQUAL(expectedContentSize + sizeof(header), getFileSize(m_pFile));
+        
+        LONGS_EQUAL(sizeof(header), fread(&header, 1, sizeof(header), m_pFile));
+        CHECK(0 == memcmp(header.signature, BINARY_BUFFER_SAV_SIGNATURE, sizeof(header.signature)));
+        LONGS_EQUAL(expectedAddress, header.address);
+        LONGS_EQUAL(expectedContentSize, header.length);
         
         m_pReadBuffer = (char*)malloc(expectedContentSize);
         CHECK(m_pReadBuffer != NULL);
-        
         LONGS_EQUAL(expectedContentSize, fread(m_pReadBuffer, 1, expectedContentSize, m_pFile));
         CHECK(0 == memcmp(pExpectedContent, m_pReadBuffer, expectedContentSize));
         free(m_pReadBuffer);
@@ -195,7 +201,7 @@ TEST(BinaryBuffer, QueueWriteToFile)
     placeDataInBuffer(g_testData, sizeof(g_testData));
     BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
     BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
-    validateObjectFileContains(g_filename, g_testData, sizeof(g_testData));
+    validateObjectFileContains(g_filename, 0x0000, g_testData, sizeof(g_testData));
 }
 
 TEST(BinaryBuffer, FailFOpenDuringWriteToFile)
@@ -265,6 +271,6 @@ TEST(BinaryBuffer, QueueUPTwoWritesFromBuffer)
 
 
     BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
-    validateObjectFileContains(g_filename, testData1, sizeof(testData1));
-    validateObjectFileContains(g_filename2, testData2, sizeof(testData2));
+    validateObjectFileContains(g_filename, 0x800, testData1, sizeof(testData1));
+    validateObjectFileContains(g_filename2, 0x900, testData2, sizeof(testData2));
 }
