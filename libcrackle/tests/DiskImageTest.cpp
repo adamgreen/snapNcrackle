@@ -10,12 +10,12 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-
 // Include headers from C modules under test.
 extern "C"
 {
     #include "DiskImage.h"
     #include "MallocFailureInject.h"
+    #include <FileFailureInject.h>
 }
 
 // Include C++ headers for test harness.
@@ -28,12 +28,17 @@ TEST_GROUP(DiskImage)
 {
     DiskImage*           m_pDiskImage;
     const unsigned char* m_pCurr;
+    FILE*                m_pFile;
+    unsigned char*       m_pImageOnDisk;
     unsigned char        m_checksum;
     
     void setup()
     {
         clearExceptionCode();
         m_pDiskImage = NULL;
+        m_pFile = NULL;
+        m_pCurr = NULL;
+        m_pImageOnDisk = NULL;
     }
 
     void teardown()
@@ -41,6 +46,10 @@ TEST_GROUP(DiskImage)
         LONGS_EQUAL(noException, getExceptionCode());
         MallocFailureInject_Restore();
         DiskImage_Free(m_pDiskImage);
+        if (m_pFile)
+            fclose(m_pFile);
+        free(m_pImageOnDisk);
+        remove(g_imageFilename);
     }
     
     void validateAllZeroes(const unsigned char* pBuffer, size_t bufferSize)
@@ -176,13 +185,37 @@ TEST_GROUP(DiskImage)
         DiskImage_InsertObjectAsRWTS16(m_pDiskImage, pSectorData, &object);
         free(pSectorData);
     }
+    
+    const unsigned char* readDiskImageIntoMemory(void)
+    {
+        m_pFile = fopen(g_imageFilename, "r");
+        CHECK(m_pFile != NULL);
+        LONGS_EQUAL(DISK_IMAGE_SIZE, getFileSize(m_pFile));
+        
+        m_pImageOnDisk = (unsigned char*)malloc(DISK_IMAGE_SIZE);
+        CHECK(m_pImageOnDisk != NULL);
+        LONGS_EQUAL(DISK_IMAGE_SIZE, fread(m_pImageOnDisk, 1, DISK_IMAGE_SIZE, m_pFile));
+
+        fclose(m_pFile);
+        m_pFile = NULL;
+        
+        return m_pImageOnDisk;
+    }
+    
+    long getFileSize(FILE* pFile)
+    {
+        fseek(pFile, 0, SEEK_END);
+        long size = ftell(pFile);
+        fseek(pFile, 0, SEEK_SET);
+        return size;
+    }
 };
 
 
 TEST(DiskImage, FailAllocationInCreate)
 {
     MallocFailureInject_FailAllocation(1);
-    m_pDiskImage = DiskImage_Create(g_imageFilename);
+    m_pDiskImage = DiskImage_Create();
     POINTERS_EQUAL(NULL, m_pDiskImage);
     LONGS_EQUAL(outOfMemoryException, getExceptionCode());
     clearExceptionCode();
@@ -190,7 +223,7 @@ TEST(DiskImage, FailAllocationInCreate)
 
 TEST(DiskImage, VerifyCreateStartsWithZeroesInImage)
 {
-    m_pDiskImage = DiskImage_Create(g_imageFilename);
+    m_pDiskImage = DiskImage_Create();
     CHECK_TRUE(NULL != m_pDiskImage);
     
     const unsigned char* pImage = DiskImage_GetImagePointer(m_pDiskImage);
@@ -201,7 +234,7 @@ TEST(DiskImage, VerifyCreateStartsWithZeroesInImage)
 
 TEST(DiskImage, InsertZeroSectorAt0_0AsRWTS16)
 {
-    m_pDiskImage = DiskImage_Create(g_imageFilename);
+    m_pDiskImage = DiskImage_Create();
     writeZeroSectors(0, 0, 1);
 
     unsigned char expectedEncodedData[343];
@@ -213,7 +246,7 @@ TEST(DiskImage, InsertZeroSectorAt0_0AsRWTS16)
 
 TEST(DiskImage, InsertZeroSectorAt34_15AsRWTS16)
 {
-    m_pDiskImage = DiskImage_Create(g_imageFilename);
+    m_pDiskImage = DiskImage_Create();
     writeZeroSectors(34, 15, 1);
 
     unsigned char expectedEncodedData[343];
@@ -225,7 +258,7 @@ TEST(DiskImage, InsertZeroSectorAt34_15AsRWTS16)
 
 TEST(DiskImage, InsertTwoZeroSectorsAt0_15AsRWTS16)
 {
-    m_pDiskImage = DiskImage_Create(g_imageFilename);
+    m_pDiskImage = DiskImage_Create();
     writeZeroSectors(0, 15, 2);
  
     unsigned char expectedEncodedData[343];
@@ -239,7 +272,7 @@ TEST(DiskImage, InsertTwoZeroSectorsAt0_15AsRWTS16)
 
 TEST(DiskImage, FailToInsertSector16AsRWTS16)
 {
-    m_pDiskImage = DiskImage_Create(g_imageFilename);
+    m_pDiskImage = DiskImage_Create();
     writeZeroSectors(0, 16, 1);
     LONGS_EQUAL(invalidArgumentException, getExceptionCode());
     clearExceptionCode();
@@ -247,7 +280,7 @@ TEST(DiskImage, FailToInsertSector16AsRWTS16)
 
 TEST(DiskImage, FailToInsertTrack35AsRWTS16)
 {
-    m_pDiskImage = DiskImage_Create(g_imageFilename);
+    m_pDiskImage = DiskImage_Create();
     writeZeroSectors(35, 0, 1);
     LONGS_EQUAL(invalidArgumentException, getExceptionCode());
     clearExceptionCode();
@@ -255,7 +288,7 @@ TEST(DiskImage, FailToInsertTrack35AsRWTS16)
 
 TEST(DiskImage, FailToInsertSecondSectorAsRWTS16)
 {
-    m_pDiskImage = DiskImage_Create(g_imageFilename);
+    m_pDiskImage = DiskImage_Create();
     writeZeroSectors(34, 15, 2);
     LONGS_EQUAL(invalidArgumentException, getExceptionCode());
     clearExceptionCode();
@@ -263,7 +296,7 @@ TEST(DiskImage, FailToInsertSecondSectorAsRWTS16)
 
 TEST(DiskImage, InsertTestSectorAt0_0AsRWTS16)
 {
-    m_pDiskImage = DiskImage_Create(g_imageFilename);
+    m_pDiskImage = DiskImage_Create();
 
     unsigned char sectorData[256] =
     {
@@ -357,4 +390,39 @@ TEST(DiskImage, InsertTestSectorAt0_0AsRWTS16)
     const unsigned char* pImage = DiskImage_GetImagePointer(m_pDiskImage);
     validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 15);
     validateRWTS16SectorContainsNibbles(pImage, expectedEncodedData, 0, 0);
+}
+
+TEST(DiskImage, WriteImage)
+{
+    m_pDiskImage = DiskImage_Create();
+    writeZeroSectors(0, 0, 1);
+    DiskImage_WriteImage(m_pDiskImage, g_imageFilename);
+    
+    unsigned char expectedEncodedData[343];
+    memset(expectedEncodedData, 0x96, sizeof(expectedEncodedData));
+    const unsigned char* pImage = readDiskImageIntoMemory();
+    validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 15);
+    validateRWTS16SectorContainsNibbles(pImage, expectedEncodedData, 0, 0);
+}
+
+TEST(DiskImage, FailFOpenInWriteImage)
+{
+    m_pDiskImage = DiskImage_Create();
+    writeZeroSectors(0, 0, 1);
+    fopenFail(NULL);
+        DiskImage_WriteImage(m_pDiskImage, g_imageFilename);
+    fopenRestore();
+    LONGS_EQUAL(fileException, getExceptionCode());
+    clearExceptionCode();
+}
+
+TEST(DiskImage, FailFWriteInWriteImage)
+{
+    m_pDiskImage = DiskImage_Create();
+    writeZeroSectors(0, 0, 1);
+    fwriteFail(0);
+        DiskImage_WriteImage(m_pDiskImage, g_imageFilename);
+    fwriteRestore();
+    LONGS_EQUAL(fileException, getExceptionCode());
+    clearExceptionCode();
 }

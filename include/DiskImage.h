@@ -35,12 +35,14 @@ typedef struct DiskImageObject
 typedef struct DiskImage DiskImage;
 
 
-__throws DiskImage* DiskImage_Create(const char* pImageFilename);
+__throws DiskImage* DiskImage_Create(void);
          void       DiskImage_Free(DiskImage* pThis);
          
 __throws void       DiskImage_InsertObjectAsRWTS16(DiskImage*           pThis, 
                                                    const unsigned char* pData, 
                                                    DiskImageObject*     pObject);
+                                                   
+__throws void       DiskImage_WriteImage(DiskImage* pThis, const char* pImageFilename);
          
          const unsigned char* DiskImage_GetImagePointer(DiskImage* pThis);
          size_t               DiskImage_GetImageSize(DiskImage* pThis);

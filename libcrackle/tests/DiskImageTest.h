@@ -15,7 +15,7 @@
 #define _DISK_IMAGE_TEST_H_
 
 #include <MallocFailureInject.h>
-#include <printfSpy.h>
+#include <FileFailureInject.h>
 
 
 /* Force malloc() to go through function pointer so that memory failures can be injected. */
@@ -26,9 +26,11 @@
 #undef  free
 #define free hook_free
 
-/* Force *printf routines to go through hooks so that calls can be spied upon. */
-#undef fprintf
-#define fprintf hook_fprintf
-
+/* Force file I/O routines to go through hooking routines in unit tests. */
+#define fopen  hook_fopen
+#define fseek  hook_fseek
+#define ftell  hook_ftell
+#define fwrite hook_fwrite
+#define fread  hook_fread
 
 #endif /* _DISK_IMAGE_TEST_H_ */

@@ -30,7 +30,7 @@ struct DiskImage
 };
 
 
-__throws DiskImage* DiskImage_Create(const char* pImageFilename)
+__throws DiskImage* DiskImage_Create(void)
 {
     DiskImage* pThis;
     
@@ -330,6 +330,21 @@ static void checksumNibbilizeAndWriteDataBuffer(DiskImage* pThis, const unsigned
 static void nibbilizeAndWriteChecksum(DiskImage* pThis)
 {
     *pThis->pWrite++ = nibbilizeByte(pThis, 0x00);
+}
+
+
+__throws void DiskImage_WriteImage(DiskImage* pThis, const char* pImageFilename)
+{
+    size_t bytesWritten = 0;
+    
+    FILE* pFile = fopen(pImageFilename, "w");
+    if (!pFile)
+        __throw(fileException);
+        
+    bytesWritten = fwrite(pThis->image, 1, sizeof(pThis->image), pFile);
+    fclose(pFile);
+    if (bytesWritten != sizeof(pThis->image))
+        __throw(fileException);
 }
 
 
