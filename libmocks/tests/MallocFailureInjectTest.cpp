@@ -80,3 +80,10 @@ TEST(MallocFailureInject, FailSecondReallocOutOfThree)
     reallocShouldFail();
     reallocShouldPass();
 }
+
+TEST(MallocFailureInject, VerifyDefaultsSucceed)
+{
+    void* pAlloc = hook_malloc(1);
+    pAlloc = hook_realloc(pAlloc, 2);
+    hook_free(pAlloc);
+}
