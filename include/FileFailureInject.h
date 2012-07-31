@@ -37,6 +37,7 @@ void fwriteFail(size_t failureReturn);
 void fwriteRestore(void);
 
 void freadFail(size_t failureReturn);
+void freadToFail(int readToFail);
 void freadRestore(void);
 
 #endif /* _FILE_FAILURE_INJECT_H_ */

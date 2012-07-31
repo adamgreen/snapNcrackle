@@ -15,6 +15,9 @@
 #include "FileFailureInject.h"
 
 
+#define FAIL_ALL_CALLS -1
+
+
 FILE*  (*hook_fopen)(const char* filename, const char* mode) = fopen;
 int    (*hook_fseek)(FILE* stream, long offset, int whence) = fseek;
 long   (*hook_ftell)(FILE* stream) = ftell;
@@ -28,6 +31,7 @@ static int    g_fseekCallsToPass;
 static long   g_ftellFailureReturn;
 static size_t g_fwriteFailureReturn;
 static size_t g_freadFailureReturn;
+static int    g_freadToFail;
 
 
 static FILE* mock_fopen(const char* filename, const char* mode);
@@ -122,16 +126,33 @@ static size_t mock_fread(void* ptr, size_t size, size_t nitems, FILE* stream);
 void freadFail(size_t failureReturn)
 {
     g_freadFailureReturn = failureReturn;
+    g_freadToFail = FAIL_ALL_CALLS;
     hook_fread = mock_fread;
 }
 
 static size_t mock_fread(void* ptr, size_t size, size_t nitems, FILE* stream)
 {
+    if (g_freadToFail > 0)
+    {
+        if (--g_freadToFail == 0)
+        {
+            freadRestore();
+            return g_freadFailureReturn;
+        }
+        return fread(ptr, size, nitems, stream);
+    }
     return g_freadFailureReturn;
+}
+
+
+void freadToFail(int readToFail)
+{
+    g_freadToFail = readToFail;
 }
 
 
 void freadRestore(void)
 {
     hook_fread = fread;
+    g_freadToFail = 0;
 }

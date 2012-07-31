@@ -46,7 +46,7 @@ TEST_GROUP(FileFailureInject)
     void createSmallTestFile()
     {
         openFile();
-        LONGS_EQUAL(1, fwrite(" ", 1, 1, m_pFile));
+        LONGS_EQUAL(5, fwrite("12345", 1, 5, m_pFile));
         fclose(m_pFile);
         m_pFile = fopen(testFilename, "r");
         CHECK(m_pFile != NULL);
@@ -136,5 +136,18 @@ TEST(FileFailureInject, FailFRead)
     createSmallTestFile();
     freadFail(0);
     LONGS_EQUAL(0, hook_fread(buffer, 1, 1, m_pFile));
+    freadRestore();
+}
+
+TEST(FileFailureInject, FailSecondOutOfThreeFReads)
+{
+    char buffer[16];
+    
+    createSmallTestFile();
+    freadFail(0);
+    freadToFail(2);
+    LONGS_EQUAL(1, hook_fread(buffer, 1, 1, m_pFile));
+    LONGS_EQUAL(0, hook_fread(buffer, 1, 1, m_pFile));
+    LONGS_EQUAL(1, hook_fread(buffer, 1, 1, m_pFile));
     freadRestore();
 }
