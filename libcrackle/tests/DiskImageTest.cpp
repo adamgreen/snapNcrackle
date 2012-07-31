@@ -23,7 +23,8 @@ extern "C"
 #include "CppUTest/TestHarness.h"
 
 static const char* g_imageFilename = "DiskImageTest.nib";
-static const char* g_savFilename = "DiskImageTest.sav";
+static const char* g_savFilenameAllZeroes = "DiskImageTest.sav";
+static const char* g_savFilenameAllOnes = "DiskImageTest2.sav";
 
 
 TEST_GROUP(DiskImage)
@@ -52,7 +53,7 @@ TEST_GROUP(DiskImage)
             fclose(m_pFile);
         free(m_pImageOnDisk);
         remove(g_imageFilename);
-        remove(g_savFilename);
+        remove(g_savFilenameAllZeroes);
     }
     
     void validateAllZeroes(const unsigned char* pBuffer, size_t bufferSize)
@@ -76,6 +77,13 @@ TEST_GROUP(DiskImage)
         validateAllZeroes(pImage + startOffset, length);
     }
 
+    void validateRWTS16SectorContainsZeroData(const unsigned char* pImage, unsigned int track, unsigned int sector)
+    {
+        unsigned char expectedEncodedData[343];
+        memset(expectedEncodedData, 0x96, sizeof(expectedEncodedData));
+        validateRWTS16SectorContainsNibbles(pImage, expectedEncodedData, track, sector);
+    }
+    
     void validateRWTS16SectorContainsNibbles(const unsigned char* pImage,
                                              const unsigned char* pExpectedContent, 
                                              unsigned int         track, 
@@ -185,7 +193,7 @@ TEST_GROUP(DiskImage)
         object.track = startTrack;
         object.sector = startSector;
 
-        DiskImage_InsertObjectAsRWTS16(m_pDiskImage, pSectorData, &object);
+        DiskImage_InsertDataAsRWTS16(m_pDiskImage, pSectorData, &object);
         free(pSectorData);
     }
     
@@ -236,17 +244,29 @@ TEST_GROUP(DiskImage)
     
     void createZeroSectorObjectFile()
     {
+        unsigned char sectorData[DISK_IMAGE_BYTES_PER_SECTOR];
+        memset(sectorData, 0, sizeof(sectorData));
+        createSectorObjectFile(g_savFilenameAllZeroes, sectorData, sizeof(sectorData));
+    }
+    
+    void createOnesSectorObjectFile()
+    {
+        unsigned char sectorData[DISK_IMAGE_BYTES_PER_SECTOR];
+        memset(sectorData, 0xff, sizeof(sectorData));
+        createSectorObjectFile(g_savFilenameAllOnes, sectorData, sizeof(sectorData));
+    }
+    
+    void createSectorObjectFile(const char* pFilename, unsigned char* pSectorData, size_t sectorDataSize)
+    {
         SavFileHeader header;
-        char          sectorData[DISK_IMAGE_BYTES_PER_SECTOR];
     
         memcpy(header.signature, BINARY_BUFFER_SAV_SIGNATURE, sizeof(header.signature));
         header.address = 0;
         header.length = DISK_IMAGE_BYTES_PER_SECTOR;
-        memset(sectorData, 0, sizeof(sectorData));
     
-        FILE* pFile = fopen(g_savFilename, "w");
+        FILE* pFile = fopen(pFilename, "w");
         fwrite(&header, 1, sizeof(header), pFile);
-        fwrite(sectorData, 1, sizeof(sectorData), pFile);
+        fwrite(pSectorData, 1, sectorDataSize, pFile);
         fclose(pFile);
     }
 };
@@ -276,11 +296,9 @@ TEST(DiskImage, InsertZeroSectorAt0_0AsRWTS16)
     m_pDiskImage = DiskImage_Create();
     writeZeroSectors(0, 0, 1);
 
-    unsigned char expectedEncodedData[343];
-    memset(expectedEncodedData, 0x96, sizeof(expectedEncodedData));
     const unsigned char* pImage = DiskImage_GetImagePointer(m_pDiskImage);
     validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 15);
-    validateRWTS16SectorContainsNibbles(pImage, expectedEncodedData, 0, 0);
+    validateRWTS16SectorContainsZeroData(pImage, 0, 0);
 }
 
 TEST(DiskImage, InsertZeroSectorAt34_15AsRWTS16)
@@ -288,11 +306,9 @@ TEST(DiskImage, InsertZeroSectorAt34_15AsRWTS16)
     m_pDiskImage = DiskImage_Create();
     writeZeroSectors(34, 15, 1);
 
-    unsigned char expectedEncodedData[343];
-    memset(expectedEncodedData, 0x96, sizeof(expectedEncodedData));
     const unsigned char* pImage = DiskImage_GetImagePointer(m_pDiskImage);
     validateRWTS16SectorsAreClear(pImage, 0, 0, 34, 14);
-    validateRWTS16SectorContainsNibbles(pImage, expectedEncodedData, 34, 15);
+    validateRWTS16SectorContainsZeroData(pImage, 34, 15);
 }
 
 TEST(DiskImage, InsertTwoZeroSectorsAt0_15AsRWTS16)
@@ -304,8 +320,8 @@ TEST(DiskImage, InsertTwoZeroSectorsAt0_15AsRWTS16)
     memset(expectedEncodedData, 0x96, sizeof(expectedEncodedData));
     const unsigned char* pImage = DiskImage_GetImagePointer(m_pDiskImage);
     validateRWTS16SectorsAreClear(pImage, 0, 0, 0, 14);
-    validateRWTS16SectorContainsNibbles(pImage, expectedEncodedData, 0, 15);
-    validateRWTS16SectorContainsNibbles(pImage, expectedEncodedData, 1, 0);
+    validateRWTS16SectorContainsZeroData(pImage, 0, 15);
+    validateRWTS16SectorContainsZeroData(pImage, 1, 0);
     validateRWTS16SectorsAreClear(pImage, 1, 1, 34, 15);
 }
 
@@ -374,7 +390,7 @@ TEST(DiskImage, InsertTestSectorAt0_0AsRWTS16)
     object.length = 256;
     object.track = 0;
     object.sector = 0;
-    DiskImage_InsertObjectAsRWTS16(m_pDiskImage, sectorData, &object);
+    DiskImage_InsertDataAsRWTS16(m_pDiskImage, sectorData, &object);
 
     unsigned char expectedEncodedData[343] =
     {
@@ -434,11 +450,9 @@ TEST(DiskImage, WriteImage)
     writeZeroSectors(0, 0, 1);
     DiskImage_WriteImage(m_pDiskImage, g_imageFilename);
     
-    unsigned char expectedEncodedData[343];
-    memset(expectedEncodedData, 0x96, sizeof(expectedEncodedData));
     const unsigned char* pImage = readDiskImageIntoMemory();
     validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 15);
-    validateRWTS16SectorContainsNibbles(pImage, expectedEncodedData, 0, 0);
+    validateRWTS16SectorContainsZeroData(pImage, 0, 0);
 }
 
 TEST(DiskImage, FailFOpenInWriteImage)
@@ -465,13 +479,13 @@ TEST(DiskImage, ReadObjectFile)
 {
     m_pDiskImage = DiskImage_Create();
     createZeroSectorObjectFile();
-    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilename);
+    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllZeroes);
 }
 
 TEST(DiskImage, FailFOpenInReadObjectFile)
 {
     m_pDiskImage = DiskImage_Create();
-    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilename);
+    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllZeroes);
     validateFileExceptionThrown();
 }
 
@@ -481,7 +495,7 @@ TEST(DiskImage, FailHeaderReadInReadObjectFile)
     createZeroSectorObjectFile();
     
     freadFail(0);
-        DiskImage_ReadObjectFile(m_pDiskImage, g_savFilename);
+        DiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllZeroes);
     freadRestore();
     validateFileExceptionThrown();
 }
@@ -492,7 +506,7 @@ TEST(DiskImage, FailAllocationInReadObjectFile)
     createZeroSectorObjectFile();
     
     MallocFailureInject_FailAllocation(1);
-    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilename);
+    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllZeroes);
     validateOutOfMemoryExceptionThrown();
 }
 
@@ -503,7 +517,77 @@ TEST(DiskImage, FailDataReadInReadObjectFile)
     
     freadFail(0);
     freadToFail(2);
-        DiskImage_ReadObjectFile(m_pDiskImage, g_savFilename);
+        DiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllZeroes);
     freadRestore();
     validateFileExceptionThrown();
+}
+
+TEST(DiskImage, ReadObjectFileAndWriteToImage)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllZeroes);
+
+    DiskImageObject object;
+    object.startOffset = 0;
+    object.length = DISK_IMAGE_BYTES_PER_SECTOR;
+    object.track = 0;
+    object.sector = 0;
+    DiskImage_InsertObjectFileAsRWTS16(m_pDiskImage, &object);
+    
+    DiskImage_WriteImage(m_pDiskImage, g_imageFilename);
+    const unsigned char* pImage = readDiskImageIntoMemory();
+    validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 15);
+    validateRWTS16SectorContainsZeroData(pImage, 0, 0);
+}
+
+TEST(DiskImage, OutOfBoundsStartingOffsetForInsertObjectFile)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllZeroes);
+
+    DiskImageObject object;
+    object.startOffset = DISK_IMAGE_BYTES_PER_SECTOR;
+    object.length = DISK_IMAGE_BYTES_PER_SECTOR;
+    object.track = 0;
+    object.sector = 0;
+    DiskImage_InsertObjectFileAsRWTS16(m_pDiskImage, &object);
+    validateInvalidArgumentExceptionThrown();
+}
+
+TEST(DiskImage, OutOfBoundsEndingOffsetForInsertObjectFile)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllZeroes);
+
+    DiskImageObject object;
+    object.startOffset = 1;
+    object.length = DISK_IMAGE_BYTES_PER_SECTOR;
+    object.track = 0;
+    object.sector = 0;
+    DiskImage_InsertObjectFileAsRWTS16(m_pDiskImage, &object);
+    validateInvalidArgumentExceptionThrown();
+}
+
+TEST(DiskImage, ReadTwoObjectFilesAndOnlyWriteSecondToImage)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+    createOnesSectorObjectFile();
+    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
+    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllZeroes);
+
+    DiskImageObject object;
+    object.startOffset = 0;
+    object.length = DISK_IMAGE_BYTES_PER_SECTOR;
+    object.track = 0;
+    object.sector = 0;
+    DiskImage_InsertObjectFileAsRWTS16(m_pDiskImage, &object);
+    
+    DiskImage_WriteImage(m_pDiskImage, g_imageFilename);
+    const unsigned char* pImage = readDiskImageIntoMemory();
+    validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 15);
+    validateRWTS16SectorContainsZeroData(pImage, 0, 0);
 }

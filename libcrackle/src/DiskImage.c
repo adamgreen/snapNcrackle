@@ -22,6 +22,7 @@ struct DiskImage
     unsigned char*       pWrite;
     const unsigned char* pSector;
     unsigned char*       pObject;
+    unsigned int         objectLength;
     unsigned int         track;
     unsigned int         sector;
     unsigned int         bytesLeft;
@@ -45,42 +46,87 @@ __throws DiskImage* DiskImage_Create(void)
 }
 
 
+static void freeObject(DiskImage* pThis);
 void DiskImage_Free(DiskImage* pThis)
 {
     if (!pThis)
         return;
-    free(pThis->pObject);
+    freeObject(pThis);
     free(pThis);
 }
 
+static void freeObject(DiskImage* pThis)
+{
+    free(pThis->pObject);
+    pThis->pObject = NULL;
+    pThis->objectLength = 0;
+}
 
+static FILE* openFile(const char* pFilename, const char* pMode);
+static size_t readFile(void* pBuffer, size_t bytesToRead, FILE* pFile);
+static void* allocateMemory(size_t allocationSize);
 __throws void DiskImage_ReadObjectFile(DiskImage* pThis, const char* pFilename)
 {
+    FILE*         pFile;
     SavFileHeader header;
-    size_t        bytesRead;
     
-    FILE* pFile = fopen(pFilename, "r");
-    if (!pFile)
-        __throw(fileException);
-        
-    bytesRead = fread(&header, 1, sizeof(header), pFile);
-    if (bytesRead != sizeof(header))
+    __try
     {
-        fclose(pFile);
-        __throw(fileException);
+        freeObject(pThis);
+        __throwing_func( pFile = openFile(pFilename, "r") );
+        __throwing_func( readFile(&header, sizeof(header), pFile) );
+        __throwing_func( pThis->pObject = allocateMemory(header.length) );
+        __throwing_func( readFile(pThis->pObject, header.length, pFile) );
+    }
+    __catch
+    {
+        __rethrow;
     }
     
-    pThis->pObject = malloc(header.length);
-    if (!pThis->pObject)
-    {
-        fclose(pFile);
-        __throw(outOfMemoryException);
-    }
-    
-    bytesRead = fread(pThis->pObject, 1, header.length, pFile);
+    pThis->objectLength = header.length;
     fclose(pFile);    
-    if (bytesRead != header.length)
-        __throw(fileException);
+}
+
+static FILE* openFile(const char* pFilename, const char* pMode)
+{
+    FILE* pFile = fopen(pFilename, pMode);
+    if (!pFile)
+        __throw_and_return(fileException, pFile);
+    return pFile;
+}
+
+static size_t readFile(void* pBuffer, size_t bytesToRead, FILE* pFile)
+{
+    size_t bytesRead = fread(pBuffer, 1, bytesToRead, pFile);
+    if (bytesRead != bytesToRead)
+        __throw_and_return(fileException, bytesRead);
+    return bytesRead;
+}
+
+static void* allocateMemory(size_t allocationSize)
+{
+    void* pAlloc = malloc(allocationSize);
+    if (!pAlloc)
+        __throw_and_return(outOfMemoryException, NULL);
+    return pAlloc;
+}
+
+
+static void validateObjectAttributes(DiskImage* pThis, DiskImageObject* pObject);
+__throws void DiskImage_InsertObjectFileAsRWTS16(DiskImage* pThis, DiskImageObject* pObject)
+{
+    __try
+        validateObjectAttributes(pThis, pObject);
+    __catch
+        __rethrow;
+    
+    DiskImage_InsertDataAsRWTS16(pThis, pThis->pObject, pObject);
+}
+
+static void validateObjectAttributes(DiskImage* pThis, DiskImageObject* pObject)
+{
+    if (pObject->startOffset + pObject->length > pThis->objectLength)
+        __throw(invalidArgumentException);
 }
 
 
@@ -111,7 +157,7 @@ static void checksumNibbilizeAndWriteAuxBuffer(DiskImage* pThis);
 static unsigned char nibbilizeByte(DiskImage* pThis, unsigned char byte);
 static void checksumNibbilizeAndWriteDataBuffer(DiskImage* pThis, const unsigned char* pData);
 static void nibbilizeAndWriteChecksum(DiskImage* pThis);
-__throws void DiskImage_InsertObjectAsRWTS16(DiskImage* pThis, const unsigned char* pData, DiskImageObject* pObject)
+__throws void DiskImage_InsertDataAsRWTS16(DiskImage* pThis, const unsigned char* pData, DiskImageObject* pObject)
 {
     prepareForFirstSector(pThis, pData, pObject);
     while (pThis->bytesLeft > 0)
