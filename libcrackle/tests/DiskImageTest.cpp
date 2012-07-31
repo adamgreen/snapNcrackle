@@ -14,6 +14,7 @@
 extern "C"
 {
     #include "DiskImage.h"
+    #include "BinaryBuffer.h"
     #include "MallocFailureInject.h"
     #include <FileFailureInject.h>
 }
@@ -22,6 +23,7 @@ extern "C"
 #include "CppUTest/TestHarness.h"
 
 static const char* g_imageFilename = "DiskImageTest.nib";
+static const char* g_savFilename = "DiskImageTest.sav";
 
 
 TEST_GROUP(DiskImage)
@@ -50,6 +52,7 @@ TEST_GROUP(DiskImage)
             fclose(m_pFile);
         free(m_pImageOnDisk);
         remove(g_imageFilename);
+        remove(g_savFilename);
     }
     
     void validateAllZeroes(const unsigned char* pBuffer, size_t bufferSize)
@@ -209,6 +212,43 @@ TEST_GROUP(DiskImage)
         fseek(pFile, 0, SEEK_SET);
         return size;
     }
+    
+    void validateOutOfMemoryExceptionThrown()
+    {
+        validateExceptionThrown(outOfMemoryException);
+    }
+    
+    void validateInvalidArgumentExceptionThrown()
+    {
+        validateExceptionThrown(invalidArgumentException);
+    }
+    
+    void validateFileExceptionThrown()
+    {
+        validateExceptionThrown(fileException);
+    }
+    
+    void validateExceptionThrown(int expectedExceptionCode)
+    {
+        LONGS_EQUAL(expectedExceptionCode, getExceptionCode());
+        clearExceptionCode();
+    }
+    
+    void createZeroSectorObjectFile()
+    {
+        SavFileHeader header;
+        char          sectorData[DISK_IMAGE_BYTES_PER_SECTOR];
+    
+        memcpy(header.signature, BINARY_BUFFER_SAV_SIGNATURE, sizeof(header.signature));
+        header.address = 0;
+        header.length = DISK_IMAGE_BYTES_PER_SECTOR;
+        memset(sectorData, 0, sizeof(sectorData));
+    
+        FILE* pFile = fopen(g_savFilename, "w");
+        fwrite(&header, 1, sizeof(header), pFile);
+        fwrite(sectorData, 1, sizeof(sectorData), pFile);
+        fclose(pFile);
+    }
 };
 
 
@@ -217,8 +257,7 @@ TEST(DiskImage, FailAllocationInCreate)
     MallocFailureInject_FailAllocation(1);
     m_pDiskImage = DiskImage_Create();
     POINTERS_EQUAL(NULL, m_pDiskImage);
-    LONGS_EQUAL(outOfMemoryException, getExceptionCode());
-    clearExceptionCode();
+    validateOutOfMemoryExceptionThrown();
 }
 
 TEST(DiskImage, VerifyCreateStartsWithZeroesInImage)
@@ -274,24 +313,21 @@ TEST(DiskImage, FailToInsertSector16AsRWTS16)
 {
     m_pDiskImage = DiskImage_Create();
     writeZeroSectors(0, 16, 1);
-    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
-    clearExceptionCode();
+    validateInvalidArgumentExceptionThrown();
 }
 
 TEST(DiskImage, FailToInsertTrack35AsRWTS16)
 {
     m_pDiskImage = DiskImage_Create();
     writeZeroSectors(35, 0, 1);
-    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
-    clearExceptionCode();
+    validateInvalidArgumentExceptionThrown();
 }
 
 TEST(DiskImage, FailToInsertSecondSectorAsRWTS16)
 {
     m_pDiskImage = DiskImage_Create();
     writeZeroSectors(34, 15, 2);
-    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
-    clearExceptionCode();
+    validateInvalidArgumentExceptionThrown();
 }
 
 TEST(DiskImage, InsertTestSectorAt0_0AsRWTS16)
@@ -412,8 +448,7 @@ TEST(DiskImage, FailFOpenInWriteImage)
     fopenFail(NULL);
         DiskImage_WriteImage(m_pDiskImage, g_imageFilename);
     fopenRestore();
-    LONGS_EQUAL(fileException, getExceptionCode());
-    clearExceptionCode();
+    validateFileExceptionThrown();
 }
 
 TEST(DiskImage, FailFWriteInWriteImage)
@@ -423,6 +458,52 @@ TEST(DiskImage, FailFWriteInWriteImage)
     fwriteFail(0);
         DiskImage_WriteImage(m_pDiskImage, g_imageFilename);
     fwriteRestore();
-    LONGS_EQUAL(fileException, getExceptionCode());
-    clearExceptionCode();
+    validateFileExceptionThrown();
+}
+
+TEST(DiskImage, ReadObjectFile)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilename);
+}
+
+TEST(DiskImage, FailFOpenInReadObjectFile)
+{
+    m_pDiskImage = DiskImage_Create();
+    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilename);
+    validateFileExceptionThrown();
+}
+
+TEST(DiskImage, FailHeaderReadInReadObjectFile)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+    
+    freadFail(0);
+        DiskImage_ReadObjectFile(m_pDiskImage, g_savFilename);
+    freadRestore();
+    validateFileExceptionThrown();
+}
+
+TEST(DiskImage, FailAllocationInReadObjectFile)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+    
+    MallocFailureInject_FailAllocation(1);
+    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilename);
+    validateOutOfMemoryExceptionThrown();
+}
+
+TEST(DiskImage, FailDataReadInReadObjectFile)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+    
+    freadFail(0);
+    freadToFail(2);
+        DiskImage_ReadObjectFile(m_pDiskImage, g_savFilename);
+    freadRestore();
+    validateFileExceptionThrown();
 }

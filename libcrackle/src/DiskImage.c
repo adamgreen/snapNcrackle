@@ -13,6 +13,7 @@
 #include <assert.h>
 #include "DiskImage.h"
 #include "DiskImageTest.h"
+#include "BinaryBuffer.h"
 #include "util.h"
 
 
@@ -20,6 +21,7 @@ struct DiskImage
 {
     unsigned char*       pWrite;
     const unsigned char* pSector;
+    unsigned char*       pObject;
     unsigned int         track;
     unsigned int         sector;
     unsigned int         bytesLeft;
@@ -47,7 +49,38 @@ void DiskImage_Free(DiskImage* pThis)
 {
     if (!pThis)
         return;
+    free(pThis->pObject);
     free(pThis);
+}
+
+
+__throws void DiskImage_ReadObjectFile(DiskImage* pThis, const char* pFilename)
+{
+    SavFileHeader header;
+    size_t        bytesRead;
+    
+    FILE* pFile = fopen(pFilename, "r");
+    if (!pFile)
+        __throw(fileException);
+        
+    bytesRead = fread(&header, 1, sizeof(header), pFile);
+    if (bytesRead != sizeof(header))
+    {
+        fclose(pFile);
+        __throw(fileException);
+    }
+    
+    pThis->pObject = malloc(header.length);
+    if (!pThis->pObject)
+    {
+        fclose(pFile);
+        __throw(outOfMemoryException);
+    }
+    
+    bytesRead = fread(pThis->pObject, 1, header.length, pFile);
+    fclose(pFile);    
+    if (bytesRead != header.length)
+        __throw(fileException);
 }
 
 
