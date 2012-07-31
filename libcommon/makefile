@@ -9,6 +9,8 @@ CPPUTEST_LIB_DIR = ../lib/
 PROJECT_HOME_DIR = .
 CPPUTEST_HOME = ../CppUTest
 
+USER_LIBS = ../lib/libmocks.a ../lib/libcommon.a
+
 CPP_PLATFORM = Gcc
 
 CPPUTEST_CPPFLAGS += -fno-common
