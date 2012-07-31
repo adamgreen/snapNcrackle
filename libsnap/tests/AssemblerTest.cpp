@@ -229,7 +229,7 @@ TEST_GROUP(Assembler)
         runAssembler(testString);
         if (!m_isInvalidMode)
         {
-            sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+            sprintf(expectedListOutput, "8000: %02X FF        1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -253,7 +253,7 @@ TEST_GROUP(Assembler)
         
         if (!m_isInvalidMode)
         {
-            sprintf(expectedListOutput, "0000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
+            sprintf(expectedListOutput, "8000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -276,9 +276,9 @@ TEST_GROUP(Assembler)
         if (!m_isInvalidMode)
         {
             if (!m_isZeroPageTreatedAsAbsolute)
-                sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+                sprintf(expectedListOutput, "8000: %02X FF        1 %s\n", m_expectedOpcode, testString);
             else
-                sprintf(expectedListOutput, "0000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
+                sprintf(expectedListOutput, "8000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -301,7 +301,7 @@ TEST_GROUP(Assembler)
         runAssembler(testString);
         if (!m_isInvalidMode)
         {
-            sprintf(expectedListOutput, "0000: %02X           1 %s\n", m_expectedOpcode, testString);
+            sprintf(expectedListOutput, "8000: %02X           1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -324,9 +324,9 @@ TEST_GROUP(Assembler)
         if (!m_isInvalidMode)
         {
             if (!m_isZeroPageTreatedAsAbsolute)
-                sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+                sprintf(expectedListOutput, "8000: %02X FF        1 %s\n", m_expectedOpcode, testString);
             else
-                sprintf(expectedListOutput, "0000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
+                sprintf(expectedListOutput, "8000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -350,7 +350,7 @@ TEST_GROUP(Assembler)
         
         if (!m_isInvalidMode)
         {
-            sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+            sprintf(expectedListOutput, "8000: %02X FF        1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -373,9 +373,9 @@ TEST_GROUP(Assembler)
         if (!m_isInvalidMode)
         {
             if (!m_isZeroPageTreatedAsAbsolute)
-                sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+                sprintf(expectedListOutput, "8000: %02X FF        1 %s\n", m_expectedOpcode, testString);
             else
-                sprintf(expectedListOutput, "0000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
+                sprintf(expectedListOutput, "8000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -398,9 +398,9 @@ TEST_GROUP(Assembler)
         if (!m_isInvalidMode)
         {
             if (!m_isZeroPageTreatedAsAbsolute)
-                sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+                sprintf(expectedListOutput, "8000: %02X FF        1 %s\n", m_expectedOpcode, testString);
             else
-                sprintf(expectedListOutput, "0000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
+                sprintf(expectedListOutput, "8000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -424,7 +424,7 @@ TEST_GROUP(Assembler)
         
         if (!m_isInvalidMode)
         {
-            sprintf(expectedListOutput, "0000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
+            sprintf(expectedListOutput, "8000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -448,7 +448,7 @@ TEST_GROUP(Assembler)
         
         if (!m_isInvalidMode)
         {
-            sprintf(expectedListOutput, "0000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
+            sprintf(expectedListOutput, "8000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -470,7 +470,7 @@ TEST_GROUP(Assembler)
         
         sprintf(testString, " %s *\n", pInstruction);
         runAssembler(testString);
-        sprintf(expectedListOutput, "0000: %02X FE        1 %s\n", m_expectedOpcode, testString);
+        sprintf(expectedListOutput, "8000: %02X FE        1 %s\n", m_expectedOpcode, testString);
         validateSuccessfulOutput(expectedListOutput);
     }
     
@@ -487,7 +487,7 @@ TEST_GROUP(Assembler)
         
         if (!m_isInvalidMode)
         {
-            sprintf(expectedListOutput, "0000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
+            sprintf(expectedListOutput, "8000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -511,7 +511,7 @@ TEST_GROUP(Assembler)
         
         if (!m_isInvalidMode)
         {
-            sprintf(expectedListOutput, "0000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
+            sprintf(expectedListOutput, "8000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -534,9 +534,9 @@ TEST_GROUP(Assembler)
         if (!m_isInvalidMode)
         {
             if (!m_isZeroPageTreatedAsAbsolute)
-                sprintf(expectedListOutput, "0000: %02X FF        1 %s\n", m_expectedOpcode, testString);
+                sprintf(expectedListOutput, "8000: %02X FF        1 %s\n", m_expectedOpcode, testString);
             else
-                sprintf(expectedListOutput, "0000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
+                sprintf(expectedListOutput, "8000: %02X FF 00     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         else
@@ -787,7 +787,7 @@ TEST(Assembler, SpecifySameLabelTwice)
     m_pAssembler = Assembler_CreateFromString(dupe("entry lda #$60\n"
                                                    "entry lda #$61\n"));
     runAssemblerAndValidateFailure("filename:2: error: 'entry' symbol has already been defined.\n",
-                                   "0002: A9 61        2 entry lda #$61\n", 3);
+                                   "8002: A9 61        2 entry lda #$61\n", 3);
 }
 
 TEST(Assembler, LocalLabelDefineBeforeGlobalLabel)
@@ -870,12 +870,13 @@ TEST(Assembler, FailToDefineLabelTwiceAfterForwardReferenced)
 
 TEST(Assembler, LocalLabelPlusOffsetBackwardReference)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("func1 sta $20\n"
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
+                                                   "func1 sta $20\n"
                                                    ":local sta $20\n"
                                                    "func2 sta $21\n"
                                                    ":local sta $22\n"
                                                    " sta :local+1\n"));
-    runAssemblerAndValidateLastLineIs("0008: 85 07        5  sta :local+1\n", 5);
+    runAssemblerAndValidateLastLineIs("0008: 85 07        6  sta :local+1\n", 6);
 }
 
 TEST(Assembler, LocalLabelPlusOffsetForwardReference)
@@ -933,18 +934,19 @@ TEST(Assembler, MultipleForwardReferencesToSameLabel)
 
 TEST(Assembler, FailZeroPageForwardReference)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" sta globalLabel\n"
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
+                                                   " sta globalLabel\n"
                                                    "globalLabel sta $22\n"));
     
-    runAssemblerAndValidateFailure("filename:1: error: Couldn't properly infer size of a forward reference in 'globalLabel' operand.\n",
-                                   "0003: 85 22        2 globalLabel sta $22\n", 3);
+    runAssemblerAndValidateFailure("filename:2: error: Couldn't properly infer size of a forward reference in 'globalLabel' operand.\n",
+                                   "0003: 85 22        3 globalLabel sta $22\n", 4);
 }
 
 TEST(Assembler, ReferenceNonExistantLabel)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" sta badLabel\n"));
     runAssemblerAndValidateFailure("filename:1: error: The 'badLabel' label is undefined.\n",
-                                   "0000: 8D 00 00     1  sta badLabel\n", 2);
+                                   "8000: 8D 00 00     1  sta badLabel\n", 2);
 }
 
 TEST(Assembler, EQULabelStartsWithInvalidCharacter)
@@ -985,7 +987,7 @@ TEST(Assembler, ForwardReferenceEQULabel)
     m_pAssembler = Assembler_CreateFromString(dupe(" sta label\n"
                                                    "label equ $ffff\n"));
     CHECK(m_pAssembler != NULL);
-    runAssemblerAndValidateOutputIsTwoLinesOf("0000: 8D FF FF     1  sta label\n",
+    runAssemblerAndValidateOutputIsTwoLinesOf("8000: 8D FF FF     1  sta label\n",
                                               "    :    =FFFF     2 label equ $ffff\n");
 }
 
@@ -1064,39 +1066,39 @@ TEST(Assembler, IgnoreLSTDirective)
 TEST(Assembler, HEXDirectiveWithSingleValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex 01\n"));
-    runAssemblerAndValidateOutputIs("0000: 01           1  hex 01\n");
+    runAssemblerAndValidateOutputIs("8000: 01           1  hex 01\n");
 }
 
 TEST(Assembler, HEXDirectiveWithMixedCase)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex cD,Cd\n"));
-    runAssemblerAndValidateOutputIs("0000: CD CD        1  hex cD,Cd\n");
+    runAssemblerAndValidateOutputIs("8000: CD CD        1  hex cD,Cd\n");
 }
 
 TEST(Assembler, HEXDirectiveWithThreeValuesAndCommas)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex 0e,0c,0a\n"));
-    runAssemblerAndValidateOutputIs("0000: 0E 0C 0A     1  hex 0e,0c,0a\n");
+    runAssemblerAndValidateOutputIs("8000: 0E 0C 0A     1  hex 0e,0c,0a\n");
 }
 
 TEST(Assembler, HEXDirectiveWithThreeValues)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex 0e0c0a\n"));
-    runAssemblerAndValidateOutputIs("0000: 0E 0C 0A     1  hex 0e0c0a\n");
+    runAssemblerAndValidateOutputIs("8000: 0E 0C 0A     1  hex 0e0c0a\n");
 }
 
 TEST(Assembler, HEXDirectiveWithFourValues)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex 01,02,03,04\n"));
-    runAssemblerAndValidateOutputIsTwoLinesOf("0000: 01 02 03     1  hex 01,02,03,04\n",
-                                              "0003: 04      \n");
+    runAssemblerAndValidateOutputIsTwoLinesOf("8000: 01 02 03     1  hex 01,02,03,04\n",
+                                              "8003: 04      \n");
 }
 
 TEST(Assembler, HEXDirectiveWithSixValues)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex 01,02,03,04,05,06\n"));
-    runAssemblerAndValidateOutputIsTwoLinesOf("0000: 01 02 03     1  hex 01,02,03,04,05,06\n",
-                                              "0003: 04 05 06\n");
+    runAssemblerAndValidateOutputIsTwoLinesOf("8000: 01 02 03     1  hex 01,02,03,04,05,06\n",
+                                              "8003: 04 05 06\n");
 }
 
 TEST(Assembler, HEXDirectiveWithMaximumOf32Value)
@@ -1105,35 +1107,35 @@ TEST(Assembler, HEXDirectiveWithMaximumOf32Value)
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
     LONGS_EQUAL(11, printfSpy_GetCallCount());
-    STRCMP_EQUAL("001B: 1C 1D 1E\n", printfSpy_GetPreviousOutput());
-    STRCMP_EQUAL("001E: 1F 20   \n", printfSpy_GetLastOutput());
+    STRCMP_EQUAL("801B: 1C 1D 1E\n", printfSpy_GetPreviousOutput());
+    STRCMP_EQUAL("801E: 1F 20   \n", printfSpy_GetLastOutput());
 }
 
 TEST(Assembler, HEXDirectiveWith33Values_1MoreThanSupported)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021\n"));
     runAssemblerAndValidateFailure("filename:1: error: '0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021' contains more than 32 values.\n", 
-                                   "001E: 1F 20   \n", 12);
+                                   "801E: 1F 20   \n", 12);
 }
 
 TEST(Assembler, HEXDirectiveOnTwoLines)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex 01\n"
                                                    " hex 02\n"));
-    runAssemblerAndValidateOutputIsTwoLinesOf("0000: 01           1  hex 01\n",
-                                              "0001: 02           2  hex 02\n");
+    runAssemblerAndValidateOutputIsTwoLinesOf("8000: 01           1  hex 01\n",
+                                              "8001: 02           2  hex 02\n");
 }
 
 TEST(Assembler, HEXDirectiveWithUpperCaseHex)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex FA\n"));
-    runAssemblerAndValidateOutputIs("0000: FA           1  hex FA\n");
+    runAssemblerAndValidateOutputIs("8000: FA           1  hex FA\n");
 }
 
 TEST(Assembler, HEXDirectiveWithLowerCaseHex)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex fa\n"));
-    runAssemblerAndValidateOutputIs("0000: FA           1  hex fa\n");
+    runAssemblerAndValidateOutputIs("8000: FA           1  hex fa\n");
 }
 
 TEST(Assembler, HEXDirectiveWithOddDigitCount)
@@ -1266,16 +1268,16 @@ TEST(Assembler, DS_DirectiveWithSmallRepeatValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" ds 1\n"
                                                    " hex ff\n"));
-    runAssemblerAndValidateOutputIsTwoLinesOf("0000: 00           1  ds 1\n", 
-                                              "0001: FF           2  hex ff\n");
+    runAssemblerAndValidateOutputIsTwoLinesOf("8000: 00           1  ds 1\n", 
+                                              "8001: FF           2  hex ff\n");
 }
 
 TEST(Assembler, DS_DirectiveWithRepeatValueGreaterThan32)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" ds 42\n"
                                                    " hex ff\n"));
-    runAssemblerAndValidateOutputIsTwoLinesOf("0027: 00 00 00\n", 
-                                              "002A: FF           2  hex ff\n", 15);
+    runAssemblerAndValidateOutputIsTwoLinesOf("8027: 00 00 00\n", 
+                                              "802A: FF           2  hex ff\n", 15);
 }
 
 TEST(Assembler, DS_DirectiveWithBackSlashUnsupported)
@@ -1303,26 +1305,26 @@ TEST(Assembler, FailBinaryBufferAllocationInDSDirective)
 TEST(Assembler, ASC_DirectiveInDoubleQuotes)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" asc \"Tst\"\n"));
-    runAssemblerAndValidateOutputIs("0000: D4 F3 F4     1  asc \"Tst\"\n");
+    runAssemblerAndValidateOutputIs("8000: D4 F3 F4     1  asc \"Tst\"\n");
 }
 
 TEST(Assembler, ASC_DirectiveInSingleQuotes)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst'\n"));
-    runAssemblerAndValidateOutputIs("0000: 54 73 74     1  asc 'Tst'\n");
+    runAssemblerAndValidateOutputIs("8000: 54 73 74     1  asc 'Tst'\n");
 }
 
 TEST(Assembler, ASC_DirectiveWithNoSpacesBetweenQuotes)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" asc 'a b'\n"));
-    runAssemblerAndValidateOutputIs("0000: 61 20 62     1  asc 'a b'\n");
+    runAssemblerAndValidateOutputIs("8000: 61 20 62     1  asc 'a b'\n");
 }
 
 TEST(Assembler, ASC_DirectiveWithNoEndingDelimiter)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst\n"));
     runAssemblerAndValidateFailure("filename:1: error: 'Tst didn't end with the expected ' delimiter.\n",
-                                   "0000: 54 73 74     1  asc 'Tst\n");
+                                   "8000: 54 73 74     1  asc 'Tst\n");
 }
 
 TEST(Assembler, SAV_DirectiveOnEmptyObjectFile)
@@ -1331,7 +1333,7 @@ TEST(Assembler, SAV_DirectiveOnEmptyObjectFile)
     CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler));
-    validateObjectFileContains(0x0000, "", 0);
+    validateObjectFileContains(0x8000, "", 0);
 }
 
 TEST(Assembler, SAV_DirectiveOnSmallObjectFile)
@@ -1342,7 +1344,7 @@ TEST(Assembler, SAV_DirectiveOnSmallObjectFile)
     CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler));
-    validateObjectFileContains(0x0000, "\x00\xff", 2);
+    validateObjectFileContains(0x800, "\x00\xff", 2);
 }
 
 TEST(Assembler, VerifyObjectFileWithForwardReferenceLabel)
@@ -1353,7 +1355,7 @@ TEST(Assembler, VerifyObjectFileWithForwardReferenceLabel)
                                                    " sav AssemblerTest.sav\n"));
     CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
-    validateObjectFileContains(0x0000, "\x8d\x03\x08\x85\x2b", 5);
+    validateObjectFileContains(0x800, "\x8d\x03\x08\x85\x2b", 5);
 }
 
 TEST(Assembler, FailBinaryBufferAllocationInASCDirective)
@@ -1421,15 +1423,16 @@ TEST(Assembler, STAAbsoluteViaLabel)
 
 TEST(Assembler, STAZeroPageAbsoluteViaLabel)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("entry lda #$60\n"
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
+                                                   "entry lda #$60\n"
                                                    " sta entry\n"));
-    runAssemblerAndValidateLastLineIs("0002: 85 00        2  sta entry\n", 2);
+    runAssemblerAndValidateLastLineIs("0002: 85 00        3  sta entry\n", 3);
 }
 
 TEST(Assembler, BCS_ValidAddressingMode)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" bcs *+129\n"));
-    runAssemblerAndValidateOutputIs("0000: B0 7F        1  bcs *+129\n");
+    runAssemblerAndValidateOutputIs("8000: B0 7F        1  bcs *+129\n");
 }
 
 TEST(Assembler, BCS_InvalidAddressingModes)
@@ -1515,7 +1518,7 @@ TEST(Assembler, BEQ_InvalidAddressingModes)
 TEST(Assembler, BMI_ValidAddressingMode)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" bmi *+129\n"));
-    runAssemblerAndValidateOutputIs("0000: 30 7F        1  bmi *+129\n");
+    runAssemblerAndValidateOutputIs("8000: 30 7F        1  bmi *+129\n");
 }
 
 TEST(Assembler, BMI_InvalidAddressingModes)
@@ -1538,7 +1541,7 @@ TEST(Assembler, BMI_InvalidAddressingModes)
 TEST(Assembler, BNE_ValidAddressingMode)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" bne *+129\n"));
-    runAssemblerAndValidateOutputIs("0000: D0 7F        1  bne *+129\n");
+    runAssemblerAndValidateOutputIs("8000: D0 7F        1  bne *+129\n");
 }
 
 TEST(Assembler, BNE_InvalidAddressingModes)
@@ -1561,7 +1564,7 @@ TEST(Assembler, BNE_InvalidAddressingModes)
 TEST(Assembler, BPL_ValidAddressingMode)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" bpl *+129\n"));
-    runAssemblerAndValidateOutputIs("0000: 10 7F        1  bpl *+129\n");
+    runAssemblerAndValidateOutputIs("8000: 10 7F        1  bpl *+129\n");
 }
 
 TEST(Assembler, BPL_InvalidAddressingModes)

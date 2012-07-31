@@ -39,6 +39,7 @@ typedef struct OpCodeEntry
 
 
 static void commonObjectInit(Assembler* pThis);
+static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned short orgAddress);
 __throws Assembler* Assembler_CreateFromString(char* pText)
 {
     Assembler* pThis = NULL;
@@ -74,11 +75,18 @@ static void commonObjectInit(Assembler* pThis)
         pThis->pLocalLabelStart = pThis->labelBuffer;
         pThis->maxLocalLabelSize = sizeof(pThis->labelBuffer)-1;
         pThis->pCurrentBuffer = pThis->pObjectBuffer;
+        setOrgInAssemblerAndBinaryBufferModules(pThis, 0x8000);
     }
     __catch
     {
         __rethrow;
     }
+}
+
+static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned short orgAddress)
+{
+    pThis->programCounter = orgAddress;
+    BinaryBuffer_SetOrigin(pThis->pCurrentBuffer, orgAddress);
 }
 
 
@@ -938,7 +946,7 @@ static void handleORG(Assembler* pThis)
     __try
     {
         __throwing_func( expression = getAbsoluteExpression(pThis) );
-        pThis->programCounter = expression.value;
+        setOrgInAssemblerAndBinaryBufferModules(pThis, expression.value);
     }
     __catch
     {
