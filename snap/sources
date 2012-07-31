@@ -3,4 +3,4 @@ APPTYPE=EXE
 
 SOURCES=main.c MockDefaults.c
 INCLUDES=../include
-LIBS=../lib/libsnap.a ../lib/libtrycatch.a
+LIBS=../lib/libsnap.a ../lib/libcommon.a

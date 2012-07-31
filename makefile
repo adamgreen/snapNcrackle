@@ -11,7 +11,7 @@
 # GNU General Public License for more details.
 #
 # Directories to be built
-DIRS=CppUTest libmocks libtrycatch libsnap libcrackle snap
+DIRS=CppUTest libmocks libcommon libsnap libcrackle snap
 
 .PHONY: subdirs $(DIRS)
 

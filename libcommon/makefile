@@ -2,7 +2,7 @@
 SILENCE = @
 
 #---- Outputs ----#
-COMPONENT_NAME = trycatch
+COMPONENT_NAME = common
 CPPUTEST_LIB_DIR = ../lib/
 
 #--- Inputs ----#
