@@ -54,6 +54,7 @@ TEST_GROUP(DiskImage)
         free(m_pImageOnDisk);
         remove(g_imageFilename);
         remove(g_savFilenameAllZeroes);
+        remove(g_savFilenameAllOnes);
     }
     
     void validateAllZeroes(const unsigned char* pBuffer, size_t bufferSize)
