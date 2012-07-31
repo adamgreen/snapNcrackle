@@ -10,3 +10,5 @@ Debug/
 Release/
 snap_tests.txt
 crackle_tests.txt
+mocks_tests.txt
+common_tests.txt
