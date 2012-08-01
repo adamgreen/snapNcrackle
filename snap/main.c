@@ -18,6 +18,7 @@
 static void displayErrorCountIfAnyWereEncountered(Assembler* pAssembler);
 int main(int argc, const char** argv)
 {
+    int             returnValue = 0;
     Assembler*      pAssembler = NULL;
     SnapCommandLine commandLine;
 
@@ -30,11 +31,12 @@ int main(int argc, const char** argv)
     }
     __catch
     {
+        returnValue = 1;
     }
     
     Assembler_Free(pAssembler);
     
-    return 0;
+    return returnValue;
 }
 
 static void displayErrorCountIfAnyWereEncountered(Assembler* pAssembler)
