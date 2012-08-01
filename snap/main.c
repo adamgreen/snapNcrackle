@@ -11,19 +11,19 @@
     GNU General Public License for more details.
 */
 #include <stdio.h>
-#include "CommandLine.h"
+#include "SnapCommandLine.h"
 #include "Assembler.h"
 #include "util.h"
 
 static void displayErrorCountIfAnyWereEncountered(Assembler* pAssembler);
 int main(int argc, const char** argv)
 {
-    Assembler*  pAssembler = NULL;
-    CommandLine commandLine;
+    Assembler*      pAssembler = NULL;
+    SnapCommandLine commandLine;
 
     __try
     {
-        __throwing_func( CommandLine_Init(&commandLine, argc-1, argv+1) );
+        __throwing_func( SnapCommandLine_Init(&commandLine, argc-1, argv+1) );
         __throwing_func( pAssembler = Assembler_CreateFromFile(commandLine.pSourceFiles[0]) );
         __throwing_func( Assembler_Run(pAssembler) );
         displayErrorCountIfAnyWereEncountered(pAssembler);

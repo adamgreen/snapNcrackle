@@ -15,8 +15,8 @@
 // Include headers from C modules under test.
 extern "C"
 {
-#include "CommandLine.h"
-#include "CommandLineTest.h"
+#include "SnapCommandLine.h"
+#include "SnapCommandLineTest.h"
 #include "util.h"
 }
 

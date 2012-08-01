@@ -12,8 +12,8 @@
 */
 #include <string.h>
 #include <stdio.h>
-#include "CommandLine.h"
-#include "CommandLineTest.h"
+#include "SnapCommandLine.h"
+#include "SnapCommandLineTest.h"
 
 static void displayUsage(void)
 {

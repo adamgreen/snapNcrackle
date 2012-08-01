@@ -15,7 +15,7 @@
 #include <stdlib.h>
 extern "C"
 {
-    #include "CommandLine.h"
+    #include "SnapCommandLine.h"
     #include "Assembler.h"
     #include "../src/AssemblerPriv.h"
     #include "MallocFailureInject.h"
