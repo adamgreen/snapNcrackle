@@ -1,0 +1,6 @@
+TARGET=crackle
+APPTYPE=EXE
+
+SOURCES=main.c MockDefaults.c
+INCLUDES=../include
+LIBS=../lib/libcrackle.a ../lib/libcommon.a
