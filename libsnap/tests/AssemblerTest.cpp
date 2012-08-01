@@ -33,16 +33,16 @@ const char* g_objectFilename = "AssemblerTest.sav";
 
 TEST_GROUP(Assembler)
 {
-    Assembler*    m_pAssembler;
-    const char*   m_argv[10];
-    FILE*         m_pFile;
-    char*         m_pReadBuffer;
-    CommandLine   m_commandLine;
-    int           m_argc;
-    int           m_isInvalidMode;
-    int           m_isZeroPageTreatedAsAbsolute;
-    char          m_buffer[128];
-    unsigned char m_expectedOpcode;
+    Assembler*      m_pAssembler;
+    const char*     m_argv[10];
+    FILE*           m_pFile;
+    char*           m_pReadBuffer;
+    SnapCommandLine m_commandLine;
+    int             m_argc;
+    int             m_isInvalidMode;
+    int             m_isZeroPageTreatedAsAbsolute;
+    char            m_buffer[128];
+    unsigned char   m_expectedOpcode;
     
     void setup()
     {

@@ -23,7 +23,7 @@ static void displayUsage(void)
            "             command line.\n");
 }
 
-__throws void CommandLine_Init(CommandLine* pThis, int argc, const char** argv)
+__throws void SnapCommandLine_Init(SnapCommandLine* pThis, int argc, const char** argv)
 {
     memset(pThis, 0, sizeof(*pThis));
     

@@ -10,18 +10,18 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
-#ifndef _COMMANDLINE_H_
-#define _COMMANDLINE_H_
+#ifndef _SNAP_COMMANDLINE_H_
+#define _SNAP_COMMANDLINE_H_
 
 #include "try_catch.h"
 
-typedef struct _CommandLine
+typedef struct SnapCommandLine
 {
     const char** pSourceFiles;
     int          sourceFileCount;
-} CommandLine;
+} SnapCommandLine;
 
 
-__throws void CommandLine_Init(CommandLine* pThis, int argc, const char** argv);
+__throws void SnapCommandLine_Init(SnapCommandLine* pThis, int argc, const char** argv);
 
-#endif /* _COMMANDLINE_H_ */
+#endif /* _SNAP_COMMANDLINE_H_ */

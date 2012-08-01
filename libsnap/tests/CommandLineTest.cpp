@@ -27,10 +27,10 @@ extern "C"
 static const char g_usageString[] = "Usage:";
 
 
-TEST_GROUP(CommandLine)
+TEST_GROUP(SnapCommandLine)
 {
     const char*     m_argv[10];
-    CommandLine     m_commandLine;
+    SnapCommandLine m_commandLine;
     int             m_argc;
     
     void setup()
@@ -77,12 +77,12 @@ TEST_GROUP(CommandLine)
 };
 
 
-TEST(CommandLine, NoParameters)
+TEST(SnapCommandLine, NoParameters)
 {
     int exceptionThrown = FALSE;
     
     __try
-        CommandLine_Init(&m_commandLine, m_argc, m_argv);
+        SnapCommandLine_Init(&m_commandLine, m_argc, m_argv);
     __catch
         exceptionThrown = TRUE;
         
@@ -94,19 +94,19 @@ TEST(CommandLine, NoParameters)
     clearExceptionCode();
 }
 
-TEST(CommandLine, OneSourceFilename)
+TEST(SnapCommandLine, OneSourceFilename)
 {
     addArg("SOURCE1.S");
     
-    CommandLine_Init(&m_commandLine, m_argc, m_argv);
+    SnapCommandLine_Init(&m_commandLine, m_argc, m_argv);
     validateSourceFilesAndNoErrorMessage(m_argv, 1);
 }
 
-TEST(CommandLine, TwoSourceFilenames)
+TEST(SnapCommandLine, TwoSourceFilenames)
 {
     addArg("SOURCE1.S");
     addArg("SOURCE2.S");
     
-    CommandLine_Init(&m_commandLine, m_argc, m_argv);
+    SnapCommandLine_Init(&m_commandLine, m_argc, m_argv);
     validateSourceFilesAndNoErrorMessage(m_argv, 2);
 }
