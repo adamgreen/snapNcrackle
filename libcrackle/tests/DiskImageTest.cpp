@@ -16,7 +16,8 @@ extern "C"
     #include "DiskImage.h"
     #include "BinaryBuffer.h"
     #include "MallocFailureInject.h"
-    #include <FileFailureInject.h>
+    #include "FileFailureInject.h"
+    #include "printfSpy.h"
 }
 
 // Include C++ headers for test harness.
@@ -25,6 +26,7 @@ extern "C"
 static const char* g_imageFilename = "DiskImageTest.nib";
 static const char* g_savFilenameAllZeroes = "DiskImageTest.sav";
 static const char* g_savFilenameAllOnes = "DiskImageTest2.sav";
+static const char* g_scriptFilename = "DiskImageTest.script";
 
 
 TEST_GROUP(DiskImage)
@@ -34,10 +36,12 @@ TEST_GROUP(DiskImage)
     FILE*                m_pFile;
     unsigned char*       m_pImageOnDisk;
     unsigned char        m_checksum;
+    char                 m_buffer[256];
     
     void setup()
     {
         clearExceptionCode();
+        printfSpy_Hook(512);
         m_pDiskImage = NULL;
         m_pFile = NULL;
         m_pCurr = NULL;
@@ -48,6 +52,7 @@ TEST_GROUP(DiskImage)
     {
         LONGS_EQUAL(noException, getExceptionCode());
         MallocFailureInject_Restore();
+        printfSpy_Unhook();
         DiskImage_Free(m_pDiskImage);
         if (m_pFile)
             fclose(m_pFile);
@@ -55,6 +60,14 @@ TEST_GROUP(DiskImage)
         remove(g_imageFilename);
         remove(g_savFilenameAllZeroes);
         remove(g_savFilenameAllOnes);
+        remove(g_scriptFilename);
+    }
+    
+    char* copy(const char* pStringToCopy)
+    {
+        CHECK(strlen(pStringToCopy) < sizeof(m_buffer) - 1);
+        strcpy(m_buffer, pStringToCopy);
+        return m_buffer;
     }
     
     void validateAllZeroes(const unsigned char* pBuffer, size_t bufferSize)
@@ -268,6 +281,13 @@ TEST_GROUP(DiskImage)
         FILE* pFile = fopen(pFilename, "w");
         fwrite(&header, 1, sizeof(header), pFile);
         fwrite(pSectorData, 1, sectorDataSize, pFile);
+        fclose(pFile);
+    }
+
+    void createTextFile(const char* pFilename, const char* pText)
+    {
+        FILE* pFile = fopen(pFilename, "w");
+        fwrite(pText, 1, strlen(pText), pFile);
         fclose(pFile);
     }
 };
@@ -592,3 +612,109 @@ TEST(DiskImage, ReadTwoObjectFilesAndOnlyWriteSecondToImage)
     validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 15);
     validateRWTS16SectorContainsZeroData(pImage, 0, 0);
 }
+
+TEST(DiskImage, ProcessOneLineTextScript)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+
+    DiskImage_ProcessScript(m_pDiskImage, copy("RWTS16,DiskImageTest.sav,0,256,0,0\n"));
+
+    const unsigned char* pImage = DiskImage_GetImagePointer(m_pDiskImage);
+    validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 15);
+    validateRWTS16SectorContainsZeroData(pImage, 0, 0);
+}
+
+TEST(DiskImage, ProcessOneLineTextScriptWithNoNewLineAtEnd)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+
+    DiskImage_ProcessScript(m_pDiskImage, copy("RWTS16,DiskImageTest.sav,0,256,0,0"));
+
+    const unsigned char* pImage = DiskImage_GetImagePointer(m_pDiskImage);
+    validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 15);
+    validateRWTS16SectorContainsZeroData(pImage, 0, 0);
+}
+
+TEST(DiskImage, ProcessTwoLineTextScript)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+
+    DiskImage_ProcessScript(m_pDiskImage, copy("RWTS16,DiskImageTest.sav,0,256,0,0\n"
+                                               "RWTS16,DiskImageTest.sav,0,256,34,15\n"));
+
+    const unsigned char* pImage = DiskImage_GetImagePointer(m_pDiskImage);
+    validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 14);
+    validateRWTS16SectorContainsZeroData(pImage, 0, 0);
+    validateRWTS16SectorContainsZeroData(pImage, 34, 15);
+}
+
+TEST(DiskImage, FailTextFileCreateInProcessScript)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+
+    MallocFailureInject_FailAllocation(1);
+    DiskImage_ProcessScript(m_pDiskImage, copy("RWTS16,DiskImageTest.sav,0,256,0,0\n"));
+    validateOutOfMemoryExceptionThrown();
+}
+
+TEST(DiskImage, PassInvalidScriptLineToProcessScript)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+
+    DiskImage_ProcessScript(m_pDiskImage, copy("foo.bar"));
+    STRCMP_EQUAL("filename:1: error: Line doesn't contain correct fields: RWTS16|RWTS18,filename,startOffset,length,startTrack,startSector\n",
+                 printfSpy_GetLastErrorOutput());
+}
+
+TEST(DiskImage, PassInvalidFilenameToProcessScript)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+
+    DiskImage_ProcessScript(m_pDiskImage, copy("RWTS16,InvalidFilename.sav,0,256,0,0\n"));
+    STRCMP_EQUAL("filename:1: error: Failed to read 'InvalidFilename.sav' object file.\n",
+                 printfSpy_GetLastErrorOutput());
+}
+
+TEST(DiskImage, PassInvalidSectorToProcessScript)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+
+    DiskImage_ProcessScript(m_pDiskImage, copy("RWTS16,DiskImageTest.sav,0,256,0,16\n"));
+    STRCMP_EQUAL("filename:1: error: Invalid object insertion attribute on this line.\n",
+                 printfSpy_GetLastErrorOutput());
+}
+
+TEST(DiskImage, ProcessTwoLineScriptFile)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+    createTextFile(g_scriptFilename, "RWTS16,DiskImageTest.sav,0,256,0,0\n"
+                                     "RWTS16,DiskImageTest.sav,0,256,34,15\n");
+
+    DiskImage_ProcessScriptFile(m_pDiskImage, g_scriptFilename);
+
+    const unsigned char* pImage = DiskImage_GetImagePointer(m_pDiskImage);
+    validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 14);
+    validateRWTS16SectorContainsZeroData(pImage, 0, 0);
+    validateRWTS16SectorContainsZeroData(pImage, 34, 15);
+}
+
+TEST(DiskImage, FailToAllocateTextFileInProcessScriptFile)
+{
+    m_pDiskImage = DiskImage_Create();
+    createZeroSectorObjectFile();
+    createTextFile(g_scriptFilename, "RWTS16,DiskImageTest.sav,0,256,0,0\n"
+                                     "RWTS16,DiskImageTest.sav,0,256,34,15\n");
+
+    MallocFailureInject_FailAllocation(1);
+    DiskImage_ProcessScriptFile(m_pDiskImage, g_scriptFilename);
+    validateOutOfMemoryExceptionThrown();
+}
+

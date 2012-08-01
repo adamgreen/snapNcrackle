@@ -16,6 +16,7 @@
 
 #include <MallocFailureInject.h>
 #include <FileFailureInject.h>
+#include <printfSpy.h>
 
 
 /* Force malloc() to go through function pointer so that memory failures can be injected. */
@@ -32,5 +33,12 @@
 #define ftell  hook_ftell
 #define fwrite hook_fwrite
 #define fread  hook_fread
+
+/* Spy on printf calls in test builds. */
+#undef  printf
+#define printf hook_printf
+
+#undef fprintf
+#define fprintf hook_fprintf
 
 #endif /* _DISK_IMAGE_TEST_H_ */

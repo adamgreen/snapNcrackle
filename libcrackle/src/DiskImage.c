@@ -14,6 +14,8 @@
 #include "DiskImage.h"
 #include "DiskImageTest.h"
 #include "BinaryBuffer.h"
+#include "TextFile.h"
+#include "ParseCSV.h"
 #include "util.h"
 
 
@@ -22,10 +24,15 @@ struct DiskImage
     unsigned char*       pWrite;
     const unsigned char* pSector;
     unsigned char*       pObject;
+    TextFile*            pTextFile;
+    ParseCSV*            pParser;
+    const char*          pScriptFilename;
     unsigned int         objectLength;
     unsigned int         track;
     unsigned int         sector;
     unsigned int         bytesLeft;
+    unsigned int         lineNumber;
+    DiskImageObject      object;
     unsigned char        checksum;
     unsigned char        lastByte;
     unsigned char        image[DISK_IMAGE_SIZE];
@@ -33,14 +40,26 @@ struct DiskImage
 };
 
 
+#define LOG_ERROR(pTHIS, FORMAT, ...) fprintf(stderr, \
+                                       "%s:%d: error: " FORMAT LINE_ENDING, \
+                                       pTHIS->pScriptFilename, \
+                                       pTHIS->lineNumber, \
+                                       __VA_ARGS__)
+
+
 __throws DiskImage* DiskImage_Create(void)
 {
     DiskImage* pThis;
     
     __try
-        pThis = allocateAndZero(sizeof(*pThis));
+    {
+        __throwing_func( pThis = allocateAndZero(sizeof(*pThis)) );
+        __throwing_func( pThis->pParser = ParseCSV_Create() );
+    }
     __catch
+    {
         __rethrow_and_return(NULL);
+    }
         
     return pThis;
 }
@@ -52,6 +71,7 @@ void DiskImage_Free(DiskImage* pThis)
     if (!pThis)
         return;
     freeObject(pThis);
+    ParseCSV_Free(pThis->pParser);
     free(pThis);
 }
 
@@ -61,6 +81,94 @@ static void freeObject(DiskImage* pThis)
     pThis->pObject = NULL;
     pThis->objectLength = 0;
 }
+
+
+static void processScriptFromTextFile(DiskImage* pThis);
+static void processNextScriptLine(DiskImage* pThis, char* pScriptLine);
+static void reportScriptLineException(DiskImage* pThis, const char** ppFields);
+static void closeTextFile(DiskImage* pThis);
+__throws void DiskImage_ProcessScriptFile(DiskImage* pThis, const char* pScriptFilename)
+{
+    __try
+        pThis->pTextFile = TextFile_CreateFromFile(pScriptFilename);
+    __catch
+        __rethrow;
+    pThis->pScriptFilename = pScriptFilename;
+    
+    processScriptFromTextFile(pThis);
+}
+
+static void processScriptFromTextFile(DiskImage* pThis)
+{
+    char* pNextLine;
+
+    pThis->lineNumber = 1;
+    while ((pNextLine = TextFile_GetNextLine(pThis->pTextFile)) != NULL)
+    {
+        processNextScriptLine(pThis, pNextLine);
+        pThis->lineNumber++;
+    }
+    closeTextFile(pThis);
+}
+
+static void processNextScriptLine(DiskImage* pThis, char* pScriptLine)
+{
+    const char** ppFields;
+    
+    ParseCSV_Parse(pThis->pParser, pScriptLine);
+    if (ParseCSV_FieldCount(pThis->pParser) != 6)
+    {
+        LOG_ERROR(pThis, 
+                  "%s doesn't contain correct fields: RWTS16|RWTS18,filename,startOffset,length,startTrack,startSector",
+                  "Line");
+        return;
+    }
+    ppFields = ParseCSV_FieldPointers(pThis->pParser);
+    
+    __try
+    {
+        __throwing_func( DiskImage_ReadObjectFile(pThis, ppFields[1]) );
+        pThis->object.startOffset = strtoul(ppFields[2], NULL, 0);
+        pThis->object.length = strtoul(ppFields[3], NULL, 0);
+        pThis->object.track = strtoul(ppFields[4], NULL, 0);
+        pThis->object.sector = strtoul(ppFields[5], NULL, 0);
+        __throwing_func( DiskImage_InsertObjectFileAsRWTS16(pThis, &pThis->object) );
+    }
+    __catch
+    {
+        reportScriptLineException(pThis, ppFields);
+        __nothrow;
+    }
+}
+
+static void reportScriptLineException(DiskImage* pThis, const char** ppFields)
+{
+    int exceptionCode = getExceptionCode();
+    
+    if (exceptionCode == fileException)
+        LOG_ERROR(pThis, "Failed to read '%s' object file.", ppFields[1]);
+    if (exceptionCode == invalidArgumentException)
+        LOG_ERROR(pThis, "%s object insertion attribute on this line.", "Invalid");
+}
+
+static void closeTextFile(DiskImage* pThis)
+{
+    TextFile_Free(pThis->pTextFile);
+    pThis->pTextFile = NULL;
+}
+
+
+__throws void DiskImage_ProcessScript(DiskImage* pThis, char* pScriptText)
+{
+    __try
+        pThis->pTextFile = TextFile_CreateFromString(pScriptText);
+    __catch
+        __rethrow;
+    pThis->pScriptFilename = "filename";
+
+    processScriptFromTextFile(pThis);
+}
+
 
 static FILE* openFile(const char* pFilename, const char* pMode);
 static size_t readFile(void* pBuffer, size_t bytesToRead, FILE* pFile);

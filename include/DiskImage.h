@@ -38,6 +38,8 @@ typedef struct DiskImage DiskImage;
 __throws DiskImage* DiskImage_Create(void);
          void       DiskImage_Free(DiskImage* pThis);
 
+__throws void       DiskImage_ProcessScriptFile(DiskImage* pThis, const char* pScriptFilename);
+__throws void       DiskImage_ProcessScript(DiskImage* pThis, char* pScriptText);
 __throws void       DiskImage_ReadObjectFile(DiskImage* pThis, const char* pFilename);
 __throws void       DiskImage_InsertObjectFileAsRWTS16(DiskImage* pThis, DiskImageObject* pObject);
 __throws void       DiskImage_InsertDataAsRWTS16(DiskImage*           pThis, 
