@@ -276,7 +276,7 @@ TEST_GROUP(DiskImage)
     
         memcpy(header.signature, BINARY_BUFFER_SAV_SIGNATURE, sizeof(header.signature));
         header.address = 0;
-        header.length = DISK_IMAGE_BYTES_PER_SECTOR;
+        header.length = sectorDataSize;
     
         FILE* pFile = fopen(pFilename, "w");
         fwrite(&header, 1, sizeof(header), pFile);
@@ -590,6 +590,26 @@ TEST(DiskImage, OutOfBoundsEndingOffsetForInsertObjectFile)
     object.sector = 0;
     DiskImage_InsertObjectFileAsRWTS16(m_pDiskImage, &object);
     validateInvalidArgumentExceptionThrown();
+}
+
+TEST(DiskImage, VerifyRoundUpToPageForInsertObjectFile)
+{
+    m_pDiskImage = DiskImage_Create();
+    unsigned char zeroSectorData[DISK_IMAGE_PAGE_SIZE + 1];
+    memset(zeroSectorData, 0, sizeof(zeroSectorData));
+    createSectorObjectFile(g_savFilenameAllZeroes, zeroSectorData, sizeof(zeroSectorData));
+    DiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllZeroes);
+
+    DiskImageObject object;
+    object.startOffset = DISK_IMAGE_PAGE_SIZE;
+    object.length = DISK_IMAGE_BYTES_PER_SECTOR;
+    object.track = 0;
+    object.sector = 0;
+    DiskImage_InsertObjectFileAsRWTS16(m_pDiskImage, &object);
+
+    const unsigned char* pImage = DiskImage_GetImagePointer(m_pDiskImage);
+    validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 15);
+    validateRWTS16SectorContainsZeroData(pImage, 0, 0);
 }
 
 TEST(DiskImage, ReadTwoObjectFilesAndOnlyWriteSecondToImage)

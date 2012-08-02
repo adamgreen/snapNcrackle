@@ -172,26 +172,32 @@ __throws void DiskImage_ProcessScript(DiskImage* pThis, char* pScriptText)
 
 static FILE* openFile(const char* pFilename, const char* pMode);
 static size_t readFile(void* pBuffer, size_t bytesToRead, FILE* pFile);
+static unsigned int roundUpLengthToPageSize(unsigned int length);
 static void* allocateMemory(size_t allocationSize);
 __throws void DiskImage_ReadObjectFile(DiskImage* pThis, const char* pFilename)
 {
     FILE*         pFile;
     SavFileHeader header;
+    unsigned int  roundedObjectSize;
     
     __try
     {
+        unsigned int paddingByteCount;
+    
         freeObject(pThis);
         __throwing_func( pFile = openFile(pFilename, "r") );
         __throwing_func( readFile(&header, sizeof(header), pFile) );
-        __throwing_func( pThis->pObject = allocateMemory(header.length) );
+        roundedObjectSize = roundUpLengthToPageSize(header.length);
+        __throwing_func( pThis->pObject = allocateMemory(roundedObjectSize) );
         __throwing_func( readFile(pThis->pObject, header.length, pFile) );
+        paddingByteCount = roundedObjectSize - header.length;
+        memset(pThis->pObject + header.length, 0, paddingByteCount);
+        pThis->objectLength = roundedObjectSize;
     }
     __catch
     {
-        __rethrow;
     }
     
-    pThis->objectLength = header.length;
     fclose(pFile);    
 }
 
@@ -209,6 +215,11 @@ static size_t readFile(void* pBuffer, size_t bytesToRead, FILE* pFile)
     if (bytesRead != bytesToRead)
         __throw_and_return(fileException, bytesRead);
     return bytesRead;
+}
+
+static unsigned int roundUpLengthToPageSize(unsigned int length)
+{
+    return (length + (DISK_IMAGE_PAGE_SIZE - 1)) & ~(DISK_IMAGE_PAGE_SIZE - 1);
 }
 
 static void* allocateMemory(size_t allocationSize)
