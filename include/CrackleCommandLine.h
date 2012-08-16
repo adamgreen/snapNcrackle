@@ -15,10 +15,19 @@
 
 #include "try_catch.h"
 
+
+typedef enum CrackleImageFormat
+{
+    FORMAT_UNKNOWN = 0,
+    FORMAT_NIB_5_25
+} CrackleImageFormat;
+
+
 typedef struct CrackleCommandLine
 {
-    const char* pScriptFilename;
-    const char* pOutputImageFilename;
+    const char*        pScriptFilename;
+    const char*        pOutputImageFilename;
+    CrackleImageFormat imageFormat;
 } CrackleCommandLine;
 
 

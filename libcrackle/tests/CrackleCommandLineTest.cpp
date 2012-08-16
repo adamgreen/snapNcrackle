@@ -66,7 +66,7 @@ TEST(CrackleCommandLine, NoParameters)
     STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
 }
 
-TEST(CrackleCommandLine, OneParameter)
+TEST(CrackleCommandLine, InvalidCaseOfOneParameter)
 {
     addArg("pop1.crackle");
     m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
@@ -75,18 +75,56 @@ TEST(CrackleCommandLine, OneParameter)
     STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
 }
 
-TEST(CrackleCommandLine, TwoParameter)
+TEST(CrackleCommandLine, InvalidCaseOfTwoParameters)
 {
+    addArg("pop1.crackle");
+    addArg("pop1.nib");
+    m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
+    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
+    clearExceptionCode();
+    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+}
+
+TEST(CrackleCommandLine, InvalidCaseOfThreeParameters)
+{
+    addArg("--format");
+    addArg("pop1.crackle");
+    addArg("pop1.nib");
+    m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
+    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
+    clearExceptionCode();
+    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+}
+
+TEST(CrackleCommandLine, InvalidFormatParameter)
+{
+    addArg("--format");
+    addArg("foo.bar");
+    addArg("pop1.crackle");
+    addArg("pop1.nib");
+    m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
+    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
+    clearExceptionCode();
+    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+}
+
+TEST(CrackleCommandLine, ValidFormatOfNib_5_25)
+{
+    addArg("--format");
+    addArg("nib_5.25");
     addArg("pop1.crackle");
     addArg("pop1.nib");
     m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
     LONGS_EQUAL(0, printfSpy_GetCallCount());
     STRCMP_EQUAL("pop1.crackle", m_commandLine.pScriptFilename);
     STRCMP_EQUAL("pop1.nib", m_commandLine.pOutputImageFilename);
+    LONGS_EQUAL(FORMAT_NIB_5_25, m_commandLine.imageFormat);
 }
 
-TEST(CrackleCommandLine, OneTooManyParameters)
+TEST(CrackleCommandLine, InvalidCaseOfTooManyFilenames)
 {
+    addArg("--format");
+    addArg("nib_5.25");
     addArg("pop1.crackle");
     addArg("pop1.nib");
     addArg("one.toomany");
