@@ -364,6 +364,21 @@ TEST(BlockDiskImage, ReadObjectFileAndWriteToImage)
     validateBlocksAreOnes(pImage, 0, 0);
 }
 
+TEST(BlockDiskImage, InvalidOffsetTypeForInsertObjectFile)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesBlockObjectFile();
+    BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
+
+    DiskImageObject object;
+    object.startOffset = 0;
+    object.length = BLOCK_DISK_IMAGE_BLOCK_SIZE;
+    object.offsetType = DISK_IMAGE_OFFSET_TRACK_SECTOR;
+    object.block = 0;
+    BlockDiskImage_InsertObjectFile(m_pDiskImage, &object);
+    validateInvalidArgumentExceptionThrown();
+}
+
 TEST(BlockDiskImage, OutOfBoundsStartingOffsetForInsertObjectFile)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
