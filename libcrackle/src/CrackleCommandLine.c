@@ -108,6 +108,10 @@ static void parseFormat(CrackleCommandLine* pThis, int argc, const char* pFormat
     {
         pThis->imageFormat = FORMAT_NIB_5_25;
     }
+    else if (0 == strcasecmp(pFormat, "2mg_3.5"))
+    {
+        pThis->imageFormat = FORMAT_2MG_3_5;
+    }
     else
     {
         displayUsage();

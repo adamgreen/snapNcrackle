@@ -19,7 +19,8 @@
 typedef enum CrackleImageFormat
 {
     FORMAT_UNKNOWN = 0,
-    FORMAT_NIB_5_25
+    FORMAT_NIB_5_25,
+    FORMAT_2MG_3_5
 } CrackleImageFormat;
 
 
