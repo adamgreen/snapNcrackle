@@ -82,10 +82,10 @@ TEST_GROUP(NibbleDiskImage)
                                        unsigned int         endTrack,
                                        unsigned int         endSector)
     {
-        unsigned int startOffset = DISK_IMAGE_NIBBLES_PER_TRACK * startTrack + 
-                                   DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * startSector;
-        unsigned int endOffset = DISK_IMAGE_NIBBLES_PER_TRACK * endTrack + 
-                                 DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * (endSector + 1);
+        unsigned int startOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * startTrack + 
+                                   NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * startSector;
+        unsigned int endOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * endTrack + 
+                                 NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * (endSector + 1);
         unsigned int length = endOffset - startOffset;
         
         validateAllZeroes(pImage + startOffset, length);
@@ -104,8 +104,8 @@ TEST_GROUP(NibbleDiskImage)
                                              unsigned int         sector)
     {
         static const unsigned char volume = 0;
-        unsigned int               startOffset = DISK_IMAGE_NIBBLES_PER_TRACK * track + 
-                                                 DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * sector;
+        unsigned int               startOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * track + 
+                                                 NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * sector;
         m_pCurr = pImage + startOffset;
         
         validateSyncBytes(21);
@@ -215,11 +215,11 @@ TEST_GROUP(NibbleDiskImage)
     {
         m_pFile = fopen(g_imageFilename, "r");
         CHECK(m_pFile != NULL);
-        LONGS_EQUAL(DISK_IMAGE_SIZE, getFileSize(m_pFile));
+        LONGS_EQUAL(NIBBLE_DISK_IMAGE_SIZE, getFileSize(m_pFile));
         
-        m_pImageOnDisk = (unsigned char*)malloc(DISK_IMAGE_SIZE);
+        m_pImageOnDisk = (unsigned char*)malloc(NIBBLE_DISK_IMAGE_SIZE);
         CHECK(m_pImageOnDisk != NULL);
-        LONGS_EQUAL(DISK_IMAGE_SIZE, fread(m_pImageOnDisk, 1, DISK_IMAGE_SIZE, m_pFile));
+        LONGS_EQUAL(NIBBLE_DISK_IMAGE_SIZE, fread(m_pImageOnDisk, 1, NIBBLE_DISK_IMAGE_SIZE, m_pFile));
 
         fclose(m_pFile);
         m_pFile = NULL;
@@ -308,8 +308,8 @@ TEST(NibbleDiskImage, VerifyCreateStartsWithZeroesInImage)
     
     const unsigned char* pImage = NibbleDiskImage_GetImagePointer(m_pNibbleDiskImage);
     CHECK_TRUE(NULL != pImage);
-    LONGS_EQUAL(DISK_IMAGE_SIZE, NibbleDiskImage_GetImageSize(m_pNibbleDiskImage));
-    validateAllZeroes(pImage, DISK_IMAGE_SIZE);
+    LONGS_EQUAL(NIBBLE_DISK_IMAGE_SIZE, NibbleDiskImage_GetImageSize(m_pNibbleDiskImage));
+    validateAllZeroes(pImage, NIBBLE_DISK_IMAGE_SIZE);
 }
 
 TEST(NibbleDiskImage, InsertZeroSectorAt0_0AsRWTS16)

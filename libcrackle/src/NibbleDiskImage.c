@@ -35,7 +35,7 @@ struct NibbleDiskImage
     DiskImageObject      object;
     unsigned char        checksum;
     unsigned char        lastByte;
-    unsigned char        image[DISK_IMAGE_SIZE];
+    unsigned char        image[NIBBLE_DISK_IMAGE_SIZE];
     unsigned char        aux[86];
 };
 
@@ -306,7 +306,7 @@ static void advanceToNextSector(NibbleDiskImage* pThis)
     pThis->bytesLeft -= DISK_IMAGE_BYTES_PER_SECTOR;
     pThis->pSector += DISK_IMAGE_BYTES_PER_SECTOR;
     pThis->sector++;
-    if (pThis->sector >= DISK_IMAGE_RWTS16_SECTORS_PER_TRACK)
+    if (pThis->sector >= NIBBLE_DISK_IMAGE_RWTS16_SECTORS_PER_TRACK)
     {
         pThis->sector = 0;
         pThis->track++;
@@ -316,8 +316,8 @@ static void advanceToNextSector(NibbleDiskImage* pThis)
 static void writeRWTS16Sector(NibbleDiskImage* pThis)
 {
     static const unsigned char   volume = 0;
-    unsigned int                 startOffset = DISK_IMAGE_NIBBLES_PER_TRACK * pThis->track + 
-                                               DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * pThis->sector;
+    unsigned int                 startOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * pThis->track + 
+                                               NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * pThis->sector;
     const unsigned char*         pStart;
     int                          encodedSize;
     
@@ -336,13 +336,13 @@ static void writeRWTS16Sector(NibbleDiskImage* pThis)
     writeSyncBytes(pThis, 22);
     
     encodedSize = pThis->pWrite - pStart;
-    assert ( encodedSize == DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR );
+    assert ( encodedSize == NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR );
 }
 
 static void validateTrackAndSector(NibbleDiskImage* pThis)
 {
-    if (pThis->sector >= DISK_IMAGE_RWTS16_SECTORS_PER_TRACK ||
-        pThis->track >= DISK_IMAGE_TRACKS_PER_DISK)
+    if (pThis->sector >= NIBBLE_DISK_IMAGE_RWTS16_SECTORS_PER_TRACK ||
+        pThis->track >= NIBBLE_DISK_IMAGE_TRACKS_PER_DISK)
     {
         __throw(invalidArgumentException);
     }
@@ -554,5 +554,5 @@ const unsigned char* NibbleDiskImage_GetImagePointer(NibbleDiskImage* pThis)
 
 size_t NibbleDiskImage_GetImageSize(NibbleDiskImage* pThis)
 {
-    return DISK_IMAGE_SIZE;
+    return NIBBLE_DISK_IMAGE_SIZE;
 }
