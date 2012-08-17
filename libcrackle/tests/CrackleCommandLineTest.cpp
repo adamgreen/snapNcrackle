@@ -108,6 +108,29 @@ TEST(CrackleCommandLine, InvalidFormatParameter)
     STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
 }
 
+TEST(CrackleCommandLine, InvalidDoubleDashFlagParameter)
+{
+    addArg("--unknown");
+    addArg("foo.bar");
+    addArg("pop1.crackle");
+    addArg("pop1.nib");
+    m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
+    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
+    clearExceptionCode();
+    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+}
+
+TEST(CrackleCommandLine, MissingFormatType)
+{
+    addArg("pop1.crackle");
+    addArg("pop1.nib");
+    addArg("--format");
+    m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
+    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
+    clearExceptionCode();
+    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+}
+
 TEST(CrackleCommandLine, ValidFormatOfNib_5_25)
 {
     addArg("--format");
