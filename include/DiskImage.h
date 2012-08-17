@@ -25,12 +25,26 @@
 #define DISK_IMAGE_PAGE_SIZE                 256
 
 
+typedef enum DiskImageOffsetType
+{
+    DISK_IMAGE_OFFSET_TRACK_SECTOR,
+    DISK_IMAGE_OFFSET_BLOCK
+} DiskImageOffsetType;
+
 typedef struct DiskImageObject
 {
-    unsigned int    startOffset;
-    unsigned int    length;
-    unsigned int    track;
-    unsigned int    sector;
+    DiskImageOffsetType offsetType;
+    unsigned int        startOffset;
+    unsigned int        length;
+    union
+    {
+        struct
+        {
+            unsigned int track;
+            unsigned int sector;
+        };
+        unsigned int block;
+    };
 } DiskImageObject;
 
 typedef struct DiskImage DiskImage;

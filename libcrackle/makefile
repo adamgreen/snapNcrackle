@@ -22,7 +22,6 @@ CPPUTEST_WARNINGFLAGS += -Wno-unused-parameter
 CPPUTEST_WARNINGFLAGS += -Wno-overlength-strings
 CPPUTEST_CFLAGS += -std=c99
 CPPUTEST_CFLAGS += -Wextra 
-CPPUTEST_CFLAGS += -pedantic 
 CPPUTEST_CFLAGS += -Wstrict-prototypes
 
 SRC_DIRS = \
