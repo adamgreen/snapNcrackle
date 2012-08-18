@@ -16,13 +16,9 @@
 #include "try_catch.h"
 
 
-#define DISK_IMAGE_BYTES_PER_SECTOR          256
-#define DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR 416
-#define DISK_IMAGE_RWTS16_SECTORS_PER_TRACK  16
-#define DISK_IMAGE_TRACKS_PER_DISK           35
-#define DISK_IMAGE_NIBBLES_PER_TRACK         (DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * DISK_IMAGE_RWTS16_SECTORS_PER_TRACK)
-#define DISK_IMAGE_SIZE                      (DISK_IMAGE_NIBBLES_PER_TRACK * DISK_IMAGE_TRACKS_PER_DISK)
-#define DISK_IMAGE_PAGE_SIZE                 256
+#define DISK_IMAGE_BYTES_PER_SECTOR 256
+#define DISK_IMAGE_PAGE_SIZE        256
+#define DISK_IMAGE_BLOCK_SIZE       (2 * DISK_IMAGE_BYTES_PER_SECTOR)
 
 
 typedef enum DiskImageOffsetType
@@ -31,7 +27,8 @@ typedef enum DiskImageOffsetType
     DISK_IMAGE_OFFSET_BLOCK
 } DiskImageOffsetType;
 
-typedef struct DiskImageObject
+
+typedef struct DiskImageInsert
 {
     DiskImageOffsetType offsetType;
     unsigned int        startOffset;
@@ -45,25 +42,6 @@ typedef struct DiskImageObject
         };
         unsigned int block;
     };
-} DiskImageObject;
+} DiskImageInsert;
 
-typedef struct DiskImage DiskImage;
-
-
-__throws DiskImage* DiskImage_Create(void);
-         void       DiskImage_Free(DiskImage* pThis);
-
-__throws void       DiskImage_ProcessScriptFile(DiskImage* pThis, const char* pScriptFilename);
-__throws void       DiskImage_ProcessScript(DiskImage* pThis, char* pScriptText);
-__throws void       DiskImage_ReadObjectFile(DiskImage* pThis, const char* pFilename);
-__throws void       DiskImage_InsertObjectFileAsRWTS16(DiskImage* pThis, DiskImageObject* pObject);
-__throws void       DiskImage_InsertDataAsRWTS16(DiskImage*           pThis, 
-                                                 const unsigned char* pData, 
-                                                 DiskImageObject*     pObject);
-                                                   
-__throws void       DiskImage_WriteImage(DiskImage* pThis, const char* pImageFilename);
-         
-         const unsigned char* DiskImage_GetImagePointer(DiskImage* pThis);
-         size_t               DiskImage_GetImageSize(DiskImage* pThis);
-         
 #endif /* _DISK_IMAGE_H_ */

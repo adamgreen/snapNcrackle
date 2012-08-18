@@ -52,7 +52,18 @@ __throws void ByteBuffer_WriteToFile(ByteBuffer* pThis, FILE* pFile)
 
 __throws void ByteBuffer_ReadFromFile(ByteBuffer* pThis, FILE* pFile)
 {
-    size_t bytesRead = fread(pThis->pBuffer, 1, pThis->bufferSize, pFile);
-    if (bytesRead != pThis->bufferSize)
+    ByteBuffer_ReadPartialFromFile(pThis, pThis->bufferSize, pFile);
+}
+
+
+__throws void ByteBuffer_ReadPartialFromFile(ByteBuffer* pThis, unsigned int bytesToRead, FILE* pFile)
+{
+    size_t bytesRead;
+    
+    if (bytesToRead > pThis->bufferSize)
+        __throw(invalidArgumentException);
+        
+    bytesRead = fread(pThis->pBuffer, 1, bytesToRead, pFile);
+    if (bytesRead != bytesToRead)
         __throw(fileException);
 }

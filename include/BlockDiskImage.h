@@ -17,9 +17,8 @@
 #include "DiskImage.h"
 
 
-#define BLOCK_DISK_IMAGE_BLOCK_SIZE         (2 * DISK_IMAGE_BYTES_PER_SECTOR)
 #define BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT    1600
-#define BLOCK_DISK_IMAGE_3_5_DISK_SIZE      (BLOCK_DISK_IMAGE_BLOCK_SIZE * BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT)
+#define BLOCK_DISK_IMAGE_3_5_DISK_SIZE      (DISK_IMAGE_BLOCK_SIZE * BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT)
 
 
 typedef struct BlockDiskImage BlockDiskImage;
@@ -31,10 +30,10 @@ __throws BlockDiskImage* BlockDiskImage_Create(unsigned int blockCount);
 __throws void            BlockDiskImage_ProcessScriptFile(BlockDiskImage* pThis, const char* pScriptFilename);
 __throws void            BlockDiskImage_ProcessScript(BlockDiskImage* pThis, char* pScriptText);
 __throws void            BlockDiskImage_ReadObjectFile(BlockDiskImage* pThis, const char* pFilename);
-__throws void            BlockDiskImage_InsertObjectFile(BlockDiskImage* pThis, DiskImageObject* pObject);
+__throws void            BlockDiskImage_InsertObjectFile(BlockDiskImage* pThis, DiskImageInsert* pInsert);
 __throws void            BlockDiskImage_InsertData(BlockDiskImage*      pThis, 
                                                    const unsigned char* pData, 
-                                                   DiskImageObject*     pObject);
+                                                   DiskImageInsert*     pInsert);
                                                    
 __throws void            BlockDiskImage_WriteImage(BlockDiskImage* pThis, const char* pImageFilename);
          

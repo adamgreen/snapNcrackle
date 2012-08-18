@@ -95,6 +95,17 @@ TEST_GROUP(ByteBuffer)
         fclose(m_pFile);
         m_pFile = NULL;
     }
+    
+    void readPartialBufferFromFile(size_t bytesToRead)
+    {
+        m_pFile = fopen(g_TestFilename, "r");
+        CHECK(NULL != m_pFile);
+
+        ByteBuffer_ReadPartialFromFile(&m_buffer, bytesToRead, m_pFile);
+
+        fclose(m_pFile);
+        m_pFile = NULL;
+    }
 
     long getFileSize(FILE* pFile)
     {
@@ -189,4 +200,32 @@ TEST(ByteBuffer, FailReadFromFile)
         ByteBuffer_ReadFromFile(&m_buffer, NULL);
     freadRestore();
     validateFileExceptionThrown();
+}
+
+TEST(ByteBuffer, ReadPartialFromFileAndRestShouldBeZeroFilled)
+{
+    static const char testData[5] = { 0xa5, 0xa5, 0xa5, 0xa5, 0xa5 };
+    createTestFile(testData, sizeof(testData));
+
+    ByteBuffer_Allocate(&m_buffer, sizeof(testData));
+    readPartialBufferFromFile(sizeof(testData)-1);
+    CHECK(0 == memcmp(testData, m_buffer.pBuffer, sizeof(testData)-1));
+    LONGS_EQUAL(0x00, m_buffer.pBuffer[sizeof(testData)-1]);
+}
+
+TEST(ByteBuffer, FailReadPartialFromFile)
+{
+    ByteBuffer_Allocate(&m_buffer, 10);
+    freadFail(0);
+        ByteBuffer_ReadPartialFromFile(&m_buffer, 5, NULL);
+    freadRestore();
+    validateFileExceptionThrown();
+}
+
+TEST(ByteBuffer, FailByReadingTooMuchFromReadPartialFromFile)
+{
+    ByteBuffer_Allocate(&m_buffer, 10);
+    ByteBuffer_ReadPartialFromFile(&m_buffer, 11, NULL);
+    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
+    clearExceptionCode();
 }

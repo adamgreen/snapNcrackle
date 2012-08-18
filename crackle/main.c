@@ -12,21 +12,21 @@
 */
 #include <stdio.h>
 #include "CrackleCommandLine.h"
-#include "DiskImage.h"
+#include "NibbleDiskImage.h"
 
 
 int main(int argc, const char** argv)
 {
     int                returnValue = 0;
-    DiskImage*         pDiskImage = NULL;
+    NibbleDiskImage*   pDiskImage = NULL;
     CrackleCommandLine commandLine;
 
     __try
     {
         __throwing_func( commandLine = CrackleCommandLine_Init(argc-1, argv+1) );
-        __throwing_func( pDiskImage = DiskImage_Create() );
-        __throwing_func( DiskImage_ProcessScriptFile(pDiskImage, commandLine.pScriptFilename) );
-        __throwing_func( DiskImage_WriteImage(pDiskImage, commandLine.pOutputImageFilename) );
+        __throwing_func( pDiskImage = NibbleDiskImage_Create() );
+        __throwing_func( NibbleDiskImage_ProcessScriptFile(pDiskImage, commandLine.pScriptFilename) );
+        __throwing_func( NibbleDiskImage_WriteImage(pDiskImage, commandLine.pOutputImageFilename) );
         printf("%s image built successfully.\n", commandLine.pOutputImageFilename);
     }
     __catch
@@ -35,7 +35,7 @@ int main(int argc, const char** argv)
         returnValue = 1;
     }
     
-    DiskImage_Free(pDiskImage);
+    NibbleDiskImage_Free(pDiskImage);
     
     return returnValue;
 }

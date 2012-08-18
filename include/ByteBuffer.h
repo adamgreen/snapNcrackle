@@ -28,5 +28,6 @@ __throws void ByteBuffer_Allocate(ByteBuffer* pThis, unsigned int bufferSize);
 
 __throws void ByteBuffer_WriteToFile(ByteBuffer* pThis, FILE* pFile);
 __throws void ByteBuffer_ReadFromFile(ByteBuffer* pThis, FILE* pFile);
+__throws void ByteBuffer_ReadPartialFromFile(ByteBuffer* pThis, unsigned int bytesToRead, FILE* pFile);
 
 #endif /* _BYTE_BUFFER_H_ */

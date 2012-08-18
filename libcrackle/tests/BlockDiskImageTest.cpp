@@ -75,14 +75,14 @@ TEST_GROUP(BlockDiskImage)
     
     void validateBlocksAreZeroes(const unsigned char* pImage, unsigned int startBlock, unsigned int endBlock)
     {
-        unsigned char expectedBlock[BLOCK_DISK_IMAGE_BLOCK_SIZE];
+        unsigned char expectedBlock[DISK_IMAGE_BLOCK_SIZE];
         memset(expectedBlock, 0x00, sizeof(expectedBlock));
         validateBlocks(pImage, startBlock, endBlock, expectedBlock);
     }
     
     void validateBlocksAreOnes(const unsigned char* pImage, unsigned int startBlock, unsigned int endBlock)
     {
-        unsigned char expectedBlock[BLOCK_DISK_IMAGE_BLOCK_SIZE];
+        unsigned char expectedBlock[DISK_IMAGE_BLOCK_SIZE];
         memset(expectedBlock, 0xff, sizeof(expectedBlock));
         validateBlocks(pImage, startBlock, endBlock, expectedBlock);
     }
@@ -94,28 +94,28 @@ TEST_GROUP(BlockDiskImage)
     {
         unsigned int  blockCount = endBlock - startBlock + 1;
 
-        pImage += startBlock * BLOCK_DISK_IMAGE_BLOCK_SIZE;
+        pImage += startBlock * DISK_IMAGE_BLOCK_SIZE;
         for (unsigned int i = 0 ; i < blockCount ; i++)
         {
-            CHECK_TRUE( 0 == memcmp(pImage, pExpectedBlockContent, BLOCK_DISK_IMAGE_BLOCK_SIZE) );
-            pImage += BLOCK_DISK_IMAGE_BLOCK_SIZE;
+            CHECK_TRUE( 0 == memcmp(pImage, pExpectedBlockContent, DISK_IMAGE_BLOCK_SIZE) );
+            pImage += DISK_IMAGE_BLOCK_SIZE;
         }
     }
     
     void writeOnesBlocks(unsigned int startBlock, unsigned int blockCount)
     {
-        unsigned int   totalSize = blockCount * BLOCK_DISK_IMAGE_BLOCK_SIZE;
+        unsigned int   totalSize = blockCount * DISK_IMAGE_BLOCK_SIZE;
         unsigned char* pBlockData = (unsigned char*)malloc(totalSize);
         CHECK_TRUE(pBlockData != NULL);
         memset(pBlockData, 0xff, totalSize);
         
-        DiskImageObject object;
-        object.startOffset = 0;
-        object.length = totalSize;
-        object.offsetType = DISK_IMAGE_OFFSET_BLOCK;
-        object.block = startBlock;
+        DiskImageInsert insert;
+        insert.startOffset = 0;
+        insert.length = totalSize;
+        insert.offsetType = DISK_IMAGE_OFFSET_BLOCK;
+        insert.block = startBlock;
 
-        BlockDiskImage_InsertData(m_pDiskImage, pBlockData, &object);
+        BlockDiskImage_InsertData(m_pDiskImage, pBlockData, &insert);
         free(pBlockData);
     }
     
@@ -166,14 +166,14 @@ TEST_GROUP(BlockDiskImage)
     
     void createOnesBlockObjectFile()
     {
-        unsigned char blockData[BLOCK_DISK_IMAGE_BLOCK_SIZE];
+        unsigned char blockData[DISK_IMAGE_BLOCK_SIZE];
         memset(blockData, 0xff, sizeof(blockData));
         createBlockObjectFile(g_savFilenameAllOnes, blockData, sizeof(blockData));
     }
     
     void createZeroesBlockObjectFile()
     {
-        unsigned char blockData[BLOCK_DISK_IMAGE_BLOCK_SIZE];
+        unsigned char blockData[DISK_IMAGE_BLOCK_SIZE];
         memset(blockData, 0x00, sizeof(blockData));
         createBlockObjectFile(g_savFilenameAllOnes, blockData, sizeof(blockData));
     }
@@ -351,12 +351,12 @@ TEST(BlockDiskImage, ReadObjectFileAndWriteToImage)
     createOnesBlockObjectFile();
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
-    DiskImageObject object;
-    object.startOffset = 0;
-    object.length = BLOCK_DISK_IMAGE_BLOCK_SIZE;
-    object.offsetType = DISK_IMAGE_OFFSET_BLOCK;
-    object.block = 0;
-    BlockDiskImage_InsertObjectFile(m_pDiskImage, &object);
+    DiskImageInsert insert;
+    insert.startOffset = 0;
+    insert.length = DISK_IMAGE_BLOCK_SIZE;
+    insert.offsetType = DISK_IMAGE_OFFSET_BLOCK;
+    insert.block = 0;
+    BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
     
     BlockDiskImage_WriteImage(m_pDiskImage, g_imageFilename);
     const unsigned char* pImage = readDiskImageIntoMemory();
@@ -370,12 +370,12 @@ TEST(BlockDiskImage, InvalidOffsetTypeForInsertObjectFile)
     createOnesBlockObjectFile();
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
-    DiskImageObject object;
-    object.startOffset = 0;
-    object.length = BLOCK_DISK_IMAGE_BLOCK_SIZE;
-    object.offsetType = DISK_IMAGE_OFFSET_TRACK_SECTOR;
-    object.block = 0;
-    BlockDiskImage_InsertObjectFile(m_pDiskImage, &object);
+    DiskImageInsert insert;
+    insert.startOffset = 0;
+    insert.length = DISK_IMAGE_BLOCK_SIZE;
+    insert.offsetType = DISK_IMAGE_OFFSET_TRACK_SECTOR;
+    insert.block = 0;
+    BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
     validateInvalidArgumentExceptionThrown();
 }
 
@@ -385,12 +385,12 @@ TEST(BlockDiskImage, OutOfBoundsStartingOffsetForInsertObjectFile)
     createOnesBlockObjectFile();
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
-    DiskImageObject object;
-    object.startOffset = 0;
-    object.length = BLOCK_DISK_IMAGE_BLOCK_SIZE;
-    object.offsetType = DISK_IMAGE_OFFSET_BLOCK;
-    object.block = BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT;
-    BlockDiskImage_InsertObjectFile(m_pDiskImage, &object);
+    DiskImageInsert insert;
+    insert.startOffset = 0;
+    insert.length = DISK_IMAGE_BLOCK_SIZE;
+    insert.offsetType = DISK_IMAGE_OFFSET_BLOCK;
+    insert.block = BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT;
+    BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
     validateInvalidArgumentExceptionThrown();
 }
 
@@ -400,30 +400,30 @@ TEST(BlockDiskImage, OutOfBoundsEndingOffsetOnInputObjectFile)
     createOnesBlockObjectFile();
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
-    DiskImageObject object;
-    object.startOffset = 1;
-    object.length = BLOCK_DISK_IMAGE_BLOCK_SIZE;
-    object.offsetType = DISK_IMAGE_OFFSET_BLOCK;
-    object.block = 0;
-    BlockDiskImage_InsertObjectFile(m_pDiskImage, &object);
+    DiskImageInsert insert;
+    insert.startOffset = 1;
+    insert.length = DISK_IMAGE_BLOCK_SIZE;
+    insert.offsetType = DISK_IMAGE_OFFSET_BLOCK;
+    insert.block = 0;
+    BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
     validateInvalidArgumentExceptionThrown();
 }
 
 TEST(BlockDiskImage, VerifyRoundUpToBlockForInsertObjectFile)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
-    unsigned char onesSectorData[BLOCK_DISK_IMAGE_BLOCK_SIZE + 1];
+    unsigned char onesSectorData[DISK_IMAGE_BLOCK_SIZE + 1];
     memset(onesSectorData, 0xff, sizeof(onesSectorData));
     onesSectorData[sizeof(onesSectorData) - 1] = 0x00;
     createBlockObjectFile(g_savFilenameAllOnes, onesSectorData, sizeof(onesSectorData));
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
-    DiskImageObject object;
-    object.startOffset = BLOCK_DISK_IMAGE_BLOCK_SIZE;
-    object.length = BLOCK_DISK_IMAGE_BLOCK_SIZE;
-    object.offsetType = DISK_IMAGE_OFFSET_BLOCK;
-    object.block = 0;
-    BlockDiskImage_InsertObjectFile(m_pDiskImage, &object);
+    DiskImageInsert insert;
+    insert.startOffset = DISK_IMAGE_BLOCK_SIZE;
+    insert.length = DISK_IMAGE_BLOCK_SIZE;
+    insert.offsetType = DISK_IMAGE_OFFSET_BLOCK;
+    insert.block = 0;
+    BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
 
     const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
     validateBlocksAreZeroes(pImage, 0, BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT - 1);
@@ -437,12 +437,12 @@ TEST(BlockDiskImage, ReadTwoObjectFilesAndOnlyWriteSecondToImage)
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllZeroes);
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
-    DiskImageObject object;
-    object.startOffset = 0;
-    object.length = BLOCK_DISK_IMAGE_BLOCK_SIZE;
-    object.offsetType = DISK_IMAGE_OFFSET_BLOCK;
-    object.block = 0;
-    BlockDiskImage_InsertObjectFile(m_pDiskImage, &object);
+    DiskImageInsert insert;
+    insert.startOffset = 0;
+    insert.length = DISK_IMAGE_BLOCK_SIZE;
+    insert.offsetType = DISK_IMAGE_OFFSET_BLOCK;
+    insert.block = 0;
+    BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
     
     BlockDiskImage_WriteImage(m_pDiskImage, g_imageFilename);
     const unsigned char* pImage = readDiskImageIntoMemory();
@@ -504,7 +504,7 @@ TEST(BlockDiskImage, PassInvalidScriptLineToProcessScript)
     createOnesBlockObjectFile();
 
     BlockDiskImage_ProcessScript(m_pDiskImage, copy("foo.bar"));
-    STRCMP_EQUAL("filename:1: error: Line doesn't contain correct fields: BLOCK,objectFilename,objectStartOffset,objectLength,startBlock\n",
+    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: BLOCK,objectFilename,objectStartOffset,objectLength,startBlock\n",
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -514,7 +514,7 @@ TEST(BlockDiskImage, PassInvalidFilenameToProcessScript)
     createOnesBlockObjectFile();
 
     BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,InvalidFilename.sav,0,512,0\n"));
-    STRCMP_EQUAL("filename:1: error: Failed to read 'InvalidFilename.sav' object file.\n",
+    STRCMP_EQUAL("<null>:1: error: Failed to read 'InvalidFilename.sav' object file.\n",
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -524,7 +524,7 @@ TEST(BlockDiskImage, PassInvalidBlockToProcessScript)
     createOnesBlockObjectFile();
 
     BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,1600\n"));
-    STRCMP_EQUAL("filename:1: error: Invalid object insertion attribute on this line.\n",
+    STRCMP_EQUAL("<null>:1: error: Invalid object insertion attribute on this line.\n",
                  printfSpy_GetLastErrorOutput());
 }
 
