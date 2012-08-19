@@ -101,7 +101,7 @@ __throws void BlockDiskImage_InsertData(BlockDiskImage* pThis, const unsigned ch
         __throwing_func( validateOffsetTypeIsBlock(pInsert) );
         __throwing_func( validateImageOffsets(pThis, pInsert) );
         memcpy(pImage + pInsert->block * DISK_IMAGE_BLOCK_SIZE, 
-               pData + pInsert->startOffset, 
+               pData + pInsert->sourceOffset, 
                pInsert->length);
     }
     __catch
@@ -112,17 +112,17 @@ __throws void BlockDiskImage_InsertData(BlockDiskImage* pThis, const unsigned ch
 
 static void validateOffsetTypeIsBlock(DiskImageInsert* pInsert)
 {
-    if (pInsert->offsetType != DISK_IMAGE_INSERTION_BLOCK)
+    if (pInsert->type != DISK_IMAGE_INSERTION_BLOCK)
         __throw(invalidInsertionTypeException);
 }
 
 static void validateImageOffsets(BlockDiskImage* pThis, DiskImageInsert* pInsert)
 {
-    unsigned int startOffset = pInsert->block * DISK_IMAGE_BLOCK_SIZE;
-    unsigned int endOffset = startOffset + pInsert->length;
+    unsigned int sourceOffset = pInsert->block * DISK_IMAGE_BLOCK_SIZE;
+    unsigned int endOffset = sourceOffset + pInsert->length;
     unsigned int imageSize = DiskImage_GetImageSize(&pThis->super);
     
-    if (startOffset >= imageSize || endOffset > imageSize)
+    if (sourceOffset >= imageSize || endOffset > imageSize)
         __throw(blockExceedsImageBoundsException);
 }
 

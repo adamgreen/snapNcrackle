@@ -19,9 +19,6 @@
 #include "ByteBuffer.h"
 
 
-typedef struct DiskImage DiskImage;
-
-
 typedef struct DiskImageVTable
 {
     void (*insertData)(void* pThis, const unsigned char* pData, DiskImageInsert* pInsert);
@@ -51,17 +48,5 @@ struct DiskImage
 
 
 __throws DiskImage DiskImage_Init(DiskImageVTable* pVTable, unsigned int imageSize);
-         void      DiskImage_Free(DiskImage* pThis);
-
-__throws void      DiskImage_ProcessScriptFile(DiskImage* pThis, const char*  pScriptFilename);
-__throws void      DiskImage_ProcessScript(DiskImage* pThis, char* pScriptText);
-
-__throws void      DiskImage_ReadObjectFile(DiskImage* pThis, const char* pFilename);
-__throws void      DiskImage_InsertObjectFile(DiskImage* pThis, DiskImageInsert* pInsert);
-
-__throws void      DiskImage_WriteImage(DiskImage* pThis, const char* pImageFilename);
-
-         unsigned char* DiskImage_GetImagePointer(DiskImage* pThis);
-         size_t         DiskImage_GetImageSize(DiskImage* pThis);
 
 #endif /* _DISK_IMAGE_PRIV_H_ */

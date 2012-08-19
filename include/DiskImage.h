@@ -21,6 +21,9 @@
 #define DISK_IMAGE_BLOCK_SIZE       (2 * DISK_IMAGE_BYTES_PER_SECTOR)
 
 
+typedef struct DiskImage DiskImage;
+
+
 typedef enum DiskImageInsertionType
 {
     DISK_IMAGE_INSERTION_RWTS16,
@@ -30,8 +33,8 @@ typedef enum DiskImageInsertionType
 
 typedef struct DiskImageInsert
 {
-    DiskImageInsertionType offsetType;
-    unsigned int           startOffset;
+    DiskImageInsertionType type;
+    unsigned int           sourceOffset;
     unsigned int           length;
     union
     {
@@ -43,5 +46,19 @@ typedef struct DiskImageInsert
         unsigned int       block;
     };
 } DiskImageInsert;
+
+
+         void      DiskImage_Free(DiskImage* pThis);
+
+__throws void      DiskImage_ProcessScriptFile(DiskImage* pThis, const char*  pScriptFilename);
+__throws void      DiskImage_ProcessScript(DiskImage* pThis, char* pScriptText);
+
+__throws void      DiskImage_ReadObjectFile(DiskImage* pThis, const char* pFilename);
+__throws void      DiskImage_InsertObjectFile(DiskImage* pThis, DiskImageInsert* pInsert);
+
+__throws void      DiskImage_WriteImage(DiskImage* pThis, const char* pImageFilename);
+
+         unsigned char* DiskImage_GetImagePointer(DiskImage* pThis);
+         size_t         DiskImage_GetImageSize(DiskImage* pThis);
 
 #endif /* _DISK_IMAGE_H_ */

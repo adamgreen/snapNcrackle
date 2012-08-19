@@ -154,7 +154,7 @@ __throws void NibbleDiskImage_InsertData(NibbleDiskImage* pThis, const unsigned 
 
 static void validateOffsetType(DiskImageInsert* pInsert)
 {
-    if (pInsert->offsetType != DISK_IMAGE_INSERTION_RWTS16)
+    if (pInsert->type != DISK_IMAGE_INSERTION_RWTS16)
         __throw(invalidInsertionTypeException);
 }
 
@@ -163,7 +163,7 @@ static void prepareForFirstSector(NibbleDiskImage* pThis, const unsigned char* p
     pThis->track = pInsert->track;
     pThis->sector = pInsert->sector;
     pThis->bytesLeft = pInsert->length;
-    pThis->pSector = pData + pInsert->startOffset;
+    pThis->pSector = pData + pInsert->sourceOffset;
 }
 
 static void advanceToNextSector(NibbleDiskImage* pThis)
@@ -181,7 +181,7 @@ static void advanceToNextSector(NibbleDiskImage* pThis)
 static void writeRWTS16Sector(NibbleDiskImage* pThis)
 {
     static const unsigned char   volume = 0;
-    unsigned int                 startOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * pThis->track + 
+    unsigned int                 sourceOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * pThis->track + 
                                                NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * pThis->sector;
     const unsigned char*         pStart;
     int                          encodedSize;
@@ -191,7 +191,7 @@ static void writeRWTS16Sector(NibbleDiskImage* pThis)
     __catch
         __rethrow;
         
-    pThis->pWrite = DiskImage_GetImagePointer(&pThis->super) + startOffset;
+    pThis->pWrite = DiskImage_GetImagePointer(&pThis->super) + sourceOffset;
     pStart = pThis->pWrite;
     
     writeSyncBytes(pThis, 21);

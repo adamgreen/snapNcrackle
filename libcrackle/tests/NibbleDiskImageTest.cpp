@@ -82,13 +82,13 @@ TEST_GROUP(NibbleDiskImage)
                                        unsigned int         endTrack,
                                        unsigned int         endSector)
     {
-        unsigned int startOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * startTrack + 
+        unsigned int sourceOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * startTrack + 
                                    NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * startSector;
         unsigned int endOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * endTrack + 
                                  NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * (endSector + 1);
-        unsigned int length = endOffset - startOffset;
+        unsigned int length = endOffset - sourceOffset;
         
-        validateAllZeroes(pImage + startOffset, length);
+        validateAllZeroes(pImage + sourceOffset, length);
     }
 
     void validateRWTS16SectorContainsZeroData(const unsigned char* pImage, unsigned int track, unsigned int sector)
@@ -104,9 +104,9 @@ TEST_GROUP(NibbleDiskImage)
                                              unsigned int         sector)
     {
         static const unsigned char volume = 0;
-        unsigned int               startOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * track + 
+        unsigned int               sourceOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * track + 
                                                  NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * sector;
-        m_pCurr = pImage + startOffset;
+        m_pCurr = pImage + sourceOffset;
         
         validateSyncBytes(21);
         validateAddressField(volume, track, sector);
@@ -202,8 +202,8 @@ TEST_GROUP(NibbleDiskImage)
         memset(pSectorData, 0, totalSectorSize);
         
         DiskImageInsert insert;
-        insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
-        insert.startOffset = 0;
+        insert.type = DISK_IMAGE_INSERTION_RWTS16;
+        insert.sourceOffset = 0;
         insert.length = totalSectorSize;
         insert.track = startTrack;
         insert.sector = startSector;
@@ -416,8 +416,8 @@ TEST(NibbleDiskImage, InsertTestSectorAt0_0AsRWTS16)
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfc, 0xb1
     };
     DiskImageInsert insert;
-    insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
-    insert.startOffset = 0;
+    insert.type = DISK_IMAGE_INSERTION_RWTS16;
+    insert.sourceOffset = 0;
     insert.length = 256;
     insert.track = 0;
     insert.sector = 0;
@@ -560,8 +560,8 @@ TEST(NibbleDiskImage, ReadObjectFileAndWriteToImage)
     NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes);
 
     DiskImageInsert insert;
-    insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
-    insert.startOffset = 0;
+    insert.type = DISK_IMAGE_INSERTION_RWTS16;
+    insert.sourceOffset = 0;
     insert.length = DISK_IMAGE_BYTES_PER_SECTOR;
     insert.track = 0;
     insert.sector = 0;
@@ -580,8 +580,8 @@ TEST(NibbleDiskImage, OutOfBoundsStartingOffsetForInsertObjectFile)
     NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes);
 
     DiskImageInsert insert;
-    insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
-    insert.startOffset = DISK_IMAGE_BYTES_PER_SECTOR;
+    insert.type = DISK_IMAGE_INSERTION_RWTS16;
+    insert.sourceOffset = DISK_IMAGE_BYTES_PER_SECTOR;
     insert.length = DISK_IMAGE_BYTES_PER_SECTOR;
     insert.track = 0;
     insert.sector = 0;
@@ -596,8 +596,8 @@ TEST(NibbleDiskImage, OutOfBoundsEndingOffsetForInsertObjectFile)
     NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes);
 
     DiskImageInsert insert;
-    insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
-    insert.startOffset = 1;
+    insert.type = DISK_IMAGE_INSERTION_RWTS16;
+    insert.sourceOffset = 1;
     insert.length = DISK_IMAGE_BLOCK_SIZE;
     insert.track = 0;
     insert.sector = 0;
@@ -614,8 +614,8 @@ TEST(NibbleDiskImage, VerifyRoundUpToPageForInsertObjectFile)
     NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes);
 
     DiskImageInsert insert;
-    insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
-    insert.startOffset = DISK_IMAGE_PAGE_SIZE;
+    insert.type = DISK_IMAGE_INSERTION_RWTS16;
+    insert.sourceOffset = DISK_IMAGE_PAGE_SIZE;
     insert.length = DISK_IMAGE_BYTES_PER_SECTOR;
     insert.track = 0;
     insert.sector = 0;
@@ -635,8 +635,8 @@ TEST(NibbleDiskImage, ReadTwoObjectFilesAndOnlyWriteSecondToImage)
     NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes);
 
     DiskImageInsert insert;
-    insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
-    insert.startOffset = 0;
+    insert.type = DISK_IMAGE_INSERTION_RWTS16;
+    insert.sourceOffset = 0;
     insert.length = DISK_IMAGE_BYTES_PER_SECTOR;
     insert.track = 0;
     insert.sector = 0;

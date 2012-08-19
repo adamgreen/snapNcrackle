@@ -158,9 +158,9 @@ static void processBlockScriptLine(DiskImageScriptEngine* pThis, size_t fieldCou
     __try
     {
         __throwing_func( DiskImage_ReadObjectFile(pThis->pDiskImage, ppFields[1]) );
-        pThis->insert.startOffset = strtoul(ppFields[2], NULL, 0);
+        pThis->insert.sourceOffset = strtoul(ppFields[2], NULL, 0);
         pThis->insert.length = strtoul(ppFields[3], NULL, 0);
-        pThis->insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
+        pThis->insert.type = DISK_IMAGE_INSERTION_BLOCK;
         pThis->insert.block = strtoul(ppFields[4], NULL, 0);
         __throwing_func( DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert) );
     }
@@ -183,9 +183,9 @@ static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCo
     __try
     {
         __throwing_func( DiskImage_ReadObjectFile(pThis->pDiskImage, ppFields[1]) );
-        pThis->insert.startOffset = strtoul(ppFields[2], NULL, 0);
+        pThis->insert.sourceOffset = strtoul(ppFields[2], NULL, 0);
         pThis->insert.length = strtoul(ppFields[3], NULL, 0);
-        pThis->insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
+        pThis->insert.type = DISK_IMAGE_INSERTION_RWTS16;
         pThis->insert.track = strtoul(ppFields[4], NULL, 0);
         pThis->insert.sector = strtoul(ppFields[5], NULL, 0);
         __throwing_func( DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert) );
@@ -315,9 +315,9 @@ __throws void DiskImage_InsertObjectFile(DiskImage* pThis, DiskImageInsert* pIns
 
 static void validateSourceObjectParameters(DiskImage* pThis, DiskImageInsert* pInsert)
 {
-    if (pInsert->startOffset >= pThis->objectFileLength)
+    if (pInsert->sourceOffset >= pThis->objectFileLength)
         __throw(invalidSourceOffsetException);
-    if (pInsert->startOffset + pInsert->length > pThis->object.bufferSize)
+    if (pInsert->sourceOffset + pInsert->length > pThis->object.bufferSize)
         __throw(invalidLengthException);
 }
 

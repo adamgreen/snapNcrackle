@@ -110,9 +110,9 @@ TEST_GROUP(BlockDiskImage)
         memset(pBlockData, 0xff, totalSize);
         
         DiskImageInsert insert;
-        insert.startOffset = 0;
+        insert.sourceOffset = 0;
         insert.length = totalSize;
-        insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
+        insert.type = DISK_IMAGE_INSERTION_BLOCK;
         insert.block = startBlock;
 
         BlockDiskImage_InsertData(m_pDiskImage, pBlockData, &insert);
@@ -347,9 +347,9 @@ TEST(BlockDiskImage, ReadObjectFileAndWriteToImage)
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
     DiskImageInsert insert;
-    insert.startOffset = 0;
+    insert.sourceOffset = 0;
     insert.length = DISK_IMAGE_BLOCK_SIZE;
-    insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
+    insert.type = DISK_IMAGE_INSERTION_BLOCK;
     insert.block = 0;
     BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
     
@@ -366,9 +366,9 @@ TEST(BlockDiskImage, InvalidOffsetTypeForInsertObjectFile)
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
     DiskImageInsert insert;
-    insert.startOffset = 0;
+    insert.sourceOffset = 0;
     insert.length = DISK_IMAGE_BLOCK_SIZE;
-    insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
+    insert.type = DISK_IMAGE_INSERTION_RWTS16;
     insert.block = 0;
     BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
     validateExceptionThrown(invalidInsertionTypeException);
@@ -381,9 +381,9 @@ TEST(BlockDiskImage, OutOfBoundsStartingOffsetForInsertObjectFile)
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
     DiskImageInsert insert;
-    insert.startOffset = DISK_IMAGE_BLOCK_SIZE;
+    insert.sourceOffset = DISK_IMAGE_BLOCK_SIZE;
     insert.length = 1;
-    insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
+    insert.type = DISK_IMAGE_INSERTION_BLOCK;
     insert.block = 0;
     BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
     validateExceptionThrown(invalidSourceOffsetException);
@@ -396,9 +396,9 @@ TEST(BlockDiskImage, OutOfBoundsEndingOffsetOnInputObjectFile)
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
     DiskImageInsert insert;
-    insert.startOffset = 1;
+    insert.sourceOffset = 1;
     insert.length = DISK_IMAGE_BLOCK_SIZE;
-    insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
+    insert.type = DISK_IMAGE_INSERTION_BLOCK;
     insert.block = 0;
     BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
     validateExceptionThrown(invalidLengthException);
@@ -414,9 +414,9 @@ TEST(BlockDiskImage, VerifyRoundUpToBlockForInsertObjectFile)
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
     DiskImageInsert insert;
-    insert.startOffset = DISK_IMAGE_BLOCK_SIZE;
+    insert.sourceOffset = DISK_IMAGE_BLOCK_SIZE;
     insert.length = DISK_IMAGE_BLOCK_SIZE;
-    insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
+    insert.type = DISK_IMAGE_INSERTION_BLOCK;
     insert.block = 0;
     BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
 
@@ -431,9 +431,9 @@ TEST(BlockDiskImage, OutOfBoundsBlockForInsertObjectFile)
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
     DiskImageInsert insert;
-    insert.startOffset = 0;
+    insert.sourceOffset = 0;
     insert.length = DISK_IMAGE_BLOCK_SIZE;
-    insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
+    insert.type = DISK_IMAGE_INSERTION_BLOCK;
     insert.block = BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT;
     BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
     validateExceptionThrown(blockExceedsImageBoundsException);
@@ -448,9 +448,9 @@ TEST(BlockDiskImage, ReadTwoObjectFilesAndOnlyWriteSecondToImage)
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
     DiskImageInsert insert;
-    insert.startOffset = 0;
+    insert.sourceOffset = 0;
     insert.length = DISK_IMAGE_BLOCK_SIZE;
-    insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
+    insert.type = DISK_IMAGE_INSERTION_BLOCK;
     insert.block = 0;
     BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
     
