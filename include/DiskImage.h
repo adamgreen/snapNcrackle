@@ -43,7 +43,11 @@ typedef struct DiskImageInsert
             unsigned int   track;
             unsigned int   sector;
         };
-        unsigned int       block;
+        struct
+        {
+            unsigned int   block;
+            unsigned int   intraBlockOffset;
+        };
     };
 } DiskImageInsert;
 

@@ -27,8 +27,9 @@
 #define invalidLengthException              10
 #define invalidTrackException               11
 #define invalidSectorException              12
-#define blockExceedsImageBoundsException    13
-#define invalidInsertionTypeException       14
+#define invalidIntraBlockOffsetException    13
+#define blockExceedsImageBoundsException    14
+#define invalidInsertionTypeException       15
 
 extern int g_exceptionCode;
 
