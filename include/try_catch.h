@@ -16,21 +16,19 @@
 
 #define noException                         0
 #define bufferOverrunException              1
-#define invalidHexDigitException            2
-#define invalidValueException               3
-#define invalidArgumentException            4
-#define timeoutException                    5
-#define invalidIndexException               6
-#define notFoundException                   7
-#define exceededHardwareResourcesException  8
-#define invalidDecDigitException            9
-#define outOfMemoryException                10
-#define endOfFileException                  11
-#define fileNotFoundException               12
-#define fileException                       13
-#define endOfListException                  14
-#define invalidBinaryDigitException         15
-#define invalidDecimalDigitException        16
+#define outOfMemoryException                2
+#define fileNotFoundException               3
+#define fileException                       4
+#define invalidHexDigitException            5
+#define invalidBinaryDigitException         6
+#define invalidDecimalDigitException        7
+#define invalidArgumentException            8
+#define invalidSourceOffsetException        9
+#define invalidLengthException              10
+#define invalidTrackException               11
+#define invalidSectorException              12
+#define blockExceedsImageBoundsException    13
+#define invalidInsertionTypeException       14
 
 extern int g_exceptionCode;
 

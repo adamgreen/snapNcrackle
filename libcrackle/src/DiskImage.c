@@ -69,12 +69,21 @@ static void DiskImageScriptEngine_Free(DiskImageScriptEngine* pThis)
                                        pTHIS->lineNumber, \
                                        __VA_ARGS__)
 
-
+static void DiskImageScriptEngine_ProcessScriptFile(DiskImageScriptEngine* pThis, 
+                                                    DiskImage*              pDiskImage, 
+                                                    const char*             pScriptFilename);
 static void processScriptFromTextFile(DiskImageScriptEngine* pThis);
 static void processNextScriptLine(DiskImageScriptEngine* pThis, char* pScriptLine);
+static void processBlockScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields);
+static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields);
 static void reportScriptLineException(DiskImageScriptEngine* pThis);
 static void closeTextFile(DiskImageScriptEngine* pThis);
-__throws void DiskImageScriptEngine_ProcessScriptFile(DiskImageScriptEngine* pThis, 
+__throws void DiskImage_ProcessScriptFile(DiskImage* pThis, const char* pScriptFilename)
+{
+    DiskImageScriptEngine_ProcessScriptFile(&pThis->script, pThis, pScriptFilename);
+}
+
+static void DiskImageScriptEngine_ProcessScriptFile(DiskImageScriptEngine* pThis, 
                                                     DiskImage*               pDiskImage, 
                                                     const char*              pScriptFilename)
 {
@@ -108,26 +117,26 @@ static void processScriptFromTextFile(DiskImageScriptEngine* pThis)
 
 static void processNextScriptLine(DiskImageScriptEngine* pThis, char* pScriptLine)
 {
+    size_t       fieldCount;
     const char** ppFields;
     
     ParseCSV_Parse(pThis->pParser, pScriptLine);
-    if (ParseCSV_FieldCount(pThis->pParser) != 5)
+    fieldCount = ParseCSV_FieldCount(pThis->pParser);
+    ppFields = ParseCSV_FieldPointers(pThis->pParser);
+    if (fieldCount < 1 || ppFields[0][0] == '\0')
     {
-        LOG_ERROR(pThis, 
-                  "%s doesn't contain correct fields: BLOCK,objectFilename,objectStartOffset,objectLength,startBlock",
-                  "Line");
+        LOG_ERROR(pThis, "%s cannot be blank.", "Script line");
         return;
     }
-    ppFields = ParseCSV_FieldPointers(pThis->pParser);
     
     __try
     {
-        __throwing_func( DiskImage_ReadObjectFile(pThis->pDiskImage, ppFields[1]) );
-        pThis->insert.startOffset = strtoul(ppFields[2], NULL, 0);
-        pThis->insert.length = strtoul(ppFields[3], NULL, 0);
-        pThis->insert.offsetType = DISK_IMAGE_OFFSET_BLOCK;
-        pThis->insert.block = strtoul(ppFields[4], NULL, 0);
-        __throwing_func( DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert) );
+        if (0 == strcasecmp(ppFields[0], "block"))
+            processBlockScriptLine(pThis, fieldCount, ppFields);
+        else if (0 == strcasecmp(ppFields[0], "rwts16"))
+            processRWTS16ScriptLine(pThis, fieldCount, ppFields);
+        else
+            LOG_ERROR(pThis, "%s isn't a recognized image insertion type of BLOCK or RWTS16.", ppFields[0]);
     }
     __catch
     {
@@ -136,17 +145,80 @@ static void processNextScriptLine(DiskImageScriptEngine* pThis, char* pScriptLin
     }
 }
 
+static void processBlockScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields)
+{
+    if (fieldCount != 5)
+    {
+        LOG_ERROR(pThis, 
+                  "%s doesn't contain correct fields: BLOCK,objectFilename,objectStartOffset,insertionLength,block",
+                  "Line");
+        __throw(invalidArgumentException);
+    }
+    
+    __try
+    {
+        __throwing_func( DiskImage_ReadObjectFile(pThis->pDiskImage, ppFields[1]) );
+        pThis->insert.startOffset = strtoul(ppFields[2], NULL, 0);
+        pThis->insert.length = strtoul(ppFields[3], NULL, 0);
+        pThis->insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
+        pThis->insert.block = strtoul(ppFields[4], NULL, 0);
+        __throwing_func( DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert) );
+    }
+    __catch
+    {
+        __rethrow;
+    }
+}
+
+static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields)
+{
+    if (fieldCount != 6)
+    {
+        LOG_ERROR(pThis, 
+                  "%s doesn't contain correct fields: RWTS16,objectFilename,objectStartOffset,insertionLength,track,sector",
+                  "Line");
+        __throw(invalidArgumentException);
+    }
+    
+    __try
+    {
+        __throwing_func( DiskImage_ReadObjectFile(pThis->pDiskImage, ppFields[1]) );
+        pThis->insert.startOffset = strtoul(ppFields[2], NULL, 0);
+        pThis->insert.length = strtoul(ppFields[3], NULL, 0);
+        pThis->insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
+        pThis->insert.track = strtoul(ppFields[4], NULL, 0);
+        pThis->insert.sector = strtoul(ppFields[5], NULL, 0);
+        __throwing_func( DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert) );
+    }
+    __catch
+    {
+        __rethrow;
+    }
+}
+
 static void reportScriptLineException(DiskImageScriptEngine* pThis)
 {
     const char** ppFields = ParseCSV_FieldPointers(pThis->pParser);
     int          exceptionCode = getExceptionCode();
     
-    assert ( exceptionCode == fileException || exceptionCode == invalidArgumentException );
+    assert ( exceptionCode == fileException || 
+             exceptionCode == invalidArgumentException ||
+             exceptionCode == blockExceedsImageBoundsException ||
+             exceptionCode == invalidInsertionTypeException ||
+             exceptionCode == invalidSectorException ||
+             exceptionCode == invalidTrackException);
 
     if (exceptionCode == fileException)
         LOG_ERROR(pThis, "Failed to read '%s' object file.", ppFields[1]);
-    else if (exceptionCode == invalidArgumentException)
-        LOG_ERROR(pThis, "%s object insertion attribute on this line.", "Invalid");
+    else if (exceptionCode == blockExceedsImageBoundsException)
+        LOG_ERROR(pThis, "Write starting at block %u won't fit in output image file.", pThis->insert.block);
+    else if (exceptionCode == invalidInsertionTypeException)
+        LOG_ERROR(pThis, "%s insertion type isn't supported for this output image type.", ppFields[0]);
+    else if (exceptionCode == invalidSectorException)
+        LOG_ERROR(pThis, "%u specifies an invalid sector.  Must be 0 - 15.", pThis->insert.sector);
+    else if (exceptionCode == invalidTrackException)
+        LOG_ERROR(pThis, "Write starting at track/sector %u/%u won't fit in output image file.", 
+                  pThis->insert.track, pThis->insert.sector);
 }
 
 static void closeTextFile(DiskImageScriptEngine* pThis)
@@ -156,15 +228,23 @@ static void closeTextFile(DiskImageScriptEngine* pThis)
 }
 
 
-__throws void DiskImageScriptEngine_ProcessScript(DiskImageScriptEngine* pThis, 
-                                                  DiskImage*             pDiskImage,
-                                                  char*                  pScriptText)
+static void DiskImageScriptEngine_ProcessScript(DiskImageScriptEngine* pThis, 
+                                                DiskImage*             pDiskImage,
+                                                char*                  pScriptText);
+__throws void DiskImage_ProcessScript(DiskImage* pThis, char* pScriptText)
+{
+    DiskImageScriptEngine_ProcessScript(&pThis->script, pThis, pScriptText);
+}
+
+static void DiskImageScriptEngine_ProcessScript(DiskImageScriptEngine* pThis, 
+                                                DiskImage*             pDiskImage,
+                                                char*                  pScriptText)
 {
     __try
     {
         pThis->pDiskImage = pDiskImage;
         pThis->pScriptFilename = "<null>";
-        pThis->pTextFile = TextFile_CreateFromString(pScriptText);
+        __throwing_func( pThis->pTextFile = TextFile_CreateFromString(pScriptText) );
     }
     __catch
     {
@@ -191,6 +271,7 @@ __throws void DiskImage_ReadObjectFile(DiskImage* pThis, const char* pFilename)
         roundedObjectSize = roundUpLengthToBlockSize(header.length);
         __throwing_func( ByteBuffer_Allocate(&pThis->object, roundedObjectSize) );
         __throwing_func( ByteBuffer_ReadPartialFromFile(&pThis->object, header.length, pFile) );
+        pThis->objectFileLength = header.length;
     }
     __catch
     {
@@ -221,21 +302,23 @@ static unsigned int roundUpLengthToBlockSize(unsigned int length)
 }
 
 
-static void validateObjectAttributes(DiskImage* pThis, DiskImageInsert* pInsert);
+static void validateSourceObjectParameters(DiskImage* pThis, DiskImageInsert* pInsert);
 __throws void DiskImage_InsertObjectFile(DiskImage* pThis, DiskImageInsert* pInsert)
 {
     __try
-        validateObjectAttributes(pThis, pInsert);
+        validateSourceObjectParameters(pThis, pInsert);
     __catch
         __rethrow;
     
     pThis->pVTable->insertData(pThis, pThis->object.pBuffer, pInsert);
 }
 
-static void validateObjectAttributes(DiskImage* pThis, DiskImageInsert* pInsert)
+static void validateSourceObjectParameters(DiskImage* pThis, DiskImageInsert* pInsert)
 {
+    if (pInsert->startOffset >= pThis->objectFileLength)
+        __throw(invalidSourceOffsetException);
     if (pInsert->startOffset + pInsert->length > pThis->object.bufferSize)
-        __throw(invalidArgumentException);
+        __throw(invalidLengthException);
 }
 
 

@@ -63,13 +63,13 @@ void BlockDiskImage_Free(BlockDiskImage* pThis)
 
 __throws void BlockDiskImage_ProcessScriptFile(BlockDiskImage* pThis, const char* pScriptFilename)
 {
-    DiskImageScriptEngine_ProcessScriptFile(&pThis->super.script, &pThis->super, pScriptFilename);
+    DiskImage_ProcessScriptFile(&pThis->super, pScriptFilename);
 }
 
 
 __throws void BlockDiskImage_ProcessScript(BlockDiskImage* pThis, char* pScriptText)
 {
-    DiskImageScriptEngine_ProcessScript(&pThis->super.script, &pThis->super, pScriptText);
+    DiskImage_ProcessScript(&pThis->super, pScriptText);
 }
 
 
@@ -112,8 +112,8 @@ __throws void BlockDiskImage_InsertData(BlockDiskImage* pThis, const unsigned ch
 
 static void validateOffsetTypeIsBlock(DiskImageInsert* pInsert)
 {
-    if (pInsert->offsetType != DISK_IMAGE_OFFSET_BLOCK)
-        __throw(invalidArgumentException);
+    if (pInsert->offsetType != DISK_IMAGE_INSERTION_BLOCK)
+        __throw(invalidInsertionTypeException);
 }
 
 static void validateImageOffsets(BlockDiskImage* pThis, DiskImageInsert* pInsert)
@@ -123,7 +123,7 @@ static void validateImageOffsets(BlockDiskImage* pThis, DiskImageInsert* pInsert
     unsigned int imageSize = DiskImage_GetImageSize(&pThis->super);
     
     if (startOffset >= imageSize || endOffset > imageSize)
-        __throw(invalidArgumentException);
+        __throw(blockExceedsImageBoundsException);
 }
 
 

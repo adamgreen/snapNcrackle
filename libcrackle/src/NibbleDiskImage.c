@@ -12,6 +12,7 @@
 */
 #include <assert.h>
 #include "NibbleDiskImage.h"
+#include "DiskImagePriv.h"
 #include "DiskImageTest.h"
 #include "BinaryBuffer.h"
 #include "TextFile.h"
@@ -21,30 +22,23 @@
 
 struct NibbleDiskImage
 {
+    DiskImage            super;
     unsigned char*       pWrite;
     const unsigned char* pSector;
-    unsigned char*       pInsert;
-    TextFile*            pTextFile;
-    ParseCSV*            pParser;
-    const char*          pScriptFilename;
-    unsigned int         objectLength;
     unsigned int         track;
     unsigned int         sector;
     unsigned int         bytesLeft;
-    unsigned int         lineNumber;
-    DiskImageInsert      object;
     unsigned char        checksum;
     unsigned char        lastByte;
-    unsigned char        image[NIBBLE_DISK_IMAGE_SIZE];
     unsigned char        aux[86];
 };
 
 
-#define LOG_ERROR(pTHIS, FORMAT, ...) fprintf(stderr, \
-                                       "%s:%d: error: " FORMAT LINE_ENDING, \
-                                       pTHIS->pScriptFilename, \
-                                       pTHIS->lineNumber, \
-                                       __VA_ARGS__)
+static void insertData(void* pThis, const unsigned char* pData, DiskImageInsert* pInsert);
+struct DiskImageVTable NibbleDiskImageVTable = 
+{ 
+    insertData 
+};
 
 
 __throws NibbleDiskImage* NibbleDiskImage_Create(void)
@@ -54,10 +48,11 @@ __throws NibbleDiskImage* NibbleDiskImage_Create(void)
     __try
     {
         __throwing_func( pThis = allocateAndZero(sizeof(*pThis)) );
-        __throwing_func( pThis->pParser = ParseCSV_Create() );
+        __throwing_func( pThis->super = DiskImage_Init(&NibbleDiskImageVTable, NIBBLE_DISK_IMAGE_SIZE) );
     }
     __catch
     {
+        NibbleDiskImage_Free(pThis);
         __rethrow_and_return(NULL);
     }
         
@@ -65,190 +60,45 @@ __throws NibbleDiskImage* NibbleDiskImage_Create(void)
 }
 
 
-static void freeObject(NibbleDiskImage* pThis);
 void NibbleDiskImage_Free(NibbleDiskImage* pThis)
 {
     if (!pThis)
         return;
-    freeObject(pThis);
-    ParseCSV_Free(pThis->pParser);
+    DiskImage_Free(&pThis->super);
     free(pThis);
 }
 
-static void freeObject(NibbleDiskImage* pThis)
-{
-    free(pThis->pInsert);
-    pThis->pInsert = NULL;
-    pThis->objectLength = 0;
-}
 
-
-static void processScriptFromTextFile(NibbleDiskImage* pThis);
-static void processNextScriptLine(NibbleDiskImage* pThis, char* pScriptLine);
-static void reportScriptLineException(NibbleDiskImage* pThis, const char** ppFields);
-static void closeTextFile(NibbleDiskImage* pThis);
 __throws void NibbleDiskImage_ProcessScriptFile(NibbleDiskImage* pThis, const char* pScriptFilename)
 {
-    __try
-        pThis->pTextFile = TextFile_CreateFromFile(pScriptFilename);
-    __catch
-        __rethrow;
-    pThis->pScriptFilename = pScriptFilename;
-    
-    processScriptFromTextFile(pThis);
-}
-
-static void processScriptFromTextFile(NibbleDiskImage* pThis)
-{
-    char* pNextLine;
-
-    pThis->lineNumber = 1;
-    while ((pNextLine = TextFile_GetNextLine(pThis->pTextFile)) != NULL)
-    {
-        processNextScriptLine(pThis, pNextLine);
-        pThis->lineNumber++;
-    }
-    closeTextFile(pThis);
-}
-
-static void processNextScriptLine(NibbleDiskImage* pThis, char* pScriptLine)
-{
-    const char** ppFields;
-    
-    ParseCSV_Parse(pThis->pParser, pScriptLine);
-    if (ParseCSV_FieldCount(pThis->pParser) != 6)
-    {
-        LOG_ERROR(pThis, 
-                  "%s doesn't contain correct fields: RWTS16|RWTS18,filename,startOffset,length,startTrack,startSector",
-                  "Line");
-        return;
-    }
-    ppFields = ParseCSV_FieldPointers(pThis->pParser);
-    
-    __try
-    {
-        __throwing_func( NibbleDiskImage_ReadObjectFile(pThis, ppFields[1]) );
-        pThis->object.startOffset = strtoul(ppFields[2], NULL, 0);
-        pThis->object.length = strtoul(ppFields[3], NULL, 0);
-        pThis->object.track = strtoul(ppFields[4], NULL, 0);
-        pThis->object.sector = strtoul(ppFields[5], NULL, 0);
-        __throwing_func( NibbleDiskImage_InsertObjectFileAsRWTS16(pThis, &pThis->object) );
-    }
-    __catch
-    {
-        reportScriptLineException(pThis, ppFields);
-        __nothrow;
-    }
-}
-
-static void reportScriptLineException(NibbleDiskImage* pThis, const char** ppFields)
-{
-    int exceptionCode = getExceptionCode();
-    
-    if (exceptionCode == fileException)
-        LOG_ERROR(pThis, "Failed to read '%s' object file.", ppFields[1]);
-    if (exceptionCode == invalidArgumentException)
-        LOG_ERROR(pThis, "%s object insertion attribute on this line.", "Invalid");
-}
-
-static void closeTextFile(NibbleDiskImage* pThis)
-{
-    TextFile_Free(pThis->pTextFile);
-    pThis->pTextFile = NULL;
+    DiskImage_ProcessScriptFile(&pThis->super, pScriptFilename);
 }
 
 
 __throws void NibbleDiskImage_ProcessScript(NibbleDiskImage* pThis, char* pScriptText)
 {
-    __try
-        pThis->pTextFile = TextFile_CreateFromString(pScriptText);
-    __catch
-        __rethrow;
-    pThis->pScriptFilename = "filename";
-
-    processScriptFromTextFile(pThis);
+    DiskImage_ProcessScript(&pThis->super, pScriptText);
 }
 
 
-static FILE* openFile(const char* pFilename, const char* pMode);
-static size_t readFile(void* pBuffer, size_t bytesToRead, FILE* pFile);
-static unsigned int roundUpLengthToPageSize(unsigned int length);
-static void* allocateMemory(size_t allocationSize);
 __throws void NibbleDiskImage_ReadObjectFile(NibbleDiskImage* pThis, const char* pFilename)
 {
-    FILE*         pFile;
-    SavFileHeader header;
-    unsigned int  roundedObjectSize;
-    
-    __try
-    {
-        unsigned int paddingByteCount;
-    
-        freeObject(pThis);
-        __throwing_func( pFile = openFile(pFilename, "r") );
-        __throwing_func( readFile(&header, sizeof(header), pFile) );
-        roundedObjectSize = roundUpLengthToPageSize(header.length);
-        __throwing_func( pThis->pInsert = allocateMemory(roundedObjectSize) );
-        __throwing_func( readFile(pThis->pInsert, header.length, pFile) );
-        paddingByteCount = roundedObjectSize - header.length;
-        memset(pThis->pInsert + header.length, 0, paddingByteCount);
-        pThis->objectLength = roundedObjectSize;
-    }
-    __catch
-    {
-    }
-    
-    fclose(pFile);    
+    DiskImage_ReadObjectFile(&pThis->super, pFilename);
 }
 
-static FILE* openFile(const char* pFilename, const char* pMode)
+
+__throws void NibbleDiskImage_InsertObjectFile(NibbleDiskImage* pThis, DiskImageInsert* pInsert)
 {
-    FILE* pFile = fopen(pFilename, pMode);
-    if (!pFile)
-        __throw_and_return(fileException, pFile);
-    return pFile;
+    DiskImage_InsertObjectFile(&pThis->super, pInsert);
 }
 
-static size_t readFile(void* pBuffer, size_t bytesToRead, FILE* pFile)
+
+static void insertData(void* pThis, const unsigned char* pData, DiskImageInsert* pInsert)
 {
-    size_t bytesRead = fread(pBuffer, 1, bytesToRead, pFile);
-    if (bytesRead != bytesToRead)
-        __throw_and_return(fileException, bytesRead);
-    return bytesRead;
+    NibbleDiskImage_InsertData((NibbleDiskImage*)pThis, pData, pInsert);
 }
 
-static unsigned int roundUpLengthToPageSize(unsigned int length)
-{
-    return (length + (DISK_IMAGE_PAGE_SIZE - 1)) & ~(DISK_IMAGE_PAGE_SIZE - 1);
-}
-
-static void* allocateMemory(size_t allocationSize)
-{
-    void* pAlloc = malloc(allocationSize);
-    if (!pAlloc)
-        __throw_and_return(outOfMemoryException, NULL);
-    return pAlloc;
-}
-
-
-static void validateObjectAttributes(NibbleDiskImage* pThis, DiskImageInsert* pInsert);
-__throws void NibbleDiskImage_InsertObjectFileAsRWTS16(NibbleDiskImage* pThis, DiskImageInsert* pInsert)
-{
-    __try
-        validateObjectAttributes(pThis, pInsert);
-    __catch
-        __rethrow;
-    
-    NibbleDiskImage_InsertDataAsRWTS16(pThis, pThis->pInsert, pInsert);
-}
-
-static void validateObjectAttributes(NibbleDiskImage* pThis, DiskImageInsert* pInsert)
-{
-    if (pInsert->startOffset + pInsert->length > pThis->objectLength)
-        __throw(invalidArgumentException);
-}
-
-
+static void validateOffsetType(DiskImageInsert* pInsert);
 static void prepareForFirstSector(NibbleDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert);
 static void advanceToNextSector(NibbleDiskImage* pThis);
 static void writeRWTS16Sector(NibbleDiskImage* pThis);
@@ -276,9 +126,18 @@ static void checksumNibbilizeAndWriteAuxBuffer(NibbleDiskImage* pThis);
 static unsigned char nibbilizeByte(NibbleDiskImage* pThis, unsigned char byte);
 static void checksumNibbilizeAndWriteDataBuffer(NibbleDiskImage* pThis, const unsigned char* pData);
 static void nibbilizeAndWriteChecksum(NibbleDiskImage* pThis);
-__throws void NibbleDiskImage_InsertDataAsRWTS16(NibbleDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert)
+__throws void NibbleDiskImage_InsertData(NibbleDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert)
 {
-    prepareForFirstSector(pThis, pData, pInsert);
+    __try
+    {
+        __throwing_func( validateOffsetType(pInsert) );
+        prepareForFirstSector(pThis, pData, pInsert);
+    }
+    __catch
+    {
+        __rethrow;
+    }
+    
     while (pThis->bytesLeft > 0)
     {
         __try
@@ -291,6 +150,12 @@ __throws void NibbleDiskImage_InsertDataAsRWTS16(NibbleDiskImage* pThis, const u
             __rethrow;
         }
     }
+}
+
+static void validateOffsetType(DiskImageInsert* pInsert)
+{
+    if (pInsert->offsetType != DISK_IMAGE_INSERTION_RWTS16)
+        __throw(invalidInsertionTypeException);
 }
 
 static void prepareForFirstSector(NibbleDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert)
@@ -326,7 +191,7 @@ static void writeRWTS16Sector(NibbleDiskImage* pThis)
     __catch
         __rethrow;
         
-    pThis->pWrite = pThis->image + startOffset;
+    pThis->pWrite = DiskImage_GetImagePointer(&pThis->super) + startOffset;
     pStart = pThis->pWrite;
     
     writeSyncBytes(pThis, 21);
@@ -341,11 +206,10 @@ static void writeRWTS16Sector(NibbleDiskImage* pThis)
 
 static void validateTrackAndSector(NibbleDiskImage* pThis)
 {
-    if (pThis->sector >= NIBBLE_DISK_IMAGE_RWTS16_SECTORS_PER_TRACK ||
-        pThis->track >= NIBBLE_DISK_IMAGE_TRACKS_PER_DISK)
-    {
-        __throw(invalidArgumentException);
-    }
+    if (pThis->sector >= NIBBLE_DISK_IMAGE_RWTS16_SECTORS_PER_TRACK)
+        __throw(invalidSectorException);
+    if (pThis->track >= NIBBLE_DISK_IMAGE_TRACKS_PER_DISK)
+        __throw(invalidTrackException);
 }
 
 static void writeSyncBytes(NibbleDiskImage* pThis, size_t syncByteCount)
@@ -533,26 +397,17 @@ static void nibbilizeAndWriteChecksum(NibbleDiskImage* pThis)
 
 __throws void NibbleDiskImage_WriteImage(NibbleDiskImage* pThis, const char* pImageFilename)
 {
-    size_t bytesWritten = 0;
-    
-    FILE* pFile = fopen(pImageFilename, "w");
-    if (!pFile)
-        __throw(fileException);
-        
-    bytesWritten = fwrite(pThis->image, 1, sizeof(pThis->image), pFile);
-    fclose(pFile);
-    if (bytesWritten != sizeof(pThis->image))
-        __throw(fileException);
+    DiskImage_WriteImage(&pThis->super, pImageFilename);
 }
 
 
 const unsigned char* NibbleDiskImage_GetImagePointer(NibbleDiskImage* pThis)
 {
-    return pThis->image;
+    return DiskImage_GetImagePointer(&pThis->super);
 }
 
 
 size_t NibbleDiskImage_GetImageSize(NibbleDiskImage* pThis)
 {
-    return NIBBLE_DISK_IMAGE_SIZE;
+    return DiskImage_GetImageSize(&pThis->super);
 }

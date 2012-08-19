@@ -31,7 +31,7 @@ static const char* g_scriptFilename = "NibbleDiskImageTest.script";
 
 TEST_GROUP(NibbleDiskImage)
 {
-    NibbleDiskImage*           m_pNibbleDiskImage;
+    NibbleDiskImage*     m_pNibbleDiskImage;
     const unsigned char* m_pCurr;
     FILE*                m_pFile;
     unsigned char*       m_pImageOnDisk;
@@ -202,12 +202,13 @@ TEST_GROUP(NibbleDiskImage)
         memset(pSectorData, 0, totalSectorSize);
         
         DiskImageInsert insert;
+        insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
         insert.startOffset = 0;
         insert.length = totalSectorSize;
         insert.track = startTrack;
         insert.sector = startSector;
 
-        NibbleDiskImage_InsertDataAsRWTS16(m_pNibbleDiskImage, pSectorData, &insert);
+        NibbleDiskImage_InsertData(m_pNibbleDiskImage, pSectorData, &insert);
         free(pSectorData);
     }
     
@@ -293,12 +294,20 @@ TEST_GROUP(NibbleDiskImage)
 };
 
 
-TEST(NibbleDiskImage, FailAllocationInCreate)
+TEST(NibbleDiskImage, FailAllAllocationsInCreate)
 {
-    MallocFailureInject_FailAllocation(1);
+    static const int allocationsToFail = 3;
+    for (int i = 1 ; i <= allocationsToFail ; i++)
+    {
+        MallocFailureInject_FailAllocation(i);
+        m_pNibbleDiskImage = NibbleDiskImage_Create();
+        POINTERS_EQUAL(NULL, m_pNibbleDiskImage);
+        validateOutOfMemoryExceptionThrown();
+    }
+
+    MallocFailureInject_FailAllocation(allocationsToFail + 1);
     m_pNibbleDiskImage = NibbleDiskImage_Create();
-    POINTERS_EQUAL(NULL, m_pNibbleDiskImage);
-    validateOutOfMemoryExceptionThrown();
+    CHECK_TRUE(m_pNibbleDiskImage != NULL);
 }
 
 TEST(NibbleDiskImage, VerifyCreateStartsWithZeroesInImage)
@@ -350,21 +359,21 @@ TEST(NibbleDiskImage, FailToInsertSector16AsRWTS16)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     writeZeroSectors(0, 16, 1);
-    validateInvalidArgumentExceptionThrown();
+    validateExceptionThrown(invalidSectorException);
 }
 
 TEST(NibbleDiskImage, FailToInsertTrack35AsRWTS16)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     writeZeroSectors(35, 0, 1);
-    validateInvalidArgumentExceptionThrown();
+    validateExceptionThrown(invalidTrackException);
 }
 
 TEST(NibbleDiskImage, FailToInsertSecondSectorAsRWTS16)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     writeZeroSectors(34, 15, 2);
-    validateInvalidArgumentExceptionThrown();
+    validateExceptionThrown(invalidTrackException);
 }
 
 TEST(NibbleDiskImage, InsertTestSectorAt0_0AsRWTS16)
@@ -407,11 +416,12 @@ TEST(NibbleDiskImage, InsertTestSectorAt0_0AsRWTS16)
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfc, 0xb1
     };
     DiskImageInsert insert;
+    insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
     insert.startOffset = 0;
     insert.length = 256;
     insert.track = 0;
     insert.sector = 0;
-    NibbleDiskImage_InsertDataAsRWTS16(m_pNibbleDiskImage, sectorData, &insert);
+    NibbleDiskImage_InsertData(m_pNibbleDiskImage, sectorData, &insert);
 
     unsigned char expectedEncodedData[343] =
     {
@@ -550,11 +560,12 @@ TEST(NibbleDiskImage, ReadObjectFileAndWriteToImage)
     NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes);
 
     DiskImageInsert insert;
+    insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
     insert.startOffset = 0;
     insert.length = DISK_IMAGE_BYTES_PER_SECTOR;
     insert.track = 0;
     insert.sector = 0;
-    NibbleDiskImage_InsertObjectFileAsRWTS16(m_pNibbleDiskImage, &insert);
+    NibbleDiskImage_InsertObjectFile(m_pNibbleDiskImage, &insert);
     
     NibbleDiskImage_WriteImage(m_pNibbleDiskImage, g_imageFilename);
     const unsigned char* pImage = readNibbleDiskImageIntoMemory();
@@ -569,12 +580,13 @@ TEST(NibbleDiskImage, OutOfBoundsStartingOffsetForInsertObjectFile)
     NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes);
 
     DiskImageInsert insert;
+    insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
     insert.startOffset = DISK_IMAGE_BYTES_PER_SECTOR;
     insert.length = DISK_IMAGE_BYTES_PER_SECTOR;
     insert.track = 0;
     insert.sector = 0;
-    NibbleDiskImage_InsertObjectFileAsRWTS16(m_pNibbleDiskImage, &insert);
-    validateInvalidArgumentExceptionThrown();
+    NibbleDiskImage_InsertObjectFile(m_pNibbleDiskImage, &insert);
+    validateExceptionThrown(invalidSourceOffsetException);
 }
 
 TEST(NibbleDiskImage, OutOfBoundsEndingOffsetForInsertObjectFile)
@@ -584,12 +596,13 @@ TEST(NibbleDiskImage, OutOfBoundsEndingOffsetForInsertObjectFile)
     NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes);
 
     DiskImageInsert insert;
+    insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
     insert.startOffset = 1;
-    insert.length = DISK_IMAGE_BYTES_PER_SECTOR;
+    insert.length = DISK_IMAGE_BLOCK_SIZE;
     insert.track = 0;
     insert.sector = 0;
-    NibbleDiskImage_InsertObjectFileAsRWTS16(m_pNibbleDiskImage, &insert);
-    validateInvalidArgumentExceptionThrown();
+    NibbleDiskImage_InsertObjectFile(m_pNibbleDiskImage, &insert);
+    validateExceptionThrown(invalidLengthException);
 }
 
 TEST(NibbleDiskImage, VerifyRoundUpToPageForInsertObjectFile)
@@ -601,11 +614,12 @@ TEST(NibbleDiskImage, VerifyRoundUpToPageForInsertObjectFile)
     NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes);
 
     DiskImageInsert insert;
+    insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
     insert.startOffset = DISK_IMAGE_PAGE_SIZE;
     insert.length = DISK_IMAGE_BYTES_PER_SECTOR;
     insert.track = 0;
     insert.sector = 0;
-    NibbleDiskImage_InsertObjectFileAsRWTS16(m_pNibbleDiskImage, &insert);
+    NibbleDiskImage_InsertObjectFile(m_pNibbleDiskImage, &insert);
 
     const unsigned char* pImage = NibbleDiskImage_GetImagePointer(m_pNibbleDiskImage);
     validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 15);
@@ -621,11 +635,12 @@ TEST(NibbleDiskImage, ReadTwoObjectFilesAndOnlyWriteSecondToImage)
     NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes);
 
     DiskImageInsert insert;
+    insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
     insert.startOffset = 0;
     insert.length = DISK_IMAGE_BYTES_PER_SECTOR;
     insert.track = 0;
     insert.sector = 0;
-    NibbleDiskImage_InsertObjectFileAsRWTS16(m_pNibbleDiskImage, &insert);
+    NibbleDiskImage_InsertObjectFile(m_pNibbleDiskImage, &insert);
     
     NibbleDiskImage_WriteImage(m_pNibbleDiskImage, g_imageFilename);
     const unsigned char* pImage = readNibbleDiskImageIntoMemory();
@@ -681,13 +696,42 @@ TEST(NibbleDiskImage, FailTextFileCreateInProcessScript)
     validateOutOfMemoryExceptionThrown();
 }
 
-TEST(NibbleDiskImage, PassInvalidScriptLineToProcessScript)
+TEST(NibbleDiskImage, PassInvalidEmptyLineToProcessScript)
+{
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+    createZeroSectorObjectFile();
+
+    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("\n"));
+    STRCMP_EQUAL("<null>:1: error: Script line cannot be blank.\n",
+                 printfSpy_GetLastErrorOutput());
+}
+TEST(NibbleDiskImage, PassInvalidScriptInsertionTypeToProcessScript)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     createZeroSectorObjectFile();
 
     NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("foo.bar"));
-    STRCMP_EQUAL("filename:1: error: Line doesn't contain correct fields: RWTS16|RWTS18,filename,startOffset,length,startTrack,startSector\n",
+    STRCMP_EQUAL("<null>:1: error: foo.bar isn't a recognized image insertion type of BLOCK or RWTS16.\n",
+                 printfSpy_GetLastErrorOutput());
+}
+
+TEST(NibbleDiskImage, PassUnsupportedScriptInsertionTypeToProcessScript)
+{
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+    createZeroSectorObjectFile();
+
+    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("BLOCK,NibbleDiskImageTestAllZeroes.sav,0,256,0"));
+    STRCMP_EQUAL("<null>:1: error: BLOCK insertion type isn't supported for this output image type.\n",
+                 printfSpy_GetLastErrorOutput());
+}
+
+TEST(NibbleDiskImage, PassTooFewParametersToProcessScript)
+{
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+    createZeroSectorObjectFile();
+
+    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0"));
+    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS16,objectFilename,objectStartOffset,insertionLength,track,sector\n",
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -697,7 +741,7 @@ TEST(NibbleDiskImage, PassInvalidFilenameToProcessScript)
     createZeroSectorObjectFile();
 
     NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,InvalidFilename.sav,0,256,0,0\n"));
-    STRCMP_EQUAL("filename:1: error: Failed to read 'InvalidFilename.sav' object file.\n",
+    STRCMP_EQUAL("<null>:1: error: Failed to read 'InvalidFilename.sav' object file.\n",
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -707,7 +751,17 @@ TEST(NibbleDiskImage, PassInvalidSectorToProcessScript)
     createZeroSectorObjectFile();
 
     NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0,16\n"));
-    STRCMP_EQUAL("filename:1: error: Invalid object insertion attribute on this line.\n",
+    STRCMP_EQUAL("<null>:1: error: 16 specifies an invalid sector.  Must be 0 - 15.\n",
+                 printfSpy_GetLastErrorOutput());
+}
+
+TEST(NibbleDiskImage, PassInvalidTrackToProcessScript)
+{
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+    createZeroSectorObjectFile();
+
+    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,35,0\n"));
+    STRCMP_EQUAL("<null>:1: error: Write starting at track/sector 35/0 won't fit in output image file.\n",
                  printfSpy_GetLastErrorOutput());
 }
 

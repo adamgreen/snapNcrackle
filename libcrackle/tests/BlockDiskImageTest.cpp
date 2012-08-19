@@ -112,7 +112,7 @@ TEST_GROUP(BlockDiskImage)
         DiskImageInsert insert;
         insert.startOffset = 0;
         insert.length = totalSize;
-        insert.offsetType = DISK_IMAGE_OFFSET_BLOCK;
+        insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
         insert.block = startBlock;
 
         BlockDiskImage_InsertData(m_pDiskImage, pBlockData, &insert);
@@ -203,11 +203,6 @@ TEST_GROUP(BlockDiskImage)
 
 TEST(BlockDiskImage, FailAllAllocationInCreate)
 {
-    MallocFailureInject_FailAllocation(1);
-    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
-    POINTERS_EQUAL(NULL, m_pDiskImage);
-    validateOutOfMemoryExceptionThrown();
-
     static const int allocationsToFail = 3;
     for (int i = 1 ; i <= allocationsToFail ; i++)
     {
@@ -257,14 +252,14 @@ TEST(BlockDiskImage, FailToInsertBlockJustPastEndOfImage)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     writeOnesBlocks(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT, 1);
-    validateInvalidArgumentExceptionThrown();
+    validateExceptionThrown(blockExceedsImageBoundsException);
 }
 
 TEST(BlockDiskImage, FailToInsertBlocksWhichExtendPastEndOfImage)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     writeOnesBlocks(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT-1, 2);
-    validateInvalidArgumentExceptionThrown();
+    validateExceptionThrown(blockExceedsImageBoundsException);
 }
 
 TEST(BlockDiskImage, WriteImage)
@@ -354,7 +349,7 @@ TEST(BlockDiskImage, ReadObjectFileAndWriteToImage)
     DiskImageInsert insert;
     insert.startOffset = 0;
     insert.length = DISK_IMAGE_BLOCK_SIZE;
-    insert.offsetType = DISK_IMAGE_OFFSET_BLOCK;
+    insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
     insert.block = 0;
     BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
     
@@ -373,10 +368,10 @@ TEST(BlockDiskImage, InvalidOffsetTypeForInsertObjectFile)
     DiskImageInsert insert;
     insert.startOffset = 0;
     insert.length = DISK_IMAGE_BLOCK_SIZE;
-    insert.offsetType = DISK_IMAGE_OFFSET_TRACK_SECTOR;
+    insert.offsetType = DISK_IMAGE_INSERTION_RWTS16;
     insert.block = 0;
     BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
-    validateInvalidArgumentExceptionThrown();
+    validateExceptionThrown(invalidInsertionTypeException);
 }
 
 TEST(BlockDiskImage, OutOfBoundsStartingOffsetForInsertObjectFile)
@@ -386,12 +381,12 @@ TEST(BlockDiskImage, OutOfBoundsStartingOffsetForInsertObjectFile)
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
     DiskImageInsert insert;
-    insert.startOffset = 0;
-    insert.length = DISK_IMAGE_BLOCK_SIZE;
-    insert.offsetType = DISK_IMAGE_OFFSET_BLOCK;
-    insert.block = BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT;
+    insert.startOffset = DISK_IMAGE_BLOCK_SIZE;
+    insert.length = 1;
+    insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
+    insert.block = 0;
     BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
-    validateInvalidArgumentExceptionThrown();
+    validateExceptionThrown(invalidSourceOffsetException);
 }
 
 TEST(BlockDiskImage, OutOfBoundsEndingOffsetOnInputObjectFile)
@@ -403,10 +398,10 @@ TEST(BlockDiskImage, OutOfBoundsEndingOffsetOnInputObjectFile)
     DiskImageInsert insert;
     insert.startOffset = 1;
     insert.length = DISK_IMAGE_BLOCK_SIZE;
-    insert.offsetType = DISK_IMAGE_OFFSET_BLOCK;
+    insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
     insert.block = 0;
     BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
-    validateInvalidArgumentExceptionThrown();
+    validateExceptionThrown(invalidLengthException);
 }
 
 TEST(BlockDiskImage, VerifyRoundUpToBlockForInsertObjectFile)
@@ -421,12 +416,27 @@ TEST(BlockDiskImage, VerifyRoundUpToBlockForInsertObjectFile)
     DiskImageInsert insert;
     insert.startOffset = DISK_IMAGE_BLOCK_SIZE;
     insert.length = DISK_IMAGE_BLOCK_SIZE;
-    insert.offsetType = DISK_IMAGE_OFFSET_BLOCK;
+    insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
     insert.block = 0;
     BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
 
     const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
     validateBlocksAreZeroes(pImage, 0, BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT - 1);
+}
+
+TEST(BlockDiskImage, OutOfBoundsBlockForInsertObjectFile)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesBlockObjectFile();
+    BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
+
+    DiskImageInsert insert;
+    insert.startOffset = 0;
+    insert.length = DISK_IMAGE_BLOCK_SIZE;
+    insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
+    insert.block = BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT;
+    BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
+    validateExceptionThrown(blockExceedsImageBoundsException);
 }
 
 TEST(BlockDiskImage, ReadTwoObjectFilesAndOnlyWriteSecondToImage)
@@ -440,7 +450,7 @@ TEST(BlockDiskImage, ReadTwoObjectFilesAndOnlyWriteSecondToImage)
     DiskImageInsert insert;
     insert.startOffset = 0;
     insert.length = DISK_IMAGE_BLOCK_SIZE;
-    insert.offsetType = DISK_IMAGE_OFFSET_BLOCK;
+    insert.offsetType = DISK_IMAGE_INSERTION_BLOCK;
     insert.block = 0;
     BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
     
@@ -498,13 +508,33 @@ TEST(BlockDiskImage, FailTextFileCreateInProcessScript)
     validateOutOfMemoryExceptionThrown();
 }
 
-TEST(BlockDiskImage, PassInvalidScriptLineToProcessScript)
+TEST(BlockDiskImage, PassInvalidBlankLineToProcessScript)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesBlockObjectFile();
+
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("\n"));
+    STRCMP_EQUAL("<null>:1: error: Script line cannot be blank.\n",
+                 printfSpy_GetLastErrorOutput());
+}
+
+TEST(BlockDiskImage, PassInvalidScriptInsertionTokenToProcessScript)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
 
     BlockDiskImage_ProcessScript(m_pDiskImage, copy("foo.bar"));
-    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: BLOCK,objectFilename,objectStartOffset,objectLength,startBlock\n",
+    STRCMP_EQUAL("<null>:1: error: foo.bar isn't a recognized image insertion type of BLOCK or RWTS16.\n",
+                 printfSpy_GetLastErrorOutput());
+}
+
+TEST(BlockDiskImage, PassInvalidBlockTokenCountToProcessScript)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesBlockObjectFile();
+
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512\n"));
+    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: BLOCK,objectFilename,objectStartOffset,insertionLength,block\n",
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -524,7 +554,17 @@ TEST(BlockDiskImage, PassInvalidBlockToProcessScript)
     createOnesBlockObjectFile();
 
     BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,1600\n"));
-    STRCMP_EQUAL("<null>:1: error: Invalid object insertion attribute on this line.\n",
+    STRCMP_EQUAL("<null>:1: error: Write starting at block 1600 won't fit in output image file.\n",
+                 printfSpy_GetLastErrorOutput());
+}
+
+TEST(BlockDiskImage, PassInvalidInsertionTypeToProcessScript)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesBlockObjectFile();
+
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS16,BlockDiskImageTestOnes.sav,0,512,0,0\n"));
+    STRCMP_EQUAL("<null>:1: error: RWTS16 insertion type isn't supported for this output image type.\n",
                  printfSpy_GetLastErrorOutput());
 }
 

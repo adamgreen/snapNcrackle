@@ -21,26 +21,26 @@
 #define DISK_IMAGE_BLOCK_SIZE       (2 * DISK_IMAGE_BYTES_PER_SECTOR)
 
 
-typedef enum DiskImageOffsetType
+typedef enum DiskImageInsertionType
 {
-    DISK_IMAGE_OFFSET_TRACK_SECTOR,
-    DISK_IMAGE_OFFSET_BLOCK
-} DiskImageOffsetType;
+    DISK_IMAGE_INSERTION_RWTS16,
+    DISK_IMAGE_INSERTION_BLOCK
+} DiskImageInsertionType;
 
 
 typedef struct DiskImageInsert
 {
-    DiskImageOffsetType offsetType;
-    unsigned int        startOffset;
-    unsigned int        length;
+    DiskImageInsertionType offsetType;
+    unsigned int           startOffset;
+    unsigned int           length;
     union
     {
         struct
         {
-            unsigned int track;
-            unsigned int sector;
+            unsigned int   track;
+            unsigned int   sector;
         };
-        unsigned int block;
+        unsigned int       block;
     };
 } DiskImageInsert;
 

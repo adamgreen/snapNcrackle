@@ -32,10 +32,10 @@ __throws NibbleDiskImage* NibbleDiskImage_Create(void);
 __throws void             NibbleDiskImage_ProcessScriptFile(NibbleDiskImage* pThis, const char* pScriptFilename);
 __throws void             NibbleDiskImage_ProcessScript(NibbleDiskImage* pThis, char* pScriptText);
 __throws void             NibbleDiskImage_ReadObjectFile(NibbleDiskImage* pThis, const char* pFilename);
-__throws void             NibbleDiskImage_InsertObjectFileAsRWTS16(NibbleDiskImage* pThis, DiskImageInsert* pInsert);
-__throws void             NibbleDiskImage_InsertDataAsRWTS16(NibbleDiskImage*     pThis, 
-                                                             const unsigned char* pData, 
-                                                             DiskImageInsert*     pInsert);
+__throws void             NibbleDiskImage_InsertObjectFile(NibbleDiskImage* pThis, DiskImageInsert* pInsert);
+__throws void             NibbleDiskImage_InsertData(NibbleDiskImage*     pThis, 
+                                                     const unsigned char* pData, 
+                                                     DiskImageInsert*     pInsert);
                                                    
 __throws void             NibbleDiskImage_WriteImage(NibbleDiskImage* pThis, const char* pImageFilename);
          

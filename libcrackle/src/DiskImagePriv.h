@@ -46,18 +46,15 @@ struct DiskImage
     ByteBuffer            image;
     ByteBuffer            object;
     DiskImageScriptEngine script;
+    unsigned int          objectFileLength;
 };
 
 
 __throws DiskImage DiskImage_Init(DiskImageVTable* pVTable, unsigned int imageSize);
          void      DiskImage_Free(DiskImage* pThis);
 
-__throws void      DiskImageScriptEngine_ProcessScriptFile(DiskImageScriptEngine* pThis, 
-                                                           DiskImage*             pDiskImage, 
-                                                           const char*            pScriptFilename);
-__throws void      DiskImageScriptEngine_ProcessScript(DiskImageScriptEngine* pThis, 
-                                                       DiskImage*             pDiskImage,
-                                                       char*                  pScriptText);
+__throws void      DiskImage_ProcessScriptFile(DiskImage* pThis, const char*  pScriptFilename);
+__throws void      DiskImage_ProcessScript(DiskImage* pThis, char* pScriptText);
 
 __throws void      DiskImage_ReadObjectFile(DiskImage* pThis, const char* pFilename);
 __throws void      DiskImage_InsertObjectFile(DiskImage* pThis, DiskImageInsert* pInsert);
