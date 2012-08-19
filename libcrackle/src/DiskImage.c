@@ -76,6 +76,7 @@ static void DiskImageScriptEngine_ProcessScriptFile(DiskImageScriptEngine* pThis
                                                     DiskImage*              pDiskImage, 
                                                     const char*             pScriptFilename);
 static void processScriptFromTextFile(DiskImageScriptEngine* pThis);
+static int isLineAComment(const char* pLineText);
 static void processNextScriptLine(DiskImageScriptEngine* pThis, char* pScriptLine);
 static void processBlockScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields);
 static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields);
@@ -112,10 +113,16 @@ static void processScriptFromTextFile(DiskImageScriptEngine* pThis)
     pThis->lineNumber = 1;
     while ((pNextLine = TextFile_GetNextLine(pThis->pTextFile)) != NULL)
     {
-        processNextScriptLine(pThis, pNextLine);
+        if (!isLineAComment(pNextLine))
+            processNextScriptLine(pThis, pNextLine);
         pThis->lineNumber++;
     }
     closeTextFile(pThis);
+}
+
+static int isLineAComment(const char* pLineText)
+{
+    return pLineText[0] == '#';
 }
 
 static void processNextScriptLine(DiskImageScriptEngine* pThis, char* pScriptLine)

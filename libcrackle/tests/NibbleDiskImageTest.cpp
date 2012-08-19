@@ -672,6 +672,18 @@ TEST(NibbleDiskImage, ProcessOneLineTextScriptWithNoNewLineAtEnd)
     validateRWTS16SectorContainsZeroData(pImage, 0, 0);
 }
 
+TEST(NibbleDiskImage, ProcessOneLineTextScriptWithComment)
+{
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+    createZeroSectorObjectFile();
+
+    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("#RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0,0"));
+
+    const unsigned char* pImage = NibbleDiskImage_GetImagePointer(m_pNibbleDiskImage);
+    validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 15);
+    STRCMP_EQUAL("", printfSpy_GetLastErrorOutput());
+}
+
 TEST(NibbleDiskImage, ProcessTwoLineTextScript)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
