@@ -13,20 +13,22 @@
 #include <stdio.h>
 #include "CrackleCommandLine.h"
 #include "NibbleDiskImage.h"
+#include "BlockDiskImage.h"
 
 
+static DiskImage* allocateDiskImageObject(CrackleCommandLine* pCommandLine);
 int main(int argc, const char** argv)
 {
     int                returnValue = 0;
-    NibbleDiskImage*   pDiskImage = NULL;
+    DiskImage*         pDiskImage = NULL;
     CrackleCommandLine commandLine;
 
     __try
     {
         __throwing_func( commandLine = CrackleCommandLine_Init(argc-1, argv+1) );
-        __throwing_func( pDiskImage = NibbleDiskImage_Create() );
-        __throwing_func( NibbleDiskImage_ProcessScriptFile(pDiskImage, commandLine.pScriptFilename) );
-        __throwing_func( NibbleDiskImage_WriteImage(pDiskImage, commandLine.pOutputImageFilename) );
+        __throwing_func( pDiskImage = allocateDiskImageObject(&commandLine) );
+        __throwing_func( DiskImage_ProcessScriptFile(pDiskImage, commandLine.pScriptFilename) );
+        __throwing_func( DiskImage_WriteImage(pDiskImage, commandLine.pOutputImageFilename) );
         printf("%s image built successfully.\n", commandLine.pOutputImageFilename);
     }
     __catch
@@ -35,7 +37,17 @@ int main(int argc, const char** argv)
         returnValue = 1;
     }
     
-    NibbleDiskImage_Free(pDiskImage);
+    DiskImage_Free(pDiskImage);
     
     return returnValue;
+}
+
+static DiskImage* allocateDiskImageObject(CrackleCommandLine* pCommandLine)
+{
+    if (pCommandLine->imageFormat == FORMAT_NIB_5_25)
+        return (DiskImage*) NibbleDiskImage_Create();
+    else if (pCommandLine->imageFormat == FORMAT_2MG_3_5)
+        return (DiskImage*) BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    else
+        return NULL;
 }
