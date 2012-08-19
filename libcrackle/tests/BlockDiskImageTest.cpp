@@ -50,7 +50,7 @@ TEST_GROUP(BlockDiskImage)
         LONGS_EQUAL(noException, getExceptionCode());
         MallocFailureInject_Restore();
         printfSpy_Unhook();
-        BlockDiskImage_Free(m_pDiskImage);
+        DiskImage_Free((DiskImage*)m_pDiskImage);
         if (m_pFile)
             fclose(m_pFile);
         free(m_pImageOnDisk);

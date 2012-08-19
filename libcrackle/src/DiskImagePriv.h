@@ -21,6 +21,7 @@
 
 typedef struct DiskImageVTable
 {
+    void (*freeObject)(void *pThis);
     void (*insertData)(void* pThis, const unsigned char* pData, DiskImageInsert* pInsert);
 
 } DiskImageVTable;

@@ -26,13 +26,12 @@ __throws DiskImage DiskImage_Init(DiskImageVTable* pVTable, unsigned int imageSi
     __try
     {
         memset(&diskImage, 0, sizeof(diskImage));
+        diskImage.pVTable = pVTable;
         __throwing_func( ByteBuffer_Allocate(&diskImage.image, imageSize) );
         __throwing_func( DiskImageScriptEngine_Init(&diskImage.script) );
-        diskImage.pVTable = pVTable;
     }
     __catch
     {
-        DiskImage_Free(&diskImage);
         __rethrow_and_return(diskImage);
     }
     
@@ -51,10 +50,14 @@ static void DiskImageScriptEngine_Init(DiskImageScriptEngine* pThis)
 static void DiskImageScriptEngine_Free(DiskImageScriptEngine* pThis);
 void DiskImage_Free(DiskImage* pThis)
 {
+    if (!pThis)
+        return;
+    
+    pThis->pVTable->freeObject(pThis);
     ByteBuffer_Free(&pThis->object);
     ByteBuffer_Free(&pThis->image);
     DiskImageScriptEngine_Free(&pThis->script);
-    memset(pThis, 0, sizeof(*pThis));
+    free(pThis);
 }
 
 static void DiskImageScriptEngine_Free(DiskImageScriptEngine* pThis)

@@ -26,9 +26,11 @@ struct BlockDiskImage
 };
 
 
+static void freeObject(void* pThis);
 static void insertData(void* pThis, const unsigned char* pData, DiskImageInsert* pInsert);
 struct DiskImageVTable BlockDiskImageVTable = 
 { 
+    freeObject,
     insertData 
 };
 
@@ -44,7 +46,7 @@ __throws BlockDiskImage* BlockDiskImage_Create(unsigned int blockCount)
     }
     __catch
     {
-        BlockDiskImage_Free(pThis);
+        DiskImage_Free(&pThis->super);
         __rethrow_and_return(NULL);
     }
         
@@ -52,12 +54,8 @@ __throws BlockDiskImage* BlockDiskImage_Create(unsigned int blockCount)
 }
 
 
-void BlockDiskImage_Free(BlockDiskImage* pThis)
+static void freeObject(void* pThis)
 {
-    if (!pThis)
-        return;
-    DiskImage_Free(&pThis->super);
-    free(pThis);
 }
 
 

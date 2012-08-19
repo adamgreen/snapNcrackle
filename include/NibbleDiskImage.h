@@ -27,7 +27,6 @@ typedef struct NibbleDiskImage NibbleDiskImage;
 
 
 __throws NibbleDiskImage* NibbleDiskImage_Create(void);
-         void             NibbleDiskImage_Free(NibbleDiskImage* pThis);
 
 __throws void             NibbleDiskImage_ProcessScriptFile(NibbleDiskImage* pThis, const char* pScriptFilename);
 __throws void             NibbleDiskImage_ProcessScript(NibbleDiskImage* pThis, char* pScriptText);

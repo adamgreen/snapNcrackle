@@ -25,7 +25,6 @@ typedef struct BlockDiskImage BlockDiskImage;
 
 
 __throws BlockDiskImage* BlockDiskImage_Create(unsigned int blockCount);
-         void            BlockDiskImage_Free(BlockDiskImage* pThis);
 
 __throws void            BlockDiskImage_ProcessScriptFile(BlockDiskImage* pThis, const char* pScriptFilename);
 __throws void            BlockDiskImage_ProcessScript(BlockDiskImage* pThis, char* pScriptText);

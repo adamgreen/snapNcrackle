@@ -34,9 +34,11 @@ struct NibbleDiskImage
 };
 
 
+static void freeObject(void* pThis);
 static void insertData(void* pThis, const unsigned char* pData, DiskImageInsert* pInsert);
 struct DiskImageVTable NibbleDiskImageVTable = 
 { 
+    freeObject,
     insertData 
 };
 
@@ -52,7 +54,7 @@ __throws NibbleDiskImage* NibbleDiskImage_Create(void)
     }
     __catch
     {
-        NibbleDiskImage_Free(pThis);
+        DiskImage_Free(&pThis->super);
         __rethrow_and_return(NULL);
     }
         
@@ -60,12 +62,8 @@ __throws NibbleDiskImage* NibbleDiskImage_Create(void)
 }
 
 
-void NibbleDiskImage_Free(NibbleDiskImage* pThis)
+static void freeObject(void* pThis)
 {
-    if (!pThis)
-        return;
-    DiskImage_Free(&pThis->super);
-    free(pThis);
 }
 
 

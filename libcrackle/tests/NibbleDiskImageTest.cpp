@@ -53,7 +53,7 @@ TEST_GROUP(NibbleDiskImage)
         LONGS_EQUAL(noException, getExceptionCode());
         MallocFailureInject_Restore();
         printfSpy_Unhook();
-        NibbleDiskImage_Free(m_pNibbleDiskImage);
+        DiskImage_Free((DiskImage*)m_pNibbleDiskImage);
         if (m_pFile)
             fclose(m_pFile);
         free(m_pImageOnDisk);
