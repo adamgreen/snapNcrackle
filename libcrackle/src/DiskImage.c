@@ -213,7 +213,7 @@ static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCo
     {
         __throwing_func( DiskImage_ReadObjectFile(pThis->pDiskImage, ppFields[1]) );
         pThis->insert.sourceOffset = strtoul(ppFields[2], NULL, 0);
-        pThis->insert.length = strtoul(ppFields[3], NULL, 0);
+        pThis->insert.length = parseLengthField(pThis, ppFields[3]);
         pThis->insert.type = DISK_IMAGE_INSERTION_RWTS16;
         pThis->insert.track = strtoul(ppFields[4], NULL, 0);
         pThis->insert.sector = strtoul(ppFields[5], NULL, 0);
