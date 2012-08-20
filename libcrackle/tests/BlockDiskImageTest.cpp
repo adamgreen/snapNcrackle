@@ -566,6 +566,19 @@ TEST(BlockDiskImage, ProcessTwoLineTextScript)
     validateBlocksAreOnes(pImage, BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT - 1, BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT - 1);
 }
 
+TEST(BlockDiskImage, ProcessTwoLineTextScriptUsingAsteriskToStartFromLastInsertionOr0OnFirstLine)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesBlockObjectFile();
+
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,255,*\n"
+                                                    "BLOCK,BlockDiskImageTestOnes.sav,0,257,*\n"));
+
+    const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
+    validateBlocksAreZeroes(pImage, 1, BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT - 1);
+    validateBlocksAreOnes(pImage, 0, 0);
+}
+
 TEST(BlockDiskImage, FailTextFileCreateInProcessScript)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);

@@ -35,6 +35,8 @@ typedef struct DiskImageScriptEngine
     const char*     pScriptFilename;
     DiskImageInsert insert;
     unsigned int    lineNumber;
+    unsigned int    lastBlock;
+    unsigned int    lastLength;
 } DiskImageScriptEngine;
 
 

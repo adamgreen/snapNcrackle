@@ -80,7 +80,11 @@ static int isLineAComment(const char* pLineText);
 static void processNextScriptLine(DiskImageScriptEngine* pThis, char* pScriptLine);
 static void processBlockScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields);
 static unsigned int parseLengthField(DiskImageScriptEngine* pThis, const char* pLengthField);
+static void parseBlockRelatedFieldsAndSetInsertFields(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields);
 static int isAsterisk(const char* pString);
+static void setBlockInsertFieldsBasedOnLastInsertion(DiskImageScriptEngine* pThis);
+static void setBlockInsertFieldsBaseOnScriptFields(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields);
+static void rememberLastInsertionInformation(DiskImageScriptEngine* pThis);
 static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields);
 static void reportScriptLineException(DiskImageScriptEngine* pThis);
 static void closeTextFile(DiskImageScriptEngine* pThis);
@@ -173,11 +177,8 @@ static void processBlockScriptLine(DiskImageScriptEngine* pThis, size_t fieldCou
         pThis->insert.sourceOffset = strtoul(ppFields[2], NULL, 0);
         pThis->insert.length = parseLengthField(pThis, ppFields[3]);
         pThis->insert.type = DISK_IMAGE_INSERTION_BLOCK;
-        pThis->insert.block = strtoul(ppFields[4], NULL, 0);
-        if (fieldCount > 5)
-            pThis->insert.intraBlockOffset = strtoul(ppFields[5], NULL, 0);
-        else
-            pThis->insert.intraBlockOffset = 0;
+        parseBlockRelatedFieldsAndSetInsertFields(pThis, fieldCount, ppFields);
+        rememberLastInsertionInformation(pThis);
         __throwing_func( DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert) );
     }
     __catch
@@ -194,9 +195,41 @@ static unsigned int parseLengthField(DiskImageScriptEngine* pThis, const char* p
         return strtoul(pLengthField, NULL, 0);
 }
 
+static void parseBlockRelatedFieldsAndSetInsertFields(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields)
+{
+    const char* pBlockField = ppFields[4];
+
+    if (isAsterisk(pBlockField))
+        setBlockInsertFieldsBasedOnLastInsertion(pThis);
+    else
+        setBlockInsertFieldsBaseOnScriptFields(pThis, fieldCount, ppFields);
+}
+
 static int isAsterisk(const char* pString)
 {
     return 0 == strcmp(pString, "*");
+}
+
+static void setBlockInsertFieldsBasedOnLastInsertion(DiskImageScriptEngine* pThis)
+{
+    unsigned int lastOffset = pThis->lastBlock * DISK_IMAGE_BLOCK_SIZE + pThis->lastLength;
+    pThis->insert.block = lastOffset / DISK_IMAGE_BLOCK_SIZE;
+    pThis->insert.intraBlockOffset = lastOffset % DISK_IMAGE_BLOCK_SIZE;
+}
+
+static void setBlockInsertFieldsBaseOnScriptFields(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields)
+{
+    pThis->insert.block = strtoul(ppFields[4], NULL, 0);
+    if (fieldCount > 5)
+        pThis->insert.intraBlockOffset = strtoul(ppFields[5], NULL, 0);
+    else
+        pThis->insert.intraBlockOffset = 0;
+}
+
+static void rememberLastInsertionInformation(DiskImageScriptEngine* pThis)
+{
+    pThis->lastBlock = pThis->insert.block;
+    pThis->lastLength = pThis->insert.length;
 }
 
 static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields)
