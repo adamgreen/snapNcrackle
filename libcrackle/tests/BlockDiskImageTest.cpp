@@ -490,12 +490,12 @@ TEST(BlockDiskImage, ReadTwoObjectFilesAndOnlyWriteSecondToImage)
     validateBlocksAreOnes(pImage, 0, 0);
 }
 
-TEST(BlockDiskImage, ProcessOneLineTextScript)
+TEST(BlockDiskImage, ProcessOneLineTextScriptWithAsteriskForLength)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,0\n"));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,*,0\n"));
 
     const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
     validateBlocksAreZeroes(pImage, 1, BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT - 1);
