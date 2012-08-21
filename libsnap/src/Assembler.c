@@ -210,6 +210,7 @@ static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
 static void handleORG(Assembler* pThis);
 static void handleSAV(Assembler* pThis);
+static void handleDB(Assembler* pThis);
 static void rememberLabel(Assembler* pThis);
 static int isLabelToRemember(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
@@ -293,6 +294,7 @@ static void firstPassAssembleLine(Assembler* pThis)
         /* Assembler Directives */
         {"=",    handleEQU,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"ASC",  handleASC, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"DB",   handleDB, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"DEND", handleDEND, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"DS",   handleDS,   _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"DUM",  handleDUM,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
@@ -304,6 +306,8 @@ static void firstPassAssembleLine(Assembler* pThis)
         
         /* 6502 Instructions */
 //        {"ASL", NULL, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"ADC", NULL, 0x69, 0x6D, 0x65, _xXX, 0x61, 0x71, 0x75, _xXX, 0x7D, 0x79, _xXX, _xXX, _xXX, 0x72},
+        {"AND", NULL, 0x29, 0x2D, 0x25, _xXX, 0x21, 0x31, 0x35, _xXX, 0x3D, 0x39, _xXX, _xXX, _xXX, 0x32},
         {"ASL", NULL, _xXX, 0x0E, 0x06, 0x0A, _xXX, _xXX, 0x16, _xXX, 0x1E, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"BCS", NULL, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, 0xB0, _xXX, _xXX, _xXX},
         {"BEQ", NULL, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, 0xF0, _xXX, _xXX, _xXX},
@@ -325,10 +329,12 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"LSR", NULL, _xXX, 0x4E, 0x46, 0x4A, _xXX, _xXX, 0x56, _xXX, 0x5E, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"ORA", NULL, 0x09, 0x0D, 0x05, _xXX, 0x01, 0x11, 0x15, _xXX, 0x1D, 0x19, _xXX, _xXX, _xXX, 0x12},
         {"RTS", NULL, _xXX, _xXX, _xXX, 0x60, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"SEC", NULL, _xXX, _xXX, _xXX, 0x38, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"STA", NULL, _xXX, 0x8D, 0x85, _xXX, 0x81, 0x91, 0x95, _xXX, 0x9D, 0x99, _xXX, _xXX, _xXX, 0x92},
         {"STX", NULL, _xXX, 0x8E, 0x86, _xXX, _xXX, _xXX, _xXX, 0x96, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"STY", NULL, _xXX, 0x8C, 0x84, _xXX, _xXX, _xXX, 0x94, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"TXA", NULL, _xXX, _xXX, _xXX, 0x8A, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"TXS", NULL, _xXX, _xXX, _xXX, 0x9A, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     };
     size_t i;
     
@@ -964,6 +970,33 @@ static void handleSAV(Assembler* pThis)
     {
         LOG_ERROR(pThis, "Failed to queue up save to '%s'.", pThis->parsedLine.pOperands);
         __nothrow;
+    }
+}
+
+static void handleDB(Assembler* pThis)
+{
+    size_t      i = 0;
+    SizedString nextOperands = SizedString_InitFromString(pThis->parsedLine.pOperands);
+
+    while (nextOperands.stringLength != 0)
+    {
+        Expression  expression;
+        SizedString beforeComma;
+        SizedString afterComma;
+
+        __try
+        {
+            SizedString_SplitString(&nextOperands, ',', &beforeComma, &afterComma);
+            __throwing_func( expression = ExpressionEvalSizedString(pThis, &beforeComma) );
+            __throwing_func( reallocLineInfoMachineCodeBytes(pThis, i + 1) );
+            pThis->pLineInfo->pMachineCode[i++] = (unsigned char)expression.value;
+            nextOperands = afterComma;
+        }
+        __catch
+        {
+            reallocLineInfoMachineCodeBytes(pThis, 0);
+            __nothrow;
+        }
     }
 }
 

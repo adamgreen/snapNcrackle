@@ -1347,6 +1347,44 @@ TEST(Assembler, SAV_DirectiveOnSmallObjectFile)
     validateObjectFileContains(0x800, "\x00\xff", 2);
 }
 
+TEST(Assembler, DB_DirectiveWithSingleValue)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" db $80\n"));
+    runAssemblerAndValidateOutputIs("8000: 80           1  db $80\n");
+}
+
+TEST(Assembler, DB_DirectiveWithSingleExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("Value EQU $fe\n"
+                                                   " db Value+1\n"));
+    runAssemblerAndValidateLastLineIs("8000: FF           2  db Value+1\n", 2);
+}
+
+TEST(Assembler, DB_DirectiveWithTwoExpressions)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" db 7,$A9\n"));
+    runAssemblerAndValidateOutputIs("8000: 07 A9        1  db 7,$A9\n");
+}
+
+TEST(Assembler, DB_DirectiveWithThreeExpressions)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" db 2,0,1\n"));
+    runAssemblerAndValidateOutputIs("8000: 02 00 01     1  db 2,0,1\n");
+}
+
+TEST(Assembler, DB_DirectiveWithImmediateExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" db #$ff\n"));
+    runAssemblerAndValidateOutputIs("8000: FF           1  db #$ff\n");
+}
+
+TEST(Assembler, DB_DirectiveWithInvalidExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" db (800\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '(800' expression.\n",
+                                   "    :              1  db (800\n");
+}
+
 TEST(Assembler, VerifyObjectFileWithForwardReferenceLabel)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
@@ -1584,6 +1622,16 @@ TEST(Assembler, BPL_InvalidAddressingModes)
     LONGS_EQUAL(11, Assembler_GetErrorCount(m_pAssembler));
 }
 
+TEST(Assembler, ADC_TableDrivenTest)
+{
+    test6502Instruction("adc", "69,6D,65,XX,61,71,75,^79,7D,79,XX,XX,XX,72");
+}
+
+TEST(Assembler, AND_TableDrivenTest)
+{
+    test6502Instruction("and", "29,2D,25,XX,21,31,35,^39,3D,39,XX,XX,XX,32");
+}
+
 TEST(Assembler, ASL_TableDrivenTest)
 {
     test6502Instruction("asl", "XX,0E,06,0A,XX,XX,16,XX,1E,XX,XX,XX,XX,XX");
@@ -1664,6 +1712,11 @@ TEST(Assembler, RTS_TableDrivenTest)
     test6502Instruction("rts", "XX,XX,XX,60,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
+TEST(Assembler, SEC_TableDrivenTest)
+{
+    test6502Instruction("sec", "XX,XX,XX,38,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
 TEST(Assembler, STA_TableDrivenTest)
 {
     test6502Instruction("sta", "XX,8D,85,XX,81,91,95,^99,9D,99,XX,XX,XX,92");
@@ -1682,4 +1735,9 @@ TEST(Assembler, STY_TableDrivenTest)
 TEST(Assembler, TXA_TableDrivenTest)
 {
     test6502Instruction("txa", "XX,XX,XX,8A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, TXS_TableDrivenTest)
+{
+    test6502Instruction("txs", "XX,XX,XX,9A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
