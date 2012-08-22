@@ -198,12 +198,14 @@ static void handleInvalidOperator(Assembler* pThis);
 static void handleASC(Assembler* pThis);
 static const char* fullOperandStringWithSpaces(Assembler* pThis);
 static void handleDEND(Assembler* pThis);
-static Expression getAbsoluteExpression(Assembler* pThis);
+static Expression getAbsoluteExpression(Assembler* pThis, SizedString* pOperands);
 static int isTypeAbsolute(Expression* pExpression);
 static void handleDUM(Assembler* pThis);
 static int isAlreadyInDUMSection(Assembler* pThis);
 static void handleDS(Assembler* pThis);
-static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount);
+static Expression getCountExpression(Assembler* pThis, SizedString* pString);
+static Expression getBytesLeftInPage(Assembler* pThis);
+static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount, unsigned char fillValue);
 static void handleHEX(Assembler* pThis);
 static unsigned char getNextHexByte(const char* pStart, const char** ppNext);
 static unsigned char hexCharToNibble(char value);
@@ -848,10 +850,11 @@ static void handleDEND(Assembler* pThis)
 
 static void handleDUM(Assembler* pThis)
 {
-    Expression expression;
+    SizedString operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
+    Expression  expression;
     
     __try
-        expression = getAbsoluteExpression(pThis);
+        expression = getAbsoluteExpression(pThis, &operands);
     __catch
         __nothrow;
 
@@ -861,16 +864,16 @@ static void handleDUM(Assembler* pThis)
     pThis->pCurrentBuffer = pThis->pDummyBuffer;
 }
 
-static Expression getAbsoluteExpression(Assembler* pThis)
+static Expression getAbsoluteExpression(Assembler* pThis, SizedString* pOperands)
 {
     Expression expression;
     
     __try
     {
-        __throwing_func( expression = ExpressionEval(pThis, pThis->parsedLine.pOperands) );
+        __throwing_func( expression = ExpressionEvalSizedString(pThis, pOperands) );
         if (!isTypeAbsolute(&expression))
         {
-            LOG_ERROR(pThis, "'%s' doesn't specify an absolute address.", pThis->parsedLine.pOperands);
+            LOG_ERROR(pThis, "'%.*s' doesn't specify an absolute address.", pOperands->stringLength, pOperands->pString);
             __throw_and_return(invalidArgumentException, expression);
         }
     }
@@ -894,23 +897,60 @@ static int isAlreadyInDUMSection(Assembler* pThis)
 
 static void handleDS(Assembler* pThis)
 {
-    Expression expression;
+    SizedString   operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
+    SizedString   beforeComma;
+    SizedString   afterComma;
+    Expression    countExpression;
+    Expression    fillExpression;
     
+    memset(&fillExpression, 0, sizeof(fillExpression));
+    SizedString_SplitString(&operands, ',', &beforeComma, &afterComma);
     __try
-        expression = getAbsoluteExpression(pThis);
+    {
+        __throwing_func( countExpression = getCountExpression(pThis, &beforeComma) );
+        if (afterComma.stringLength > 0)
+            __throwing_func( fillExpression = getAbsoluteExpression(pThis, &afterComma) );
+    }
     __catch
+    {
         __nothrow;
+    }
 
-    saveDSInfoInLineInfo(pThis, expression.value);
+    saveDSInfoInLineInfo(pThis, countExpression.value, (unsigned char)fillExpression.value);
 }
 
-static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount)
+static Expression getCountExpression(Assembler* pThis, SizedString* pString)
+{
+    Expression countExpression;
+    
+    memset(&countExpression, 0, sizeof(countExpression));
+    if (0 == SizedString_strcmp(pString, "\\"))
+        return getBytesLeftInPage(pThis);
+    else
+        return getAbsoluteExpression(pThis, pString);
+}
+
+static Expression getBytesLeftInPage(Assembler* pThis)
+{
+    Expression countExpression;
+    memset(&countExpression, 0, sizeof(countExpression));
+    countExpression.type = TYPE_ABSOLUTE;
+    
+    if (isMachineCodeAlreadyAllocatedFromForwardReference(pThis))
+        countExpression.value = pThis->pLineInfo->machineCodeSize;
+    else
+        countExpression.value = ((pThis->programCounter & 255) == 0) ? 0 : 256 - (pThis->programCounter & 255);
+
+    return countExpression;
+}
+
+static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount, unsigned char fillValue)
 {
     __try
         allocateLineInfoMachineCodeBytes(pThis, repeatCount);
     __catch
         __nothrow;
-    memset(pThis->pLineInfo->pMachineCode, 0, repeatCount);
+    memset(pThis->pLineInfo->pMachineCode, fillValue, repeatCount);
 }
 
 static void handleHEX(Assembler* pThis)
@@ -993,11 +1033,12 @@ static void logHexParseError(Assembler* pThis)
 
 static void handleORG(Assembler* pThis)
 {
-    Expression expression;
+    SizedString operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
+    Expression  expression;
     
     __try
     {
-        __throwing_func( expression = getAbsoluteExpression(pThis) );
+        __throwing_func( expression = getAbsoluteExpression(pThis, &operands) );
         setOrgInAssemblerAndBinaryBufferModules(pThis, expression.value);
     }
     __catch

@@ -1307,18 +1307,38 @@ TEST(Assembler, DS_DirectiveWithRepeatValueGreaterThan32)
                                               "802A: FF           2  hex ff\n", 15);
 }
 
-TEST(Assembler, DS_DirectiveWithBackSlashUnsupported)
+TEST(Assembler, DS_DirectiveWithBackSlashWhenAlreadyOnPageBoundary)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" ds \\\n"));
-    runAssemblerAndValidateFailure("filename:1: error: The '\\' label is undefined.\n",
-                                   "    :              1  ds \\\n");
+    runAssemblerAndValidateOutputIs("    :              1  ds \\\n");
 }
 
-TEST(Assembler, DS_DirectiveWithSecondExpressionToSpecifyFillValueUnsupported)
+TEST(Assembler, DS_DirectiveWithBackSlashWhenOneByteFromPageBoundary)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds 255\n"
+                                                   " ds \\,$ff\n"));
+    runAssemblerAndValidateLastLineIs("80FF: FF           2  ds \\,$ff\n", 86);
+}
+
+TEST(Assembler, DS_DirectiveWithSecondExpressionToSpecifyFillValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" ds 2,$ff\n"));
-    runAssemblerAndValidateFailure("filename:1: error: ',' is unexpected operator.\n",
-                                   "    :              1  ds 2,$ff\n");
+    runAssemblerAndValidateOutputIs("8000: FF FF        1  ds 2,$ff\n");
+}
+
+TEST(Assembler, DS_DirectiveWithInvalidExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds ($800\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '($800' expression.\n",
+                                   "    :              1  ds ($800\n");
+}
+
+TEST(Assembler, DS_DirectiveWithForwardReference)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds \\,Fill\n"
+                                                   "Fill equ $ff\n"));
+    runAssemblerAndValidateOutputIsTwoLinesOf("    :              1  ds \\,Fill\n",
+                                              "    :    =00FF     2 Fill equ $ff\n");
 }
 
 TEST(Assembler, FailBinaryBufferAllocationInDSDirective)
