@@ -185,6 +185,16 @@ TEST(SymbolTable, AttemptToFindSizedNonExistantItem)
     POINTERS_EQUAL(NULL, pSymbol);
 }
 
+TEST(SymbolTable, AttemptToFindStringWhichIsPrefixToExistingKey)
+{
+    const Symbol* pSymbol = NULL;
+    
+    m_pSymbolTable = SymbolTable_Create(1);
+    SymbolTable_Add(m_pSymbolTable, "JumpTable");
+    pSymbol = SymbolTable_Find(m_pSymbolTable, "Jump");
+    POINTERS_EQUAL(NULL, pSymbol);
+}
+
 TEST(SymbolTable, FindSizedItemWhenMultipleBuckets)
 {
     const Symbol* pSymbol = NULL;

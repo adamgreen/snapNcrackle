@@ -218,7 +218,7 @@ static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey, size_t keyLen
         
     while (pCurr)
     {
-        if (0 == strncmp(pKey, pCurr->pKey, keyLength))
+        if (strlen(pCurr->pKey) == keyLength && 0 == strncmp(pKey, pCurr->pKey, keyLength))
             return pCurr;
             
         pCurr = pCurr->pNext;
