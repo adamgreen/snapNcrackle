@@ -935,11 +935,7 @@ static Expression getBytesLeftInPage(Assembler* pThis)
     Expression countExpression;
     memset(&countExpression, 0, sizeof(countExpression));
     countExpression.type = TYPE_ABSOLUTE;
-    
-    if (isMachineCodeAlreadyAllocatedFromForwardReference(pThis))
-        countExpression.value = pThis->pLineInfo->machineCodeSize;
-    else
-        countExpression.value = ((pThis->programCounter & 255) == 0) ? 0 : 256 - (pThis->programCounter & 255);
+    countExpression.value = ((pThis->programCounter & 255) == 0) ? 0 : 256 - (pThis->programCounter & 255);
 
     return countExpression;
 }
