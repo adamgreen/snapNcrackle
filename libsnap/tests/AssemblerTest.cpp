@@ -1412,6 +1412,12 @@ TEST(Assembler, DB_DirectiveWithInvalidExpression)
                                    "    :              1  db (800\n");
 }
 
+TEST(Assembler, TR_DirectiveIsIgnored)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" tr on\n"));
+    runAssemblerAndValidateOutputIs("    :              1  tr on\n");
+}
+
 TEST(Assembler, VerifyObjectFileWithForwardReferenceLabel)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"

@@ -303,6 +303,7 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"HEX",  handleHEX,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"ORG",  handleORG,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"SAV",  handleSAV,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"TR",  ignoreOperator, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         
         /* 6502 Instructions */
         {"ADC", NULL, 0x69, 0x6D, 0x65, _xXX, 0x61, 0x71, 0x75, _xXX, 0x7D, 0x79, _xXX, _xXX, _xXX, 0x72},
@@ -370,7 +371,7 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"TSX", NULL, _xXX, _xXX, _xXX, 0xBA, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"TXA", NULL, _xXX, _xXX, _xXX, 0x8A, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"TXS", NULL, _xXX, _xXX, _xXX, 0x9A, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
-        {"TYA", NULL, _xXX, _xXX, _xXX, 0x98, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"TYA", NULL, _xXX, _xXX, _xXX, 0x98, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX}
     };
     size_t i;
     
