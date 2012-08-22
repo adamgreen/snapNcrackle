@@ -611,6 +611,33 @@ TEST_GROUP(Assembler)
         fseek(pFile, 0, SEEK_SET);
         return size;
     }
+    
+    void test6502RelativeBranchInstruction(const char* pInstruction, unsigned char opcode)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+
+        sprintf(testString, " %s *+129\n", pInstruction);
+        sprintf(expectedListOutput, "8000: %02X 7F        1 %s", opcode, testString);
+        runAssembler(testString);
+        validateSuccessfulOutput(expectedListOutput);
+        
+        m_isInvalidMode = TRUE;
+        m_expectedOpcode = 0x00;
+        m_isZeroPageTreatedAsAbsolute = FALSE;
+        testImmediateAddressing(pInstruction);
+        testImpliedAddressing(pInstruction);
+        testZeroPageIndexedIndirectAddressing(pInstruction);
+        testIndirectIndexedAddressing(pInstruction);
+        testZeroPageIndexedXAddressing(pInstruction);
+        testZeroPageIndexedYAddressing(pInstruction);
+        testAbsoluteIndexedXAddressing(pInstruction);
+        testAbsoluteIndexedYAddressing(pInstruction);
+        testRelativeAddressing(pInstruction);
+        testAbsoluteIndirectAddressing(pInstruction);
+        testAbsoluteIndexedIndirectAddressing(pInstruction);
+        testZeroPageIndirectAddressing(pInstruction);
+    }
 };
 
 
@@ -1467,28 +1494,7 @@ TEST(Assembler, STAZeroPageAbsoluteViaLabel)
     runAssemblerAndValidateLastLineIs("0002: 85 00        3  sta entry\n", 3);
 }
 
-TEST(Assembler, BCS_ValidAddressingMode)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" bcs *+129\n"));
-    runAssemblerAndValidateOutputIs("8000: B0 7F        1  bcs *+129\n");
-}
 
-TEST(Assembler, BCS_InvalidAddressingModes)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" bcs #1\n"
-                                                   " bcs\n"
-                                                   " bcs ($ff,x)\n"
-                                                   " bcs ($ff),y\n"
-                                                   " bcs $ff,x\n"
-                                                   " bcs $ff,y\n"
-                                                   " bcs $100,x\n"
-                                                   " bcs $100,y\n"
-                                                   " bcs ($100)\n"
-                                                   " bcs ($100,x)\n"
-                                                   " bcs ($ff)\n"));
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(11, Assembler_GetErrorCount(m_pAssembler));
-}
 
 TEST(Assembler, BEQ_ZeroPageMaxNegativeTarget)
 {
@@ -1536,91 +1542,7 @@ TEST(Assembler, BEQ_ForwardLabelReference)
                                               "    :              3 label\n", 3);
 }
 
-TEST(Assembler, BEQ_InvalidAddressingModes)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" beq #1\n"
-                                                   " beq\n"
-                                                   " beq ($ff,x)\n"
-                                                   " beq ($ff),y\n"
-                                                   " beq $ff,x\n"
-                                                   " beq $ff,y\n"
-                                                   " beq $100,x\n"
-                                                   " beq $100,y\n"
-                                                   " beq ($100)\n"
-                                                   " beq ($100,x)\n"
-                                                   " beq ($ff)\n"));
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(11, Assembler_GetErrorCount(m_pAssembler));
-}
 
-TEST(Assembler, BMI_ValidAddressingMode)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" bmi *+129\n"));
-    runAssemblerAndValidateOutputIs("8000: 30 7F        1  bmi *+129\n");
-}
-
-TEST(Assembler, BMI_InvalidAddressingModes)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" bmi #1\n"
-                                                   " bmi\n"
-                                                   " bmi ($ff,x)\n"
-                                                   " bmi ($ff),y\n"
-                                                   " bmi $ff,x\n"
-                                                   " bmi $ff,y\n"
-                                                   " bmi $100,x\n"
-                                                   " bmi $100,y\n"
-                                                   " bmi ($100)\n"
-                                                   " bmi ($100,x)\n"
-                                                   " bmi ($ff)\n"));
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(11, Assembler_GetErrorCount(m_pAssembler));
-}
-
-TEST(Assembler, BNE_ValidAddressingMode)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" bne *+129\n"));
-    runAssemblerAndValidateOutputIs("8000: D0 7F        1  bne *+129\n");
-}
-
-TEST(Assembler, BNE_InvalidAddressingModes)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" bne #1\n"
-                                                   " bne\n"
-                                                   " bne ($ff,x)\n"
-                                                   " bne ($ff),y\n"
-                                                   " bne $ff,x\n"
-                                                   " bne $ff,y\n"
-                                                   " bne $100,x\n"
-                                                   " bne $100,y\n"
-                                                   " bne ($100)\n"
-                                                   " bne ($100,x)\n"
-                                                   " bne ($ff)\n"));
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(11, Assembler_GetErrorCount(m_pAssembler));
-}
-
-TEST(Assembler, BPL_ValidAddressingMode)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" bpl *+129\n"));
-    runAssemblerAndValidateOutputIs("8000: 10 7F        1  bpl *+129\n");
-}
-
-TEST(Assembler, BPL_InvalidAddressingModes)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" bpl #1\n"
-                                                   " bpl\n"
-                                                   " bpl ($ff,x)\n"
-                                                   " bpl ($ff),y\n"
-                                                   " bpl $ff,x\n"
-                                                   " bpl $ff,y\n"
-                                                   " bpl $100,x\n"
-                                                   " bpl $100,y\n"
-                                                   " bpl ($100)\n"
-                                                   " bpl ($100,x)\n"
-                                                   " bpl ($ff)\n"));
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(11, Assembler_GetErrorCount(m_pAssembler));
-}
 
 TEST(Assembler, ADC_TableDrivenTest)
 {
@@ -1637,9 +1559,59 @@ TEST(Assembler, ASL_TableDrivenTest)
     test6502Instruction("asl", "XX,0E,06,0A,XX,XX,16,XX,1E,XX,XX,XX,XX,XX");
 }
 
+TEST(Assembler, BCC_AllAddressingMode)
+{
+    test6502RelativeBranchInstruction("bcc", 0x90);
+}
+
+TEST(Assembler, BCS_AllAddressingMode)
+{
+    test6502RelativeBranchInstruction("bcs", 0xB0);
+}
+
+TEST(Assembler, BEQ_AllAddressingModes)
+{
+    test6502RelativeBranchInstruction("beq", 0xF0);
+}
+
 TEST(Assembler, BIT_TableDrivenTest)
 {
     test6502Instruction("bit", "89,2C,24,XX,XX,XX,34,XX,3C,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, BMI_AllAddressingMode)
+{
+    test6502RelativeBranchInstruction("bmi", 0x30);
+}
+
+TEST(Assembler, BNE_AllAddressingMode)
+{
+    test6502RelativeBranchInstruction("bne", 0xD0);
+}
+
+TEST(Assembler, BPL_AllAddressingMode)
+{
+    test6502RelativeBranchInstruction("bpl", 0x10);
+}
+
+TEST(Assembler, BRA_AllAddressingMode)
+{
+    test6502RelativeBranchInstruction("bra", 0x80);
+}
+
+TEST(Assembler, BRK_TableDrivenTest)
+{
+    test6502Instruction("brk", "XX,XX,XX,00,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, BVC_AllAddressingMode)
+{
+    test6502RelativeBranchInstruction("bvc", 0x50);
+}
+
+TEST(Assembler, BVS_AllAddressingMode)
+{
+    test6502RelativeBranchInstruction("bvs", 0x70);
 }
 
 TEST(Assembler, CLC_TableDrivenTest)
@@ -1647,9 +1619,39 @@ TEST(Assembler, CLC_TableDrivenTest)
     test6502Instruction("clc", "XX,XX,XX,18,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
+TEST(Assembler, CLD_TableDrivenTest)
+{
+    test6502Instruction("cld", "XX,XX,XX,D8,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, CLI_TableDrivenTest)
+{
+    test6502Instruction("cli", "XX,XX,XX,58,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, CLV_TableDrivenTest)
+{
+    test6502Instruction("clv", "XX,XX,XX,B8,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
 TEST(Assembler, CMP_TableDrivenTest)
 {
     test6502Instruction("cmp", "C9,CD,C5,XX,C1,D1,D5,^D9,DD,D9,XX,XX,XX,D2");
+}
+
+TEST(Assembler, CPX_TableDrivenTest)
+{
+    test6502Instruction("cpx", "E0,EC,E4,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, CPY_TableDrivenTest)
+{
+    test6502Instruction("cpy", "C0,CC,C4,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, DEA_TableDrivenTest)
+{
+    test6502Instruction("dea", "XX,XX,XX,3A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, DEC_TableDrivenTest)
@@ -1662,9 +1664,29 @@ TEST(Assembler, DEX_TableDrivenTest)
     test6502Instruction("dex", "XX,XX,XX,CA,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
+TEST(Assembler, DEY_TableDrivenTest)
+{
+    test6502Instruction("dey", "XX,XX,XX,88,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, EOR_TableDrivenTest)
+{
+    test6502Instruction("eor", "49,4D,45,XX,41,51,55,^59,5D,59,XX,XX,XX,52");
+}
+
+TEST(Assembler, INA_TableDrivenTest)
+{
+    test6502Instruction("ina", "XX,XX,XX,1A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
 TEST(Assembler, INC_TableDrivenTest)
 {
     test6502Instruction("inc", "XX,EE,E6,XX,XX,XX,F6,XX,FE,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, INX_TableDrivenTest)
+{
+    test6502Instruction("inx", "XX,XX,XX,E8,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, INY_TableDrivenTest)
@@ -1702,9 +1724,69 @@ TEST(Assembler, LSR_TableDrivenTest)
     test6502Instruction("lsr", "XX,4E,46,4A,XX,XX,56,XX,5E,XX,XX,XX,XX,XX");
 }
 
+TEST(Assembler, NOP_TableDrivenTest)
+{
+    test6502Instruction("nop", "XX,XX,XX,EA,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
 TEST(Assembler, ORA_TableDrivenTest)
 {
     test6502Instruction("ora", "09,0D,05,XX,01,11,15,^19,1D,19,XX,XX,XX,12");
+}
+
+TEST(Assembler, PHA_TableDrivenTest)
+{
+    test6502Instruction("pha", "XX,XX,XX,48,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, PHP_TableDrivenTest)
+{
+    test6502Instruction("php", "XX,XX,XX,08,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, PHX_TableDrivenTest)
+{
+    test6502Instruction("phx", "XX,XX,XX,DA,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, PHY_TableDrivenTest)
+{
+    test6502Instruction("phy", "XX,XX,XX,5A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, PLA_TableDrivenTest)
+{
+    test6502Instruction("pla", "XX,XX,XX,68,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, PLP_TableDrivenTest)
+{
+    test6502Instruction("plp", "XX,XX,XX,28,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, PLX_TableDrivenTest)
+{
+    test6502Instruction("plx", "XX,XX,XX,FA,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, PLY_TableDrivenTest)
+{
+    test6502Instruction("ply", "XX,XX,XX,7A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, ROL_TableDrivenTest)
+{
+    test6502Instruction("rol", "XX,2E,26,2A,XX,XX,36,XX,3E,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, ROR_TableDrivenTest)
+{
+    test6502Instruction("ror", "XX,6E,66,6A,XX,XX,76,XX,7E,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, RTI_TableDrivenTest)
+{
+    test6502Instruction("rti", "XX,XX,XX,40,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, RTS_TableDrivenTest)
@@ -1712,9 +1794,24 @@ TEST(Assembler, RTS_TableDrivenTest)
     test6502Instruction("rts", "XX,XX,XX,60,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
+TEST(Assembler, SBC_TableDrivenTest)
+{
+    test6502Instruction("sbc", "E9,ED,E5,XX,E1,F1,F5,^F9,FD,F9,XX,XX,XX,F2");
+}
+
 TEST(Assembler, SEC_TableDrivenTest)
 {
     test6502Instruction("sec", "XX,XX,XX,38,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, SED_TableDrivenTest)
+{
+    test6502Instruction("sed", "XX,XX,XX,F8,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, SEI_TableDrivenTest)
+{
+    test6502Instruction("sei", "XX,XX,XX,78,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, STA_TableDrivenTest)
@@ -1732,6 +1829,36 @@ TEST(Assembler, STY_TableDrivenTest)
     test6502Instruction("sty", "XX,8C,84,XX,XX,XX,94,XX,XX,XX,XX,XX,XX,XX");
 }
 
+TEST(Assembler, STZ_TableDrivenTest)
+{
+    test6502Instruction("stz", "XX,9C,64,XX,XX,XX,74,XX,9E,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, TAX_TableDrivenTest)
+{
+    test6502Instruction("tax", "XX,XX,XX,AA,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, TAY_TableDrivenTest)
+{
+    test6502Instruction("tay", "XX,XX,XX,A8,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, TRB_TableDrivenTest)
+{
+    test6502Instruction("trb", "XX,1C,14,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, TSB_TableDrivenTest)
+{
+    test6502Instruction("tsb", "XX,0C,04,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, TSX_TableDrivenTest)
+{
+    test6502Instruction("tsx", "XX,XX,XX,BA,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
 TEST(Assembler, TXA_TableDrivenTest)
 {
     test6502Instruction("txa", "XX,XX,XX,8A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
@@ -1740,4 +1867,9 @@ TEST(Assembler, TXA_TableDrivenTest)
 TEST(Assembler, TXS_TableDrivenTest)
 {
     test6502Instruction("txs", "XX,XX,XX,9A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+}
+
+TEST(Assembler, TYA_TableDrivenTest)
+{
+    test6502Instruction("tya", "XX,XX,XX,98,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
