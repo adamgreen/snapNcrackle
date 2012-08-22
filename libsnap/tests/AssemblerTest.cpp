@@ -1077,6 +1077,30 @@ TEST(Assembler, FailAllocationDuringSymbolCreation)
                                    "    :              1 org = $800\n");
 }
 
+TEST(Assembler, Immediate16BitValueTruncatedToLower8BitByDefault)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #$100\n"));
+    runAssemblerAndValidateOutputIs("8000: A9 00        1  lda #$100\n");
+}
+
+TEST(Assembler, Immediate16BitValueTruncatedToLower8BitByLessThanPrefix)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #<$100\n"));
+    runAssemblerAndValidateOutputIs("8000: A9 00        1  lda #<$100\n");
+}
+
+TEST(Assembler, Immediate16BitValueWithGreaterThanPrefixToObtainHighByte)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #>$100\n"));
+    runAssemblerAndValidateOutputIs("8000: A9 01        1  lda #>$100\n");
+}
+
+TEST(Assembler, Immediate16BitValueWithCaretPrefixToObtainHighByte)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #^$100\n"));
+    runAssemblerAndValidateOutputIs("8000: A9 01        1  lda #^$100\n");
+}
+
 TEST(Assembler, InvalidExpression)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("org EQU (800\n"));
@@ -1492,13 +1516,6 @@ TEST(Assembler, FailBinaryBufferAllocationInASCDirective)
     BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
     runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
                                    "    :              1  asc 'Tst'\n");
-}
-
-TEST(Assembler, FailWithInvalidImmediateValue)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda #$100\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Immediate expression '$100' doesn't fit in 8-bits.\n",
-                                   "    :              1  lda #$100\n");
 }
 
 TEST(Assembler, FailWithInvalidExpression)

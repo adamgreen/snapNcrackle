@@ -157,12 +157,58 @@ TEST(ExpressionEval, EvaluateDecimalImmediate)
     LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
 }
 
-TEST(ExpressionEval, InvalidImmediateValueLargerThan8Bits)
+TEST(ExpressionEval, ImmediateValueLargerThan8Bits)
 {
     m_expression = ExpressionEval(m_pAssembler, dupe("#$100"));
-    validateFailureMessage("filename:0: error: Immediate expression '$100' doesn't fit in 8-bits.\n", invalidArgumentException);
+    LONGS_EQUAL(0x100, m_expression.value);
+    LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
 }
 
+TEST(ExpressionEval, ImmediateValueLargerThan8BitsWithLessThanPrefix)
+{
+    m_expression = ExpressionEval(m_pAssembler, dupe("#<$100"));
+    LONGS_EQUAL(0x00, m_expression.value);
+    LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
+}
+
+TEST(ExpressionEval, ImmediateValueLargerThan8BitsWithGreaterThanPrefix)
+{
+    m_expression = ExpressionEval(m_pAssembler, dupe("#>$100"));
+    LONGS_EQUAL(0x01, m_expression.value);
+    LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
+}
+
+TEST(ExpressionEval, ImmediateExpressionWithHighByteExtractionOnLongerExpression)
+{
+    m_expression = ExpressionEval(m_pAssembler, dupe("#>$D600-$400"));
+    LONGS_EQUAL(0xD2, m_expression.value);
+    LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
+}
+
+TEST(ExpressionEval, ImmediateValueLargerThan8BitsWithCaretPrefix)
+{
+    m_expression = ExpressionEval(m_pAssembler, dupe("#^$100"));
+    LONGS_EQUAL(0x01, m_expression.value);
+    LONGS_EQUAL(TYPE_IMMEDIATE, m_expression.type);
+}
+
+TEST(ExpressionEval, InvalidUseOfLessThanPrefixOnNonImmediateValue)
+{
+    m_expression = ExpressionEval(m_pAssembler, "<$100");
+    validateFailureMessage("filename:0: error: '$' is unexpected operator.\n", invalidArgumentException);
+}
+
+TEST(ExpressionEval, InvalidUseOfGreaterThanPrefixOnNonImmediateValue)
+{
+    m_expression = ExpressionEval(m_pAssembler, ">$100");
+    validateFailureMessage("filename:0: error: '$' is unexpected operator.\n", invalidArgumentException);
+}
+
+TEST(ExpressionEval, InvalidUseOfCaretPrefixOnNonImmediateValue)
+{
+    m_expression = ExpressionEval(m_pAssembler, "^$100");
+    validateFailureMessage("filename:0: error: '$' is unexpected operator.\n", invalidArgumentException);
+}
 TEST(ExpressionEval, EvaluateSingleQuotedASCII)
 {
     m_expression = ExpressionEval(m_pAssembler, "#'a'");

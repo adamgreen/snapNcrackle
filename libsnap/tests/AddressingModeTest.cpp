@@ -74,10 +74,12 @@ TEST(AddressingMode, ImmediateMode)
     LONGS_EQUAL(1, m_addressingMode.expression.value);
 }
 
-TEST(AddressingMode, InvalidImmediateModeValue)
+TEST(AddressingMode, ImmediateModeValueFor16BitValue)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, "#256");
-    validateInvalidArgumentExceptionThrown();
+    LONGS_EQUAL(ADDRESSING_MODE_IMMEDIATE, m_addressingMode.mode);
+    LONGS_EQUAL(TYPE_IMMEDIATE, m_addressingMode.expression.type);
+    LONGS_EQUAL(256, m_addressingMode.expression.value);
 }
 
 TEST(AddressingMode, AbsoluteMode)

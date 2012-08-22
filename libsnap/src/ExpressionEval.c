@@ -36,6 +36,9 @@ __throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
 
 
 static int isImmediatePrefix(char prefixChar);
+static void parseImmediate(Assembler* pAssembler, ExpressionEvaluation* pEval);
+static int isLowBytePrefix(char prefixChar);
+static int isHighBytePrefix(char prefixChar);
 static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static size_t stringLength(ExpressionEvaluation* pEval);
@@ -76,20 +79,9 @@ __throws Expression ExpressionEvalSizedString(Assembler* pAssembler, const Sized
     eval.pEnd = pOperands->pString + pOperands->stringLength;
 
     if (isImmediatePrefix(*eval.pCurrent))
-    {
-        eval.pCurrent++;
-        expressionEval(pAssembler, &eval);
-        eval.expression.type = TYPE_IMMEDIATE;
-        if (eval.expression.value > 0xFF)
-        {
-            LOG_ERROR(pAssembler, "Immediate expression '%.*s' doesn't fit in 8-bits.", pOperands->stringLength-1, &pOperands->pString[1]);
-            __throw_and_return(invalidArgumentException, eval.expression);
-        }
-    }
+        parseImmediate(pAssembler, &eval);
     else
-    {
         expressionEval(pAssembler, &eval);
-    }
     
     return eval.expression;
 }
@@ -97,6 +89,42 @@ __throws Expression ExpressionEvalSizedString(Assembler* pAssembler, const Sized
 static int isImmediatePrefix(char prefixChar)
 {
     return prefixChar == '#';
+}
+
+static void parseImmediate(Assembler* pAssembler, ExpressionEvaluation* pEval)
+{
+    char prefixChar;
+
+    pEval->pCurrent++;
+    prefixChar = *pEval->pCurrent;
+    
+    if (isLowBytePrefix(prefixChar))
+    {
+        pEval->pCurrent++;
+        expressionEval(pAssembler, pEval);
+        pEval->expression.value &= 0xff;
+    }
+    else if (isHighBytePrefix(prefixChar))
+    {
+        pEval->pCurrent++;
+        expressionEval(pAssembler, pEval);
+        pEval->expression.value >>= 8;
+    }
+    else
+    {
+        expressionEval(pAssembler, pEval);
+    }
+    pEval->expression.type = TYPE_IMMEDIATE;
+}
+
+static int isLowBytePrefix(char prefixChar)
+{
+    return prefixChar == '<';
+}
+
+static int isHighBytePrefix(char prefixChar)
+{
+    return prefixChar == '>' || prefixChar == '^';
 }
 
 static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
