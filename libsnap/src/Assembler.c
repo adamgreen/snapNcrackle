@@ -211,6 +211,7 @@ static void logHexParseError(Assembler* pThis);
 static void handleORG(Assembler* pThis);
 static void handleSAV(Assembler* pThis);
 static void handleDB(Assembler* pThis);
+static void handleDA(Assembler* pThis);
 static void rememberLabel(Assembler* pThis);
 static int isLabelToRemember(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
@@ -294,9 +295,12 @@ static void firstPassAssembleLine(Assembler* pThis)
         /* Assembler Directives */
         {"=",    handleEQU,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"ASC",  handleASC, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"DA",   handleDA, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"DB",   handleDB, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"DEND", handleDEND, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"DFB",   handleDB, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"DS",   handleDS,   _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"DW",   handleDA, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"DUM",  handleDUM,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"EQU",  handleEQU,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"LST",  ignoreOperator, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
@@ -800,13 +804,15 @@ static void handleASC(Assembler* pThis)
     const char*    pCurr = &pOperands[1];
     size_t         i = 0;
     unsigned char  mask = delimiter < '\'' ? 0x80 : 0x00;
+    int            alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
 
     while (*pCurr && *pCurr != delimiter)
     {
         __try
         {
             unsigned char   byte = *pCurr | mask;
-            __throwing_func( reallocLineInfoMachineCodeBytes(pThis, i+1) );
+            if (!alreadyAllocated)
+                __throwing_func( reallocLineInfoMachineCodeBytes(pThis, i+1) );
             pThis->pLineInfo->pMachineCode[i++] = byte;
             pCurr++;
         }
@@ -816,6 +822,7 @@ static void handleASC(Assembler* pThis)
             __nothrow;
         }
     }
+    assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
     
     if (*pCurr == '\0')
         LOG_ERROR(pThis, "%s didn't end with the expected %c delimiter.", pThis->parsedLine.pOperands, delimiter);
@@ -910,6 +917,7 @@ static void handleHEX(Assembler* pThis)
 {
     const char*    pCurr = pThis->parsedLine.pOperands;
     size_t         i = 0;
+    int            alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
 
     while (*pCurr && i < 32)
     {
@@ -919,8 +927,8 @@ static void handleHEX(Assembler* pThis)
             const char*    pNext;
 
             __throwing_func( byte = getNextHexByte(pCurr, &pNext) );
-            __throwing_func( reallocLineInfoMachineCodeBytes(pThis, i+1) );
-            
+            if (!alreadyAllocated)
+                __throwing_func( reallocLineInfoMachineCodeBytes(pThis, i+1) );
             pThis->pLineInfo->pMachineCode[i++] = byte;
             pCurr = pNext;
         }
@@ -931,6 +939,7 @@ static void handleHEX(Assembler* pThis)
             __nothrow;
         }
     }
+    assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
     
     if (*pCurr)
     {
@@ -1014,6 +1023,7 @@ static void handleDB(Assembler* pThis)
 {
     size_t      i = 0;
     SizedString nextOperands = SizedString_InitFromString(pThis->parsedLine.pOperands);
+    int         alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
 
     while (nextOperands.stringLength != 0)
     {
@@ -1025,7 +1035,8 @@ static void handleDB(Assembler* pThis)
         {
             SizedString_SplitString(&nextOperands, ',', &beforeComma, &afterComma);
             __throwing_func( expression = ExpressionEvalSizedString(pThis, &beforeComma) );
-            __throwing_func( reallocLineInfoMachineCodeBytes(pThis, i + 1) );
+            if (!alreadyAllocated)
+                __throwing_func( reallocLineInfoMachineCodeBytes(pThis, i + 1) );
             pThis->pLineInfo->pMachineCode[i++] = (unsigned char)expression.value;
             nextOperands = afterComma;
         }
@@ -1035,6 +1046,38 @@ static void handleDB(Assembler* pThis)
             __nothrow;
         }
     }
+    assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
+}
+
+static void handleDA(Assembler* pThis)
+{
+    size_t      i = 0;
+    SizedString nextOperands = SizedString_InitFromString(pThis->parsedLine.pOperands);
+    int         alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
+
+    while (nextOperands.stringLength != 0)
+    {
+        Expression  expression;
+        SizedString beforeComma;
+        SizedString afterComma;
+
+        __try
+        {
+            SizedString_SplitString(&nextOperands, ',', &beforeComma, &afterComma);
+            __throwing_func( expression = ExpressionEvalSizedString(pThis, &beforeComma) );
+            if (!alreadyAllocated)
+                __throwing_func( reallocLineInfoMachineCodeBytes(pThis, i+2) );
+            pThis->pLineInfo->pMachineCode[i++] = (unsigned char)expression.value;
+            pThis->pLineInfo->pMachineCode[i++] = (unsigned char)(expression.value >> 8);
+            nextOperands = afterComma;
+        }
+        __catch
+        {
+            reallocLineInfoMachineCodeBytes(pThis, 0);
+            __nothrow;
+        }
+    }
+    assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
 }
 
 static void rememberLabel(Assembler* pThis)

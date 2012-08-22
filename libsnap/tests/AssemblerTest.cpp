@@ -1374,23 +1374,11 @@ TEST(Assembler, SAV_DirectiveOnSmallObjectFile)
     validateObjectFileContains(0x800, "\x00\xff", 2);
 }
 
-TEST(Assembler, DB_DirectiveWithSingleValue)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" db $80\n"));
-    runAssemblerAndValidateOutputIs("8000: 80           1  db $80\n");
-}
-
 TEST(Assembler, DB_DirectiveWithSingleExpression)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("Value EQU $fe\n"
                                                    " db Value+1\n"));
     runAssemblerAndValidateLastLineIs("8000: FF           2  db Value+1\n", 2);
-}
-
-TEST(Assembler, DB_DirectiveWithTwoExpressions)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" db 7,$A9\n"));
-    runAssemblerAndValidateOutputIs("8000: 07 A9        1  db 7,$A9\n");
 }
 
 TEST(Assembler, DB_DirectiveWithThreeExpressions)
@@ -1405,17 +1393,66 @@ TEST(Assembler, DB_DirectiveWithImmediateExpression)
     runAssemblerAndValidateOutputIs("8000: FF           1  db #$ff\n");
 }
 
+TEST(Assembler, DB_DirectiveWithForwardReference)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" db Label\n"
+                                                   "Label db $12\n"));
+    runAssemblerAndValidateOutputIsTwoLinesOf("8000: 01           1  db Label\n",
+                                              "8001: 12           2 Label db $12\n");
+}
+
 TEST(Assembler, DB_DirectiveWithInvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" db (800\n"));
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '(800' expression.\n",
-                                   "    :              1  db (800\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" db ($800\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '($800' expression.\n",
+                                   "    :              1  db ($800\n");
+}
+
+TEST(Assembler, DFB_DirectiveSameAsDB)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dfb 2,0,1\n"));
+    runAssemblerAndValidateOutputIs("8000: 02 00 01     1  dfb 2,0,1\n");
 }
 
 TEST(Assembler, TR_DirectiveIsIgnored)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" tr on\n"));
     runAssemblerAndValidateOutputIs("    :              1  tr on\n");
+}
+
+TEST(Assembler, DA_DirectiveWithOneExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" da $ff+1\n"));
+    runAssemblerAndValidateOutputIs("8000: 00 01        1  da $ff+1\n");
+}
+
+TEST(Assembler, DA_DirectiveWithThreeExpressions)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" da $ff+1,$ff,$1233+1\n"));
+    runAssemblerAndValidateOutputIsTwoLinesOf("8000: 00 01 FF     1  da $ff+1,$ff,$1233+1\n",
+                                              "8003: 00 34 12\n");
+}
+
+TEST(Assembler, DA_DirectiveWithForwardReference)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" da Label\n"
+                                                   "Label da $1234\n"));
+    runAssemblerAndValidateOutputIsTwoLinesOf("8000: 02 80        1  da Label\n",
+                                              "8002: 34 12        2 Label da $1234\n");
+}
+
+TEST(Assembler, DA_DirectiveWithInvalidExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" da ($800\n"));
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '($800' expression.\n",
+                                   "    :              1  da ($800\n");
+}
+
+TEST(Assembler, DW_DirectiveSameAsDA)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dw $ff+1,$ff,$1233+1\n"));
+    runAssemblerAndValidateOutputIsTwoLinesOf("8000: 00 01 FF     1  dw $ff+1,$ff,$1233+1\n",
+                                              "8003: 00 34 12\n");
 }
 
 TEST(Assembler, VerifyObjectFileWithForwardReferenceLabel)
