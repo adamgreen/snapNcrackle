@@ -92,7 +92,7 @@ TEST(AddressingMode, AbsoluteMode)
 
 TEST(AddressingMode, InvalidAbsoluteModeValue)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "-65535");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, "+65535");
     validateInvalidArgumentExceptionThrown();
 }
 
@@ -136,7 +136,7 @@ TEST(AddressingMode, ZeroPageAbsoluteIndexedXMode)
 
 TEST(AddressingMode, InvalidAbsoluteIndexedXModeValue)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "-256,X");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, "+256,X");
     validateInvalidArgumentExceptionThrown();
 }
 
@@ -166,7 +166,7 @@ TEST(AddressingMode, ZeroPageAbsoluteIndexedYMode)
 
 TEST(AddressingMode, InvalidAbsoluteIndexedYModeValue)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "-256,Y");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, "+256,Y");
     validateInvalidArgumentExceptionThrown();
 }
 
@@ -236,7 +236,7 @@ TEST(AddressingMode, IndirectIndexedMode)
 
 TEST(AddressingMode, InvalidIndirectIndexedModeValue)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(-0),Y");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(+0),Y");
     validateInvalidArgumentExceptionThrown();
 }
 
@@ -272,6 +272,6 @@ TEST(AddressingMode, AbsolutePageIndirectMode)
 
 TEST(AddressingMode, InvalidIndirectModeValue)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(-0)");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(+0)");
     validateInvalidArgumentExceptionThrown();
 }

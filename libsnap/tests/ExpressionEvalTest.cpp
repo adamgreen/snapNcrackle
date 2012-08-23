@@ -209,6 +209,7 @@ TEST(ExpressionEval, InvalidUseOfCaretPrefixOnNonImmediateValue)
     m_expression = ExpressionEval(m_pAssembler, "^$100");
     validateFailureMessage("filename:0: error: '$' is unexpected operator.\n", invalidArgumentException);
 }
+
 TEST(ExpressionEval, EvaluateSingleQuotedASCII)
 {
     m_expression = ExpressionEval(m_pAssembler, "#'a'");
@@ -271,6 +272,20 @@ TEST(ExpressionEval, EvaluateDivision)
     m_expression = ExpressionEval(m_pAssembler, "3/2");
     LONGS_EQUAL(1, m_expression.value);
     LONGS_EQUAL(TYPE_ZEROPAGE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateUnarySubtraction)
+{
+    m_expression = ExpressionEval(m_pAssembler, "-2");
+    LONGS_EQUAL(0xFFFE, m_expression.value);
+    LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
+}
+
+TEST(ExpressionEval, EvaluateUnarySubtractionInMiddleOfExpression)
+{
+    m_expression = ExpressionEval(m_pAssembler, "2--2");
+    LONGS_EQUAL(2+2, m_expression.value);
+    LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
 }
 
 TEST(ExpressionEval, EvaluateNoOperatorPrecedenceExample)

@@ -66,6 +66,7 @@ static void parseASCIIValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static int isDoubleQuotedASCII(char prefixChar);
 static int isCurrentAddressChar(char prefixChar);
 static void parseCurrentAddressChar(Assembler* pAssembler, ExpressionEvaluation* pEval);
+static int isUnarySubtractionOperator(char prefixChar);
 static int isLabelReference(char prefixChar);
 static void parseLabelReference(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static size_t lengthOfLabel(const char* pLabel);
@@ -168,6 +169,12 @@ static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval
     else if (isCurrentAddressChar(prefixChar))
     {
         parseCurrentAddressChar(pAssembler, pEval);
+    }
+    else if (isUnarySubtractionOperator(prefixChar))
+    {
+        pEval->pCurrent++;
+        evaluatePrimitive(pAssembler, pEval);
+        pEval->expression = ExpressionEval_CreateAbsoluteExpression(-pEval->expression.value);
     }
     else if (isLabelReference(prefixChar))
     {
@@ -432,6 +439,11 @@ static void parseCurrentAddressChar(Assembler* pAssembler, ExpressionEvaluation*
 {
     pEval->pNext = pEval->pCurrent + 1;
     pEval->expression = ExpressionEval_CreateAbsoluteExpression(pAssembler->programCounter);
+}
+
+static int isUnarySubtractionOperator(char prefixChar)
+{
+    return prefixChar == '-';
 }
 
 static int isLabelReference(char prefixChar)
