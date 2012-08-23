@@ -866,7 +866,6 @@ TEST(Assembler, ForwardReferenceLabel)
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    " sta label\n"
                                                    "label sta $2b\n"));
-    CHECK(m_pAssembler != NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("0800: 8D 03 08     2  sta label\n",
                                               "0803: 85 2B        3 label sta $2b\n", 3);
 }
@@ -876,11 +875,9 @@ TEST(Assembler, FailLineInfoAllocationDuringForwardReferenceLabelFixup)
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    " sta label\n"
                                                    "label sta $2b\n"));
-    CHECK(m_pAssembler != NULL);
-
     MallocFailureInject_FailAllocation(8);
-    runAssemblerAndValidateFailure("filename:3: error: Failed to allocate space for updating forward references to 'label' symbol.\n",
-                                   "0803: 85 2B        3 label sta $2b\n", 4);
+        runAssemblerAndValidateFailure("filename:3: error: Failed to allocate space for updating forward references to 'label' symbol.\n",
+                                       "0803: 85 2B        3 label sta $2b\n", 4);
     MallocFailureInject_Restore();
 }
 
@@ -919,13 +916,13 @@ TEST(Assembler, LocalLabelPlusOffsetForwardReference)
                                               "0809: 85 22        6 :local sta $22\n", 6);
 }
 
-IGNORE_TEST(Assembler, LocalLabelForwardReferenceFromLineWithGlobalLabel)
+TEST(Assembler, LocalLabelForwardReferenceFromLineWithGlobalLabel)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("func1 sta :local\n"
                                                    ":local sta $20\n"));
     
-    runAssemblerAndValidateOutputIsTwoLinesOf("0806: 8D 03 80     1 func1 sta :local\n",
-                                              "0809: 8D 20        2 :local sta $20\n", 2);
+    runAssemblerAndValidateOutputIsTwoLinesOf("8000: 8D 03 80     1 func1 sta :local\n",
+                                              "8003: 85 20        2 :local sta $20\n", 2);
 }
 
 TEST(Assembler, GlobalLabelPlusOffsetForwardReference)
@@ -1014,6 +1011,13 @@ TEST(Assembler, ReferenceNonExistantLabel)
                                    "8000: 8D 00 00     1  sta badLabel\n", 2);
 }
 
+TEST(Assembler, EQUMissingLineLabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" EQU $23\n"));
+    runAssemblerAndValidateFailure("filename:1: error: EQU directive requires a line label.\n",
+                                   "    :              1  EQU $23\n", 2);
+}
+
 TEST(Assembler, EQULabelStartsWithInvalidCharacter)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("9Label EQU $23\n"));
@@ -1028,23 +1032,17 @@ TEST(Assembler, EQULabelStartsWithInvalidCharacter)
 TEST(Assembler, EQULabelContainsInvalidCharacter)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("Label. EQU $23\n"));
-    CHECK(m_pAssembler != NULL);
-
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(2, printfSpy_GetCallCount());
-    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
-    STRCMP_EQUAL("filename:1: error: 'Label.' label contains invalid character, '.'.\n", printfSpy_GetPreviousOutput());
+    runAssemblerAndValidateFailure("filename:1: error: 'Label.' label contains invalid character, '.'.\n", 
+                                   "    :              1 Label. EQU $23\n");
 }
 
 TEST(Assembler, EQULabelIsLocal)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(":Label EQU $23\n"));
-    CHECK(m_pAssembler != NULL);
+    m_pAssembler = Assembler_CreateFromString(dupe("Global\n"
+                                                   ":Label EQU $23\n"));
 
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(2, printfSpy_GetCallCount());
-    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
-    STRCMP_EQUAL("filename:1: error: ':Label' can't be a local label when used with EQU.\n", printfSpy_GetPreviousOutput());
+    runAssemblerAndValidateFailure("filename:2: error: ':Label' can't be a local label when used with EQU.\n", 
+                                   "    :              2 :Label EQU $23\n", 3);
 }
 
 TEST(Assembler, ForwardReferenceEQULabel)

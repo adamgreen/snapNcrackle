@@ -77,6 +77,7 @@ TEST(ListFile, OutputLineWithSymbol)
 
     m_lineInfo.pLineText = "LABEL EQU $FFFF";
     m_lineInfo.lineNumber = 2;
+    m_lineInfo.flags |= LINEINFO_FLAG_WAS_EQU;
     m_symbol.expression.value = 0xFFFF;
     m_lineInfo.pSymbol = &m_symbol;
     ListFile_OutputLine(m_pListFile, &m_lineInfo);
