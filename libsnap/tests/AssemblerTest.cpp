@@ -919,6 +919,15 @@ TEST(Assembler, LocalLabelPlusOffsetForwardReference)
                                               "0809: 85 22        6 :local sta $22\n", 6);
 }
 
+IGNORE_TEST(Assembler, LocalLabelForwardReferenceFromLineWithGlobalLabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("func1 sta :local\n"
+                                                   ":local sta $20\n"));
+    
+    runAssemblerAndValidateOutputIsTwoLinesOf("0806: 8D 03 80     1 func1 sta :local\n",
+                                              "0809: 8D 20        2 :local sta $20\n", 2);
+}
+
 TEST(Assembler, GlobalLabelPlusOffsetForwardReference)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
@@ -955,8 +964,37 @@ TEST(Assembler, MultipleForwardReferencesToSameLabel)
     LONGS_EQUAL(3, pSecondLine->machineCodeSize);
     CHECK(0 == memcmp(pSecondLine->pMachineCode, "\x8d\x07\x08", 3));
     pThirdLine = pSecondLine->pNext;
+    LONGS_EQUAL(3, pThirdLine->machineCodeSize);
+    CHECK(0 == memcmp(pThirdLine->pMachineCode, "\x8d\x07\x08", 3));
+}
+
+TEST(Assembler, MultipleBackReferencesToSameVariable)
+{
+    LineInfo* pSecondLine;
+    LineInfo* pFourthLine;
+    m_pAssembler = Assembler_CreateFromString(dupe("]variable ds 1\n"
+                                                   " sta ]variable\n"
+                                                   "]variable ds 1\n"
+                                                   " sta ]variable\n"));
+    Assembler_Run(m_pAssembler);
+    pSecondLine = m_pAssembler->linesHead.pNext->pNext;
     LONGS_EQUAL(3, pSecondLine->machineCodeSize);
-    CHECK(0 == memcmp(pSecondLine->pMachineCode, "\x8d\x07\x08", 3));
+    CHECK(0 == memcmp(pSecondLine->pMachineCode, "\x8d\x00\x80", 3));
+    pFourthLine = pSecondLine->pNext->pNext;
+    LONGS_EQUAL(3, pFourthLine->machineCodeSize);
+    CHECK(0 == memcmp(pFourthLine->pMachineCode, "\x8d\x04\x80", 3));
+}
+
+TEST(Assembler, ForwardReferencesToVariableWithMultipleDefinitionsUsesFirstDefinition)
+{
+    LineInfo* pFirstLine;
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta ]variable\n"
+                                                   "]variable ds 1\n"
+                                                   "]varaible ds 1\n"));
+    Assembler_Run(m_pAssembler);
+    pFirstLine = m_pAssembler->linesHead.pNext;
+    LONGS_EQUAL(3, pFirstLine->machineCodeSize);
+    CHECK(0 == memcmp(pFirstLine->pMachineCode, "\x8d\x03\x80", 3));
 }
 
 TEST(Assembler, FailZeroPageForwardReference)

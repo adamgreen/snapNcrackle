@@ -189,6 +189,7 @@ static void validateEQULabelFormat(Assembler* pThis);
 static void validateLabelFormat(Assembler* pThis);
 static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName, Expression* pExpression);
 static int isSymbolAlreadyDefined(Symbol* pSymbol, LineInfo* pThisLine);
+static int isVariableLabelName(const char* pSymbolName);
 static void flagSymbolAsDefined(Symbol* pSymbol, LineInfo* pThisLine);
 static void updateLinesWhichForwardReferencedThisLabel(Assembler* pThis, Symbol* pSymbol);
 static int symbolContainsForwardReferences(Symbol* pSymbol);
@@ -697,7 +698,7 @@ static void validateLabelFormat(Assembler* pThis)
 static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName, Expression* pExpression)
 {
     Symbol* pSymbol = SymbolTable_Find(pThis->pSymbols, pSymbolName);
-    if (pSymbol && isSymbolAlreadyDefined(pSymbol, pThis->pLineInfo))
+    if (pSymbol && (isSymbolAlreadyDefined(pSymbol, pThis->pLineInfo) && !isVariableLabelName(pSymbolName)))
     {
         LOG_ERROR(pThis, "'%s' symbol has already been defined.", pSymbolName);
         __throw_and_return(invalidArgumentException, NULL);
@@ -733,6 +734,11 @@ static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName, Exp
 static int isSymbolAlreadyDefined(Symbol* pSymbol, LineInfo* pThisLine)
 {
     return pSymbol->pDefinedLine != NULL && pSymbol->pDefinedLine != pThisLine;
+}
+
+static int isVariableLabelName(const char* pSymbolName)
+{
+    return pSymbolName[0] == ']';
 }
 
 static void flagSymbolAsDefined(Symbol* pSymbol, LineInfo* pThisLine)
@@ -1161,7 +1167,7 @@ static const char* expandedLabelName(Assembler* pThis, const char* pLabelName, s
                to pass around a SizedString between these routines...all the way into the SymbolTable routines. Sized 
                string could even be passed around between other routines to decrease the number of memory allocations
                made to take copies of const char* pointers. */
-    if (isGlobalLabelName(pLabelName))
+    if (!isLocalLabelName(pLabelName))
         return copySizedLabel(pThis, pLabelName, labelLength);
     
     expandLocalLabelToGloballyUniqueName(pThis, pLabelName, labelLength);    
@@ -1170,7 +1176,7 @@ static const char* expandedLabelName(Assembler* pThis, const char* pLabelName, s
 
 static int isGlobalLabelName(const char* pLabelName)
 {
-    return !isLocalLabelName(pLabelName);
+    return !isLocalLabelName(pLabelName) && !isVariableLabelName(pLabelName);
 }
 
 static int isLocalLabelName(const char* pLabelName)
