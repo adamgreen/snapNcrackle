@@ -224,6 +224,7 @@ static void handleORG(Assembler* pThis);
 static void handleSAV(Assembler* pThis);
 static void handleDB(Assembler* pThis);
 static void handleDA(Assembler* pThis);
+static void handleXC(Assembler* pThis);
 static void checkForUndefinedSymbols(Assembler* pThis);
 static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol* pSymbol);
 static void secondPass(Assembler* pThis);
@@ -283,6 +284,7 @@ static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine)
     pLineInfo->lineNumber = pThis->pLineInfo->lineNumber + 1;
     pLineInfo->pLineText = pLine;
     pLineInfo->address = pThis->programCounter;
+    pLineInfo->instructionSet = pThis->instructionSet;
     pThis->pLineInfo->pNext = pLineInfo;
     pThis->pLineInfo = pLineInfo;
 }
@@ -468,6 +470,7 @@ static void firstPassAssembleLine(Assembler* pThis)
         {"ORG",  handleORG,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"SAV",  handleSAV,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         {"TR",  ignoreOperator, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+        {"XC",  handleXC, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
         
         /* 6502 Instructions */
         {"ADC", NULL, 0x69, 0x6D, 0x65, _xXX, 0x61, 0x71, 0x75, _xXX, 0x7D, 0x79, _xXX, _xXX, _xXX, 0x72},
@@ -561,6 +564,13 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
     if (pOpcodeEntry->directiveHandler)
     {
         pOpcodeEntry->directiveHandler(pThis);
+        return;
+    }
+    
+    if (pThis->pLineInfo->instructionSet == INSTRUCTION_SET_65816)
+    {
+        /* UNDONE: snap doesn't currently support this extended instruction set so just emit RTS for all instructions. */
+        emitSingleByteInstruction(pThis, 0x60);
         return;
     }
     
@@ -901,6 +911,13 @@ static void ignoreOperator(Assembler* pThis)
 
 static void handleInvalidOperator(Assembler* pThis)
 {
+    if (pThis->pLineInfo->instructionSet == INSTRUCTION_SET_65816)
+    {
+        /* UNDONE: snap doesn't currently support this extended instruction set so just emit RTS for all instructions. */
+        emitSingleByteInstruction(pThis, 0x60);
+        return;
+    }
+
     LOG_ERROR(pThis, "'%s' is not a recognized mnemonic or macro.", pThis->parsedLine.pOperator);
 }
 
@@ -1220,6 +1237,22 @@ static void handleDA(Assembler* pThis)
         }
     }
     assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
+}
+
+static void handleXC(Assembler* pThis)
+{
+    if (pThis->parsedLine.pOperands && 0 == strcasecmp(pThis->parsedLine.pOperands, "OFF"))
+    {
+        pThis->instructionSet = INSTRUCTION_SET_6502;
+        return;
+    }
+    
+    pThis->instructionSet++;
+    if (pThis->instructionSet == INSTRUCTION_SET_INVALID)
+    {
+        LOG_ERROR(pThis, "Can't have more than 2 %s directives.", "XC");
+        pThis->instructionSet--;
+    }
 }
 
 static void checkForUndefinedSymbols(Assembler* pThis)

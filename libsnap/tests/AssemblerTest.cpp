@@ -1535,6 +1535,57 @@ TEST(Assembler, DW_DirectiveSameAsDA)
                                               "8003: 00 34 12\n");
 }
 
+/* UNDONE: This should test that a 65C02 instruction is allowed after issue. */
+TEST(Assembler, XC_DirectiveSingleInvocation)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"));
+    runAssemblerAndValidateOutputIs("    :              1  xc\n");
+}
+
+/* UNDONE: This is testing a temporary hack to ignore 65802/65816 instructions as I don't support those at this time. */
+TEST(Assembler, XC_DirectiveTwiceShouldCauseRTSInsertion)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"
+                                                   " xc\n"
+                                                   " lda #20\n"));
+    runAssemblerAndValidateLastLineIs("8000: 60           3  lda #20\n", 3);
+}
+
+TEST(Assembler, XC_DirectiveTwiceShouldCauseRTSInsertionForUnknownOpcodes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"
+                                                   " xc\n"
+                                                   " foobar\n"));
+    runAssemblerAndValidateLastLineIs("8000: 60           3  foobar\n", 3);
+}
+
+TEST(Assembler, XC_DirectiveWithOffOperandShouldResetTo6502)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"
+                                                   " xc\n"
+                                                   " xc off\n"
+                                                   " lda #20\n"));
+    runAssemblerAndValidateLastLineIs("8000: A9 14        4  lda #20\n", 4);
+}
+
+TEST(Assembler, XC_DirectiveThriceShouldCauseError)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"
+                                                   " xc\n"
+                                                   " xc\n"));
+    runAssemblerAndValidateFailure("filename:3: error: Can't have more than 2 XC directives.\n",
+                                   "    :              3  xc\n", 4);
+}
+
+TEST(Assembler, XC_DirectiveForwardReferenceFrom6502To65816)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #ForwardLabel\n"
+                                                   " xc\n"
+                                                   " xc\n"
+                                                   "ForwardLabel lda #20\n"));
+    runAssemblerAndValidateLastLineIs("8002: 60           4 ForwardLabel lda #20\n", 4);
+}
+
 TEST(Assembler, VerifyObjectFileWithForwardReferenceLabel)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"

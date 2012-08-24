@@ -20,16 +20,26 @@
 
 typedef struct Symbol Symbol;
 
+typedef enum InstructionSetSupported
+{
+    INSTRUCTION_SET_6502 = 0,
+    INSTRUCTION_SET_65C02,
+    INSTRUCTION_SET_65816,
+    INSTRUCTION_SET_INVALID
+} InstructionSetSupported;
+
+
 struct LineInfo
 {
-    const char*      pLineText;
-    Symbol*          pSymbol;
-    struct LineInfo* pNext;
-    unsigned char*   pMachineCode;
-    size_t           machineCodeSize;
-    unsigned int     lineNumber;
-    unsigned int     flags;
-    unsigned short   address;
+    const char*             pLineText;
+    Symbol*                 pSymbol;
+    struct LineInfo*        pNext;
+    unsigned char*          pMachineCode;
+    size_t                  machineCodeSize;
+    InstructionSetSupported instructionSet;
+    unsigned int            lineNumber;
+    unsigned int            flags;
+    unsigned short          address;
 };
 
 #endif /* _LINE_INFO_H_ */

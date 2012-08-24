@@ -31,23 +31,24 @@
 
 struct Assembler
 {
-    const char*    pSourceFilename;
-    TextFile*      pTextFile;
-    SymbolTable*   pSymbols;
-    ListFile*      pListFile;
-    LineBuffer*    pLineText;
-    char*          pLocalLabelStart;
-    LineInfo*      pLineInfo;
-    BinaryBuffer*  pObjectBuffer;
-    BinaryBuffer*  pDummyBuffer;
-    BinaryBuffer*  pCurrentBuffer;
-    size_t         maxLocalLabelSize;
-    ParsedLine     parsedLine;
-    LineInfo       linesHead;
-    unsigned int   errorCount;
-    unsigned short programCounter;
-    unsigned short programCounterBeforeDUM;
-    char           labelBuffer[256];
+    const char*             pSourceFilename;
+    TextFile*               pTextFile;
+    SymbolTable*            pSymbols;
+    ListFile*               pListFile;
+    LineBuffer*             pLineText;
+    char*                   pLocalLabelStart;
+    LineInfo*               pLineInfo;
+    BinaryBuffer*           pObjectBuffer;
+    BinaryBuffer*           pDummyBuffer;
+    BinaryBuffer*           pCurrentBuffer;
+    size_t                  maxLocalLabelSize;
+    ParsedLine              parsedLine;
+    LineInfo                linesHead;
+    InstructionSetSupported instructionSet;
+    unsigned int            errorCount;
+    unsigned short          programCounter;
+    unsigned short          programCounterBeforeDUM;
+    char                    labelBuffer[256];
 };
 
 
