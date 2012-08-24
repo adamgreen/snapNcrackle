@@ -29,6 +29,27 @@
 #define SIZE_OF_OBJECT_AND_DUMMY_BUFFERS    (64 * 1024)
 
 
+typedef struct OpCodeEntry
+{
+    const char* pOperator;
+    void (*directiveHandler)(Assembler *pThis);
+    unsigned char opcodeImmediate;
+    unsigned char opcodeAbsolute;
+    unsigned char opcodeZeroPage;
+    unsigned char opcodeImplied;
+    unsigned char opcodeZeroPageIndexedIndirect;
+    unsigned char opcodeIndirectIndexed;
+    unsigned char opcodeZeroPageIndexedX;
+    unsigned char opcodeZeroPageIndexedY;
+    unsigned char opcodeAbsoluteIndexedX;
+    unsigned char opcodeAbsoluteIndexedY;
+    unsigned char opcodeRelative;
+    unsigned char opcodeAbsoluteIndirect;
+    unsigned char opcodeAbsoluteIndexedIndirect;
+    unsigned char opcodeZeroPageIndirect;
+} OpCodeEntry;
+
+
 struct Assembler
 {
     const char*             pSourceFilename;
@@ -41,6 +62,8 @@ struct Assembler
     BinaryBuffer*           pObjectBuffer;
     BinaryBuffer*           pDummyBuffer;
     BinaryBuffer*           pCurrentBuffer;
+    OpCodeEntry*            instructionSets[INSTRUCTION_SET_INVALID];
+    size_t                  instructionSetSizes[INSTRUCTION_SET_INVALID];
     size_t                  maxLocalLabelSize;
     ParsedLine              parsedLine;
     LineInfo                linesHead;

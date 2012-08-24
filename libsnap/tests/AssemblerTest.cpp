@@ -643,7 +643,7 @@ TEST_GROUP(Assembler)
 
 TEST(Assembler, FailAllInitAllocations)
 {
-    static const int allocationsToFail = 11;
+    static const int allocationsToFail = 14;
     for (int i = 1 ; i <= allocationsToFail ; i++)
     {
         MallocFailureInject_FailAllocation(i);
