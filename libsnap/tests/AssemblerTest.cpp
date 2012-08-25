@@ -41,6 +41,8 @@ TEST_GROUP(Assembler)
     int             m_argc;
     int             m_isInvalidMode;
     int             m_isZeroPageTreatedAsAbsolute;
+    int             m_isInvalidInstruction;
+    int             m_switchTo65c02;
     char            m_buffer[128];
     unsigned char   m_expectedOpcode;
     
@@ -51,6 +53,8 @@ TEST_GROUP(Assembler)
         m_pAssembler = NULL;
         m_pFile = NULL;
         m_pReadBuffer = NULL;
+        m_isInvalidInstruction = FALSE;
+        m_switchTo65c02 = FALSE;
     }
 
     void teardown()
@@ -142,7 +146,27 @@ TEST_GROUP(Assembler)
         STRCMP_EQUAL(pExpectedListOutput, printfSpy_GetLastOutput());
         LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler) );
     }
-    
+
+    void test65c02Instruction(const char* pInstruction, const char* pInstructionTableEntry)
+    {
+        m_isInvalidInstruction = TRUE;
+        m_switchTo65c02 = FALSE;
+        test6502Instruction(pInstruction, pInstructionTableEntry);
+
+        m_isInvalidInstruction = FALSE;
+        m_switchTo65c02 = TRUE;
+        test6502Instruction(pInstruction, pInstructionTableEntry);
+    }
+
+    void test65c02AddressingInstruction(const char* pInstruction, const char* pInstructionTableEntry)
+    {
+        m_switchTo65c02 = FALSE;
+        test6502Instruction(pInstruction, pInstructionTableEntry);
+
+        m_switchTo65c02 = TRUE;
+        test6502Instruction(pInstruction, pInstructionTableEntry);
+    }
+
     void test6502Instruction(const char* pInstruction, const char* pInstructionTableEntry)
     {
         const char*        pCurr = pInstructionTableEntry;
@@ -207,6 +231,11 @@ TEST_GROUP(Assembler)
                 m_isZeroPageTreatedAsAbsolute = TRUE;
                 pCurr++;
             }
+            if (*pCurr == '*')
+            {
+                m_isInvalidMode = m_switchTo65c02 ? FALSE : TRUE;
+                pCurr++;
+            }
 
             m_expectedOpcode = strtoul(pCurr, NULL, 16);
         }
@@ -227,11 +256,17 @@ TEST_GROUP(Assembler)
         
         sprintf(testString, " %s #$ff\n", pInstruction);
         runAssembler(testString);
-        if (!m_isInvalidMode)
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+        else if (!m_isInvalidMode)
         {
             sprintf(expectedListOutput, "8000: %02X FF        1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
-        }
+        } 
         else
         {
             sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '#$ff' is not supported for '%s' instruction.\n", pInstruction);
@@ -251,7 +286,13 @@ TEST_GROUP(Assembler)
         sprintf(testString, " %s $100\n", pInstruction);
         runAssembler(testString);
         
-        if (!m_isInvalidMode)
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+        else if (!m_isInvalidMode)
         {
             sprintf(expectedListOutput, "8000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
@@ -273,7 +314,13 @@ TEST_GROUP(Assembler)
         sprintf(testString, " %s $ff\n", pInstruction);
         runAssembler(testString);
         
-        if (!m_isInvalidMode)
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+        else if (!m_isInvalidMode)
         {
             if (!m_isZeroPageTreatedAsAbsolute)
                 sprintf(expectedListOutput, "8000: %02X FF        1 %s\n", m_expectedOpcode, testString);
@@ -299,7 +346,13 @@ TEST_GROUP(Assembler)
         
         sprintf(testString, " %s\n", pInstruction);
         runAssembler(testString);
-        if (!m_isInvalidMode)
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+        else if (!m_isInvalidMode)
         {
             sprintf(expectedListOutput, "8000: %02X           1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
@@ -321,7 +374,13 @@ TEST_GROUP(Assembler)
         sprintf(testString, " %s ($ff,x)\n", pInstruction);
         runAssembler(testString);
         
-        if (!m_isInvalidMode)
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+        else if (!m_isInvalidMode)
         {
             if (!m_isZeroPageTreatedAsAbsolute)
                 sprintf(expectedListOutput, "8000: %02X FF        1 %s\n", m_expectedOpcode, testString);
@@ -348,7 +407,13 @@ TEST_GROUP(Assembler)
         sprintf(testString, " %s ($ff),y\n", pInstruction);
         runAssembler(testString);
         
-        if (!m_isInvalidMode)
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+        else if (!m_isInvalidMode)
         {
             sprintf(expectedListOutput, "8000: %02X FF        1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
@@ -370,7 +435,13 @@ TEST_GROUP(Assembler)
         sprintf(testString, " %s $ff,x\n", pInstruction);
         runAssembler(testString);
         
-        if (!m_isInvalidMode)
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+        else if (!m_isInvalidMode)
         {
             if (!m_isZeroPageTreatedAsAbsolute)
                 sprintf(expectedListOutput, "8000: %02X FF        1 %s\n", m_expectedOpcode, testString);
@@ -395,7 +466,13 @@ TEST_GROUP(Assembler)
         sprintf(testString, " %s $ff,y\n", pInstruction);
         runAssembler(testString);
         
-        if (!m_isInvalidMode)
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+        else if (!m_isInvalidMode)
         {
             if (!m_isZeroPageTreatedAsAbsolute)
                 sprintf(expectedListOutput, "8000: %02X FF        1 %s\n", m_expectedOpcode, testString);
@@ -422,7 +499,13 @@ TEST_GROUP(Assembler)
         sprintf(testString, " %s $100,x\n", pInstruction);
         runAssembler(testString);
         
-        if (!m_isInvalidMode)
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+        else if (!m_isInvalidMode)
         {
             sprintf(expectedListOutput, "8000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
@@ -446,7 +529,13 @@ TEST_GROUP(Assembler)
         sprintf(testString, " %s $100,y\n", pInstruction);
         runAssembler(testString);
         
-        if (!m_isInvalidMode)
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+        else if (!m_isInvalidMode)
         {
             sprintf(expectedListOutput, "8000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
@@ -465,7 +554,7 @@ TEST_GROUP(Assembler)
         char               expectedListOutput[128];
 
         CHECK_FALSE(m_isZeroPageTreatedAsAbsolute);
-        if (m_isInvalidMode)
+        if (m_isInvalidMode || m_isInvalidInstruction)
             return;
         
         sprintf(testString, " %s *\n", pInstruction);
@@ -485,7 +574,13 @@ TEST_GROUP(Assembler)
         sprintf(testString, " %s ($100)\n", pInstruction);
         runAssembler(testString);
         
-        if (!m_isInvalidMode)
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+        else if (!m_isInvalidMode)
         {
             sprintf(expectedListOutput, "8000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
@@ -509,7 +604,13 @@ TEST_GROUP(Assembler)
         sprintf(testString, " %s ($100,x)\n", pInstruction);
         runAssembler(testString);
         
-        if (!m_isInvalidMode)
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+        else if (!m_isInvalidMode)
         {
             sprintf(expectedListOutput, "8000: %02X 00 01     1 %s\n", m_expectedOpcode, testString);
             validateSuccessfulOutput(expectedListOutput);
@@ -531,7 +632,13 @@ TEST_GROUP(Assembler)
         sprintf(testString, " %s ($ff)\n", pInstruction);
         runAssembler(testString);
         
-        if (!m_isInvalidMode)
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+        else if (!m_isInvalidMode)
         {
             if (!m_isZeroPageTreatedAsAbsolute)
                 sprintf(expectedListOutput, "8000: %02X FF        1 %s\n", m_expectedOpcode, testString);
@@ -552,6 +659,8 @@ TEST_GROUP(Assembler)
         printfSpy_Unhook();
         printfSpy_Hook(512);
         m_pAssembler = Assembler_CreateFromString(pTestString);
+        if (m_switchTo65c02)
+            m_pAssembler->instructionSet = INSTRUCTION_SET_65C02;
         Assembler_Run(m_pAssembler);
         Assembler_Free(m_pAssembler);
         m_pAssembler = NULL;
@@ -616,11 +725,22 @@ TEST_GROUP(Assembler)
     {
         char               testString[64];
         char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
 
         sprintf(testString, " %s *+129\n", pInstruction);
-        sprintf(expectedListOutput, "8000: %02X 7F        1 %s", opcode, testString);
         runAssembler(testString);
-        validateSuccessfulOutput(expectedListOutput);
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+            return;
+        }
+        else
+        {
+            sprintf(expectedListOutput, "8000: %02X 7F        1 %s\n", opcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
         
         m_isInvalidMode = TRUE;
         m_expectedOpcode = 0x00;
@@ -1713,12 +1833,12 @@ TEST(Assembler, BEQ_ForwardLabelReference)
 
 TEST(Assembler, ADC_TableDrivenTest)
 {
-    test6502Instruction("adc", "69,6D,65,XX,61,71,75,^79,7D,79,XX,XX,XX,72");
+    test65c02AddressingInstruction("adc", "69,6D,65,XX,61,71,75,^79,7D,79,XX,XX,XX,*72");
 }
 
 TEST(Assembler, AND_TableDrivenTest)
 {
-    test6502Instruction("and", "29,2D,25,XX,21,31,35,^39,3D,39,XX,XX,XX,32");
+    test6502Instruction("and", "29,2D,25,XX,21,31,35,^39,3D,39,XX,XX,XX,*32");
 }
 
 TEST(Assembler, ASL_TableDrivenTest)
@@ -1743,7 +1863,7 @@ TEST(Assembler, BEQ_AllAddressingModes)
 
 TEST(Assembler, BIT_TableDrivenTest)
 {
-    test6502Instruction("bit", "89,2C,24,XX,XX,XX,34,XX,3C,XX,XX,XX,XX,XX");
+    test6502Instruction("bit", "*89,2C,24,XX,XX,XX,*34,XX,*3C,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, BMI_AllAddressingMode)
@@ -1763,6 +1883,12 @@ TEST(Assembler, BPL_AllAddressingMode)
 
 TEST(Assembler, BRA_AllAddressingMode)
 {
+    m_switchTo65c02 = FALSE;
+    m_isInvalidInstruction = TRUE;
+    test6502RelativeBranchInstruction("bra", 0x80);
+
+    m_switchTo65c02 = TRUE;
+    m_isInvalidInstruction = FALSE;
     test6502RelativeBranchInstruction("bra", 0x80);
 }
 
@@ -1803,7 +1929,7 @@ TEST(Assembler, CLV_TableDrivenTest)
 
 TEST(Assembler, CMP_TableDrivenTest)
 {
-    test6502Instruction("cmp", "C9,CD,C5,XX,C1,D1,D5,^D9,DD,D9,XX,XX,XX,D2");
+    test6502Instruction("cmp", "C9,CD,C5,XX,C1,D1,D5,^D9,DD,D9,XX,XX,XX,*D2");
 }
 
 TEST(Assembler, CPX_TableDrivenTest)
@@ -1818,7 +1944,7 @@ TEST(Assembler, CPY_TableDrivenTest)
 
 TEST(Assembler, DEA_TableDrivenTest)
 {
-    test6502Instruction("dea", "XX,XX,XX,3A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+    test65c02Instruction("dea", "XX,XX,XX,3A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, DEC_TableDrivenTest)
@@ -1838,12 +1964,12 @@ TEST(Assembler, DEY_TableDrivenTest)
 
 TEST(Assembler, EOR_TableDrivenTest)
 {
-    test6502Instruction("eor", "49,4D,45,XX,41,51,55,^59,5D,59,XX,XX,XX,52");
+    test6502Instruction("eor", "49,4D,45,XX,41,51,55,^59,5D,59,XX,XX,XX,*52");
 }
 
 TEST(Assembler, INA_TableDrivenTest)
 {
-    test6502Instruction("ina", "XX,XX,XX,1A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+    test65c02Instruction("ina", "XX,XX,XX,1A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, INC_TableDrivenTest)
@@ -1863,7 +1989,7 @@ TEST(Assembler, INY_TableDrivenTest)
 
 TEST(Assembler, JMP_TableDrivenTest)
 {
-    test6502Instruction("jmp", "XX,4C,^4C,XX,^7C,XX,XX,XX,XX,XX,XX,6C,7C,^6C");
+    test6502Instruction("jmp", "XX,4C,^4C,XX,^*7C,XX,XX,XX,XX,XX,XX,6C,*7C,^6C");
 }
 
 TEST(Assembler, JSR_TableDrivenTest)
@@ -1873,7 +1999,7 @@ TEST(Assembler, JSR_TableDrivenTest)
 
 TEST(Assembler, LDA_TableDrivenTest)
 {
-    test6502Instruction("lda", "A9,AD,A5,XX,A1,B1,B5,^B9,BD,B9,XX,XX,XX,B2");
+    test6502Instruction("lda", "A9,AD,A5,XX,A1,B1,B5,^B9,BD,B9,XX,XX,XX,*B2");
 }
 
 TEST(Assembler, LDX_TableDrivenTest)
@@ -1898,7 +2024,7 @@ TEST(Assembler, NOP_TableDrivenTest)
 
 TEST(Assembler, ORA_TableDrivenTest)
 {
-    test6502Instruction("ora", "09,0D,05,XX,01,11,15,^19,1D,19,XX,XX,XX,12");
+    test6502Instruction("ora", "09,0D,05,XX,01,11,15,^19,1D,19,XX,XX,XX,*12");
 }
 
 TEST(Assembler, PHA_TableDrivenTest)
@@ -1913,12 +2039,12 @@ TEST(Assembler, PHP_TableDrivenTest)
 
 TEST(Assembler, PHX_TableDrivenTest)
 {
-    test6502Instruction("phx", "XX,XX,XX,DA,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+    test65c02Instruction("phx", "XX,XX,XX,DA,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, PHY_TableDrivenTest)
 {
-    test6502Instruction("phy", "XX,XX,XX,5A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+    test65c02Instruction("phy", "XX,XX,XX,5A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, PLA_TableDrivenTest)
@@ -1933,12 +2059,12 @@ TEST(Assembler, PLP_TableDrivenTest)
 
 TEST(Assembler, PLX_TableDrivenTest)
 {
-    test6502Instruction("plx", "XX,XX,XX,FA,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+    test65c02Instruction("plx", "XX,XX,XX,FA,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, PLY_TableDrivenTest)
 {
-    test6502Instruction("ply", "XX,XX,XX,7A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+    test65c02Instruction("ply", "XX,XX,XX,7A,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, ROL_TableDrivenTest)
@@ -1963,7 +2089,7 @@ TEST(Assembler, RTS_TableDrivenTest)
 
 TEST(Assembler, SBC_TableDrivenTest)
 {
-    test6502Instruction("sbc", "E9,ED,E5,XX,E1,F1,F5,^F9,FD,F9,XX,XX,XX,F2");
+    test6502Instruction("sbc", "E9,ED,E5,XX,E1,F1,F5,^F9,FD,F9,XX,XX,XX,*F2");
 }
 
 TEST(Assembler, SEC_TableDrivenTest)
@@ -1983,7 +2109,7 @@ TEST(Assembler, SEI_TableDrivenTest)
 
 TEST(Assembler, STA_TableDrivenTest)
 {
-    test6502Instruction("sta", "XX,8D,85,XX,81,91,95,^99,9D,99,XX,XX,XX,92");
+    test6502Instruction("sta", "XX,8D,85,XX,81,91,95,^99,9D,99,XX,XX,XX,*92");
 }
 
 TEST(Assembler, STX_TableDrivenTest)
@@ -1998,7 +2124,7 @@ TEST(Assembler, STY_TableDrivenTest)
 
 TEST(Assembler, STZ_TableDrivenTest)
 {
-    test6502Instruction("stz", "XX,9C,64,XX,XX,XX,74,XX,9E,XX,XX,XX,XX,XX");
+    test65c02Instruction("stz", "XX,9C,64,XX,XX,XX,74,XX,9E,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, TAX_TableDrivenTest)
@@ -2013,12 +2139,12 @@ TEST(Assembler, TAY_TableDrivenTest)
 
 TEST(Assembler, TRB_TableDrivenTest)
 {
-    test6502Instruction("trb", "XX,1C,14,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+    test65c02Instruction("trb", "XX,1C,14,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, TSB_TableDrivenTest)
 {
-    test6502Instruction("tsb", "XX,0C,04,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
+    test65c02Instruction("tsb", "XX,0C,04,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX,XX");
 }
 
 TEST(Assembler, TSX_TableDrivenTest)

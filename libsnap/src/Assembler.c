@@ -21,7 +21,15 @@
 
 static void commonObjectInit(Assembler* pThis);
 static void createFullInstructionSetTables(Assembler* pThis);
+static void create6502InstructionSetTable(Assembler* pThis);
 static int compareInstructionSetEntries(const void* pv1, const void* pv2);
+static void create65c02InstructionSetTable(Assembler* pThis);
+static size_t countNewInstructionMnemonics(const OpCodeEntry* pBaseSet, size_t baseSetLength, 
+                                           const OpCodeEntry* pNewSet,  size_t newSetLength);
+static int compareInstructionSetEntryToOperatorString(const void* pvKey, const void* pvEntry);
+static void updateExistingInstructions(OpCodeEntry* pBaseSet, size_t baseSetLength, size_t totalLength,
+                                       const OpCodeEntry* pAddSet,  size_t addSetLength);
+static void updateInstructionEntry(OpCodeEntry* pEntryToUpdate, const OpCodeEntry* pAdditionalEntry);
 static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned short orgAddress);
 __throws Assembler* Assembler_CreateFromString(char* pText)
 {
@@ -71,17 +79,28 @@ static void createFullInstructionSetTables(Assembler* pThis)
 {
     __try
     {
+        __throwing_func( create6502InstructionSetTable(pThis) );
+        __throwing_func( create65c02InstructionSetTable(pThis) );
+
+        __throwing_func( pThis->instructionSets[2] = allocateAndZero(sizeof(g_6502InstructionSet)) );
+        pThis->instructionSetSizes[2] = ARRAYSIZE(g_6502InstructionSet);
+        memcpy(pThis->instructionSets[2], pThis->instructionSets[0], sizeof(g_6502InstructionSet));
+    }
+    __catch
+    {
+        __rethrow;
+    }
+}
+
+static void create6502InstructionSetTable(Assembler* pThis)
+{
+    __try
+    {
         __throwing_func( pThis->instructionSets[0] = allocateAndZero(sizeof(g_6502InstructionSet)) );
         memcpy(pThis->instructionSets[0], g_6502InstructionSet, sizeof(g_6502InstructionSet));
         pThis->instructionSetSizes[0] = ARRAYSIZE(g_6502InstructionSet);
         qsort(pThis->instructionSets[0], ARRAYSIZE(g_6502InstructionSet), sizeof(g_6502InstructionSet[0]), 
               compareInstructionSetEntries);
-        __throwing_func( pThis->instructionSets[1] = allocateAndZero(sizeof(g_6502InstructionSet)) );
-        pThis->instructionSetSizes[1] = ARRAYSIZE(g_6502InstructionSet);
-        memcpy(pThis->instructionSets[1], pThis->instructionSets[0], sizeof(g_6502InstructionSet));
-        __throwing_func( pThis->instructionSets[2] = allocateAndZero(sizeof(g_6502InstructionSet)) );
-        pThis->instructionSetSizes[2] = ARRAYSIZE(g_6502InstructionSet);
-        memcpy(pThis->instructionSets[2], pThis->instructionSets[0], sizeof(g_6502InstructionSet));
     }
     __catch
     {
@@ -95,6 +114,94 @@ static int compareInstructionSetEntries(const void* pv1, const void* pv2)
     OpCodeEntry* p2 = (OpCodeEntry*)pv2;
     
     return strcasecmp(p1->pOperator, p2->pOperator);
+}
+
+static void create65c02InstructionSetTable(Assembler* pThis)
+{
+    size_t baseSetLength = pThis->instructionSetSizes[0];
+    size_t instructionsAdded = countNewInstructionMnemonics(
+                                    pThis->instructionSets[0], baseSetLength, 
+                                    g_65c02AdditionalInstructions, ARRAYSIZE(g_65c02AdditionalInstructions));
+    size_t newSetLength = baseSetLength + instructionsAdded;
+    
+    __try
+    {
+        __throwing_func( pThis->instructionSets[1] = allocateAndZero(sizeof(OpCodeEntry) * newSetLength) );
+        memcpy(pThis->instructionSets[1], pThis->instructionSets[0], sizeof(OpCodeEntry) * baseSetLength);
+        updateExistingInstructions(pThis->instructionSets[1], baseSetLength, newSetLength, 
+                                   g_65c02AdditionalInstructions, ARRAYSIZE(g_65c02AdditionalInstructions));
+        pThis->instructionSetSizes[1] = newSetLength;
+        qsort(pThis->instructionSets[1], newSetLength, sizeof(g_6502InstructionSet[0]), compareInstructionSetEntries);
+    }
+    __catch
+    {
+        __rethrow;
+    }
+}
+
+static size_t countNewInstructionMnemonics(const OpCodeEntry* pBaseSet, size_t baseSetLength, 
+                                           const OpCodeEntry* pNewSet,  size_t newSetLength)
+{
+    size_t count = 0;
+    size_t i;
+    
+    for (i = 0 ; i < newSetLength ; i++)
+    {
+        if (NULL == bsearch(pNewSet[i].pOperator, 
+                            pBaseSet, baseSetLength, sizeof(*pBaseSet), 
+                            compareInstructionSetEntryToOperatorString))
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
+static int compareInstructionSetEntryToOperatorString(const void* pvKey, const void* pvEntry)
+{
+    const char* pKey = (const char*)pvKey;
+    const OpCodeEntry* pEntry = (OpCodeEntry*)pvEntry;
+    
+    return strcasecmp(pKey, pEntry->pOperator);
+}
+
+static void updateExistingInstructions(OpCodeEntry* pBaseSet, size_t baseSetLength, size_t totalLength,
+                                       const OpCodeEntry* pAddSet,  size_t addSetLength)
+{
+    OpCodeEntry* pNewInstruction = pBaseSet + baseSetLength;
+    size_t       i;
+    
+    for (i = 0 ; i < addSetLength ; i++)
+    {
+        OpCodeEntry* pExistingEntry = bsearch(pAddSet[i].pOperator, 
+                                              pBaseSet, baseSetLength, sizeof(*pBaseSet), 
+                                              compareInstructionSetEntryToOperatorString);
+        if (pExistingEntry)
+            updateInstructionEntry(pExistingEntry, &pAddSet[i]);
+        else
+            *pNewInstruction++ = pAddSet[i];
+    }
+    assert ( pNewInstruction - pBaseSet == (long)totalLength );
+}
+
+#define COPY_UPDATED_FIELD(FIELD) if (pAdditionalEntry->FIELD != _xXX) pEntryToUpdate->FIELD = pAdditionalEntry->FIELD
+
+static void updateInstructionEntry(OpCodeEntry* pEntryToUpdate, const OpCodeEntry* pAdditionalEntry)
+{
+    COPY_UPDATED_FIELD(opcodeImmediate);
+    COPY_UPDATED_FIELD(opcodeAbsolute);
+    COPY_UPDATED_FIELD(opcodeZeroPage);
+    COPY_UPDATED_FIELD(opcodeImplied);
+    COPY_UPDATED_FIELD(opcodeZeroPageIndexedIndirect);
+    COPY_UPDATED_FIELD(opcodeIndirectIndexed);
+    COPY_UPDATED_FIELD(opcodeZeroPageIndexedX);
+    COPY_UPDATED_FIELD(opcodeZeroPageIndexedY);
+    COPY_UPDATED_FIELD(opcodeAbsoluteIndexedX);
+    COPY_UPDATED_FIELD(opcodeAbsoluteIndexedY);
+    COPY_UPDATED_FIELD(opcodeRelative);
+    COPY_UPDATED_FIELD(opcodeAbsoluteIndirect);
+    COPY_UPDATED_FIELD(opcodeAbsoluteIndexedIndirect);
+    COPY_UPDATED_FIELD(opcodeZeroPageIndirect);
 }
 
 static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned short orgAddress)
@@ -183,7 +290,6 @@ static int isVariableLabelName(const char* pSymbolName);
 static void flagSymbolAsDefined(Symbol* pSymbol, LineInfo* pThisLine);
 static void rememberGlobalLabel(Assembler* pThis);
 static void firstPassAssembleLine(Assembler* pThis);
-static int compareInstructionSetEntryToOperatorString(const void* pvKey, const void* pvEntry);
 static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry);
 static void handleImpliedAddressingMode(Assembler* pThis, unsigned char opcodeImplied);
 static void logInvalidAddressingModeError(Assembler* pThis);
@@ -477,14 +583,6 @@ static void firstPassAssembleLine(Assembler* pThis)
         handleOpcode(pThis, pFoundEntry);
     else
         handleInvalidOperator(pThis);
-}
-
-static int compareInstructionSetEntryToOperatorString(const void* pvKey, const void* pvEntry)
-{
-    const char* pKey = (const char*)pvKey;
-    const OpCodeEntry* pEntry = (OpCodeEntry*)pvEntry;
-    
-    return strcasecmp(pKey, pEntry->pOperator);
 }
 
 static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
