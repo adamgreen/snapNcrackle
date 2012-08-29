@@ -323,22 +323,22 @@ static void DiskImageScriptEngine_ProcessScript(DiskImageScriptEngine* pThis,
 
 
 static FILE* openFile(const char* pFilename, const char* pMode);
-static size_t readFile(void* pBuffer, size_t bytesToRead, FILE* pFile);
+static void determineObjectSizeFromFileHeader(DiskImage* pThis, FILE* pFile);
+static int wasSAVedFromAssembler(const char* pSignature);
+static long getFileSize(FILE* pFile);
 static unsigned int roundUpLengthToBlockSize(unsigned int length);
 __throws void DiskImage_ReadObjectFile(DiskImage* pThis, const char* pFilename)
 {
     FILE*         pFile;
-    SavFileHeader header;
     unsigned int  roundedObjectSize;
     
     __try
     {
         __throwing_func( pFile = openFile(pFilename, "r") );
-        __throwing_func( readFile(&header, sizeof(header), pFile) );
-        roundedObjectSize = roundUpLengthToBlockSize(header.length);
+        determineObjectSizeFromFileHeader(pThis, pFile);
+        roundedObjectSize = roundUpLengthToBlockSize(pThis->objectFileLength);
         __throwing_func( ByteBuffer_Allocate(&pThis->object, roundedObjectSize) );
-        __throwing_func( ByteBuffer_ReadPartialFromFile(&pThis->object, header.length, pFile) );
-        pThis->objectFileLength = header.length;
+        __throwing_func( ByteBuffer_ReadPartialFromFile(&pThis->object, pThis->objectFileLength, pFile) );
     }
     __catch
     {
@@ -355,12 +355,34 @@ static FILE* openFile(const char* pFilename, const char* pMode)
     return pFile;
 }
 
-static size_t readFile(void* pBuffer, size_t bytesToRead, FILE* pFile)
+static void determineObjectSizeFromFileHeader(DiskImage* pThis, FILE* pFile)
 {
-    size_t bytesRead = fread(pBuffer, 1, bytesToRead, pFile);
-    if (bytesRead != bytesToRead)
-        __throw_and_return(fileException, bytesRead);
-    return bytesRead;
+    SavFileHeader header;
+    size_t bytesRead;
+    
+    bytesRead = fread(&header, 1, sizeof(header), pFile);
+    if (bytesRead == sizeof(header) && wasSAVedFromAssembler(header.signature))
+    {
+        pThis->objectFileLength = header.length;
+    }
+    else
+    {
+        pThis->objectFileLength = getFileSize(pFile);
+        fseek(pFile, 0, SEEK_SET);
+    }
+}
+
+static int wasSAVedFromAssembler(const char* pSignature)
+{
+    return 0 == memcmp(pSignature, BINARY_BUFFER_SAV_SIGNATURE, 4);
+}
+
+static long getFileSize(FILE* pFile)
+{
+    fseek(pFile, 0, SEEK_END);
+    long size = ftell(pFile);
+    fseek(pFile, 0, SEEK_SET);
+    return size;
 }
 
 static unsigned int roundUpLengthToBlockSize(unsigned int length)

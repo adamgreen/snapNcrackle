@@ -198,6 +198,20 @@ TEST_GROUP(BlockDiskImage)
         fwrite(pBlockData, 1, blockDataSize, pFile);
         fclose(pFile);
     }
+    
+    void createOnesBlockRawObjectFile()
+    {
+        unsigned char blockData[DISK_IMAGE_BLOCK_SIZE];
+        memset(blockData, 0xff, sizeof(blockData));
+        createBlockRawObjectFile(g_savFilenameAllOnes, blockData, sizeof(blockData));
+    }
+
+    void createBlockRawObjectFile(const char* pFilename, unsigned char* pBlockData, size_t blockDataSize)
+    {
+        FILE* pFile = fopen(pFilename, "w");
+        fwrite(pBlockData, 1, blockDataSize, pFile);
+        fclose(pFile);
+    }
 
     void createTextFile(const char* pFilename, const char* pText)
     {
@@ -300,10 +314,17 @@ TEST(BlockDiskImage, FailFWriteInWriteImage)
     validateFileExceptionThrown();
 }
 
-TEST(BlockDiskImage, ReadObjectFile)
+TEST(BlockDiskImage, ReadSAVObjectFile)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
+    BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
+}
+
+TEST(BlockDiskImage, ReadRawObjectFile)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesBlockRawObjectFile();
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 }
 
@@ -351,6 +372,26 @@ TEST(BlockDiskImage, ReadObjectFileAndWriteToImage)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
+    BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
+
+    DiskImageInsert insert;
+    insert.sourceOffset = 0;
+    insert.length = DISK_IMAGE_BLOCK_SIZE;
+    insert.type = DISK_IMAGE_INSERTION_BLOCK;
+    insert.block = 0;
+    insert.intraBlockOffset = 0;
+    BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
+    
+    BlockDiskImage_WriteImage(m_pDiskImage, g_imageFilename);
+    const unsigned char* pImage = readDiskImageIntoMemory();
+    validateBlocksAreZeroes(pImage, 1, BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT - 1);
+    validateBlocksAreOnes(pImage, 0, 0);
+}
+
+TEST(BlockDiskImage, ReadRawObjectFileAndWriteToImage)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesBlockRawObjectFile();
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
 
     DiskImageInsert insert;
