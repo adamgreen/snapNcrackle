@@ -1557,7 +1557,6 @@ TEST(Assembler, ASC_DirectiveWithNoEndingDelimiter)
 TEST(Assembler, SAV_DirectiveOnEmptyObjectFile)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" sav AssemblerTest.sav\n"));
-    CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler));
     validateObjectFileContains(0x8000, "", 0);
@@ -1568,10 +1567,21 @@ TEST(Assembler, SAV_DirectiveOnSmallObjectFile)
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    " hex 00,ff\n"
                                                    " sav AssemblerTest.sav\n"));
-    CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler));
     validateObjectFileContains(0x800, "\x00\xff", 2);
+}
+
+TEST(Assembler, SAV_DirectiveShouldBeIgnoredOnErrors)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " hex 00,ff\n"
+                                                   " hex ($00)\n"
+                                                   " sav AssemblerTest.sav\n"));
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
+    m_pFile = fopen(g_objectFilename, "r");
+    POINTERS_EQUAL(NULL, m_pFile);
 }
 
 TEST(Assembler, DB_DirectiveWithSingleExpression)

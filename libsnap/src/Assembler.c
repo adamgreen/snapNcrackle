@@ -1309,7 +1309,9 @@ static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol*
 
 static void secondPass(Assembler* pThis)
 {
-    outputListFile(pThis);    
+    outputListFile(pThis);
+    if (pThis->errorCount > 0)
+        return;
     BinaryBuffer_ProcessWriteFileQueue(pThis->pObjectBuffer);
 }
 
