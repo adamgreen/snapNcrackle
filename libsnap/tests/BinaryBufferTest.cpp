@@ -110,16 +110,14 @@ TEST_GROUP(BinaryBuffer)
 TEST(BinaryBuffer, FailFirstAllocationDuringCreate)
 {
     MallocFailureInject_FailAllocation(1);
-    m_pBinaryBuffer = BinaryBuffer_Create(64*1024);
-    POINTERS_EQUAL(NULL, m_pBinaryBuffer);
+        __try_and_catch( m_pBinaryBuffer = BinaryBuffer_Create(64*1024) );
     validateOutOfMemoryExceptionThrown();
 }
 
 TEST(BinaryBuffer, FailSecondAllocationDuringCreate)
 {
     MallocFailureInject_FailAllocation(2);
-    m_pBinaryBuffer = BinaryBuffer_Create(64*1024);
-    LONGS_EQUAL(NULL, m_pBinaryBuffer);
+        __try_and_catch( m_pBinaryBuffer = BinaryBuffer_Create(64*1024) );
     validateOutOfMemoryExceptionThrown();
 }
 
@@ -142,10 +140,10 @@ TEST(BinaryBuffer, Allocate2Items)
 
 TEST(BinaryBuffer, FailToAllocateItem)
 {
+    unsigned char* pAlloc;
     m_pBinaryBuffer = BinaryBuffer_Create(1);
-    unsigned char* pAlloc = BinaryBuffer_Alloc(m_pBinaryBuffer, 2);
+    __try_and_catch( pAlloc = BinaryBuffer_Alloc(m_pBinaryBuffer, 2) );
     validateOutOfMemoryExceptionThrown();
-    POINTERS_EQUAL(NULL, pAlloc);
 }
 
 TEST(BinaryBuffer, ReallocFromNULLShouldBeSameAsAlloc)
@@ -170,8 +168,7 @@ TEST(BinaryBuffer, FailReallocBySpecifyingPointerOtherThanLastAllocated)
     m_pBinaryBuffer = BinaryBuffer_Create(64);
     unsigned char* pAlloc1 = BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
                              BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
-    unsigned char* pAlloc3 = BinaryBuffer_Realloc(m_pBinaryBuffer, pAlloc1, 2);
-    POINTERS_EQUAL(NULL, pAlloc3);
+    __try_and_catch( BinaryBuffer_Realloc(m_pBinaryBuffer, pAlloc1, 2) );
     LONGS_EQUAL(invalidArgumentException, getExceptionCode());
     clearExceptionCode();
 }
@@ -180,20 +177,18 @@ TEST(BinaryBuffer, ForceFirstAllocToFail)
 {
     m_pBinaryBuffer = BinaryBuffer_Create(64);
     BinaryBuffer_FailAllocation(m_pBinaryBuffer, 1);
-    unsigned char* pAlloc1 = BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
-    POINTERS_EQUAL(NULL, pAlloc1);
-    validateOutOfMemoryExceptionThrown();
+        __try_and_catch( BinaryBuffer_Alloc(m_pBinaryBuffer, 1) );
+        validateOutOfMemoryExceptionThrown();
 }
 
 TEST(BinaryBuffer, ForceSecondAllocToFail)
 {
     m_pBinaryBuffer = BinaryBuffer_Create(64);
     BinaryBuffer_FailAllocation(m_pBinaryBuffer, 2);
-    unsigned char* pAlloc1 = BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
-    CHECK_TRUE(NULL != pAlloc1);
-    unsigned char* pAlloc2 = BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
-    POINTERS_EQUAL(NULL, pAlloc2);
-    validateOutOfMemoryExceptionThrown();
+        unsigned char* pAlloc1 = BinaryBuffer_Alloc(m_pBinaryBuffer, 1);
+        CHECK_TRUE(NULL != pAlloc1);
+        __try_and_catch( BinaryBuffer_Alloc(m_pBinaryBuffer, 1) );
+        validateOutOfMemoryExceptionThrown();
 }
 
 TEST(BinaryBuffer, QueueWriteToFile)
@@ -209,8 +204,8 @@ TEST(BinaryBuffer, FailFOpenDuringWriteToFile)
     placeDataInBuffer(g_testData, sizeof(g_testData));
     
     fopenFail(NULL);
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
-    BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
+        BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
+        __try_and_catch( BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer) );
     LONGS_EQUAL(fileException, getExceptionCode());
     clearExceptionCode();
 }
@@ -220,8 +215,8 @@ TEST(BinaryBuffer, FailFWriteDuringWriteToFile)
     placeDataInBuffer(g_testData, sizeof(g_testData));
     
     fwriteFail(0);
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
-    BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
+        BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
+        __try_and_catch( BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer) );
     LONGS_EQUAL(fileException, getExceptionCode());
     clearExceptionCode();
 }
@@ -230,7 +225,7 @@ TEST(BinaryBuffer, FailMemoryAllocationDuringWriteQueue)
 {
     placeDataInBuffer(g_testData, sizeof(g_testData));
     MallocFailureInject_FailAllocation(1);
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
+        __try_and_catch( BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename) );
     validateOutOfMemoryExceptionThrown();
 }
 
@@ -242,7 +237,7 @@ TEST(BinaryBuffer, FailToQueueALongFilename)
     longFilename[sizeof(longFilename)-1] = '\0';
     
     placeDataInBuffer(g_testData, sizeof(g_testData));
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, longFilename);
+    __try_and_catch( BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, longFilename) );
     LONGS_EQUAL(invalidArgumentException, getExceptionCode());
     clearExceptionCode();
 }

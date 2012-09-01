@@ -57,7 +57,6 @@ __throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, const char* p
 {
     SizedString    operandsString = SizedString_InitFromString(pOperands);
     CharLocations  locations = initCharLocations(&operandsString);
-    AddressingMode addressingMode = initializedAddressingModeStruct(ADDRESSING_MODE_INVALID);
 
     if (usesImpliedAddressing(pOperands))
         return impliedAddressing();
@@ -72,7 +71,7 @@ __throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, const char* p
     else if (hasNoCommaOrParens(&locations))
         return immediateOrAbsoluteAddressing(pAssembler, &operandsString);
     else
-        __throw_and_return(invalidArgumentException, addressingMode);
+        __throw(invalidArgumentException);
 }
 
 static CharLocations initCharLocations(SizedString* pOperandsString)
@@ -150,12 +149,12 @@ static AddressingMode indexedIndirectAddressing(Assembler* pAssembler, SizedStri
     SizedString_SplitString(pOperandsString, '(', &beforeOpenParen, &afterOpenParen);
     SizedString_SplitString(&afterOpenParen, ',', &beforeComma, &afterComma);
     if (0 != SizedString_strcasecmp(&afterComma, "X)"))
-        __throw_and_return(invalidArgumentException, addressingMode);
+        __throw(invalidArgumentException);
 
     __try
         addressingMode.expression = ExpressionEvalSizedString(pAssembler, &beforeComma);
     __catch
-        __rethrow_and_return(addressingMode);
+        __rethrow;
 
     addressingMode.mode = ADDRESSING_MODE_INDEXED_INDIRECT;
     return addressingMode;
@@ -183,18 +182,18 @@ static AddressingMode indirectIndexedAddressing(Assembler* pAssembler, SizedStri
     SizedString_SplitString(pOperandsString, '(', &beforeOpenParen, &afterOpenParen);
     SizedString_SplitString(&afterOpenParen, ')', &beforeCloseParen, &afterCloseParen);
     if (0 != SizedString_strcasecmp(&afterCloseParen, ",Y"))
-        __throw_and_return(invalidArgumentException, addressingMode);
+        __throw(invalidArgumentException);
         
     __try
         addressingMode.expression = ExpressionEvalSizedString(pAssembler, &beforeCloseParen);
     __catch
-        __rethrow_and_return(addressingMode);
+        __rethrow;
         
     if (addressingMode.expression.type != TYPE_ZEROPAGE)
     {
         LOG_ERROR(pAssembler, "'%.*s' isn't in page zero as required for indirect indexed addressing.", 
                   beforeCloseParen.stringLength, beforeCloseParen.pString);
-        __throw_and_return(invalidArgumentException, addressingMode);
+        __throw(invalidArgumentException);
     }
 
     addressingMode.mode = ADDRESSING_MODE_INDIRECT_INDEXED;
@@ -225,7 +224,7 @@ static AddressingMode indirectAddressing(Assembler* pAssembler, SizedString* pOp
     __try
         addressingMode.expression = ExpressionEvalSizedString(pAssembler, &beforeCloseParen);
     __catch
-        __rethrow_and_return(addressingMode);
+        __rethrow;
         
     addressingMode.mode = ADDRESSING_MODE_INDIRECT;
     return addressingMode;
@@ -253,7 +252,7 @@ static AddressingMode indexedAddressing(Assembler* pAssembler, SizedString* pOpe
     else if (0 == SizedString_strcasecmp(&afterComma, "Y"))
         addressingMode.mode = ADDRESSING_MODE_ABSOLUTE_INDEXED_Y;
     else
-        __throw_and_return(invalidArgumentException, addressingMode);
+        __throw(invalidArgumentException);
     
     __try
     {
@@ -262,7 +261,7 @@ static AddressingMode indexedAddressing(Assembler* pAssembler, SizedString* pOpe
     __catch
     {
         addressingMode.mode = ADDRESSING_MODE_INVALID;
-        __rethrow_and_return(addressingMode);
+        __rethrow;
     }
             
     return addressingMode;
@@ -289,7 +288,7 @@ static AddressingMode immediateOrAbsoluteAddressing(Assembler* pAssembler, Sized
     __catch
     {
         addressingMode.mode = ADDRESSING_MODE_INVALID;
-        __rethrow_and_return(addressingMode);
+        __rethrow;
     }
 
     return addressingMode;

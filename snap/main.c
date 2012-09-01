@@ -24,9 +24,9 @@ int main(int argc, const char** argv)
 
     __try
     {
-        __throwing_func( SnapCommandLine_Init(&commandLine, argc-1, argv+1) );
-        __throwing_func( pAssembler = Assembler_CreateFromFile(commandLine.pSourceFiles[0]) );
-        __throwing_func( Assembler_Run(pAssembler) );
+        SnapCommandLine_Init(&commandLine, argc-1, argv+1);
+        pAssembler = Assembler_CreateFromFile(commandLine.pSourceFiles[0]);
+        Assembler_Run(pAssembler);
         displayErrorCountIfAnyWereEncountered(pAssembler);
     }
     __catch

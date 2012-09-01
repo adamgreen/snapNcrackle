@@ -36,7 +36,7 @@ __throws ListFile* ListFile_Create(FILE* pOutputFile)
     __catch
     {
         ListFile_Free(pThis);
-        __rethrow_and_return(NULL);
+        __rethrow;
     }
     pThis->pFile = pOutputFile;
     
@@ -49,7 +49,7 @@ static ListFile* allocateAndZeroObject(void)
     
     pThis = malloc(sizeof(*pThis));
     if (!pThis)
-        __throw_and_return(outOfMemoryException, NULL);
+        __throw(outOfMemoryException);
     
     memset(pThis, 0, sizeof(*pThis));
     return pThis;

@@ -31,7 +31,7 @@ static inline void* allocateAndZero(size_t size)
 {
     void* pAlloc = malloc(size);
     if (!pAlloc)
-        __throw_and_return(outOfMemoryException, (void*)0);
+        __throw(outOfMemoryException);
     memset(pAlloc, 0, size);
     
     return pAlloc;

@@ -67,8 +67,7 @@ TEST_GROUP(ParseCSV)
 TEST(ParseCSV, FailAllocationDuringCreate)
 {
     MallocFailureInject_FailAllocation(1);
-    m_pParser = ParseCSV_Create();
-    POINTERS_EQUAL(NULL, m_pParser);
+    __try_and_catch( m_pParser = ParseCSV_Create() );
     validateOutOfMemoryExceptionThrown();
 }
 
@@ -127,6 +126,6 @@ TEST(ParseCSV, FailAllocationOnParse)
 {
     m_pParser = ParseCSV_Create();
     MallocFailureInject_FailAllocation(1);
-    ParseCSV_Parse(m_pParser, copy("a"));
+    __try_and_catch( ParseCSV_Parse(m_pParser, copy("a")) );
     validateOutOfMemoryExceptionThrown();
 }

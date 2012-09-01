@@ -19,23 +19,19 @@
 
 
 static void DiskImageScriptEngine_Init(DiskImageScriptEngine* pThis);
-__throws DiskImage DiskImage_Init(DiskImageVTable* pVTable, unsigned int imageSize)
+__throws void DiskImage_Init(DiskImage* pThis, DiskImageVTable* pVTable, unsigned int imageSize)
 {
-    DiskImage diskImage;
-    
     __try
     {
-        memset(&diskImage, 0, sizeof(diskImage));
-        diskImage.pVTable = pVTable;
-        __throwing_func( ByteBuffer_Allocate(&diskImage.image, imageSize) );
-        __throwing_func( DiskImageScriptEngine_Init(&diskImage.script) );
+        memset(pThis, 0, sizeof(*pThis));
+        pThis->pVTable = pVTable;
+        ByteBuffer_Allocate(&pThis->image, imageSize);
+        DiskImageScriptEngine_Init(&pThis->script);
     }
     __catch
     {
-        __rethrow_and_return(diskImage);
+        __rethrow;
     }
-    
-    return diskImage;
 }
 
 static void DiskImageScriptEngine_Init(DiskImageScriptEngine* pThis)
@@ -53,7 +49,8 @@ void DiskImage_Free(DiskImage* pThis)
     if (!pThis)
         return;
     
-    pThis->pVTable->freeObject(pThis);
+    if (pThis->pVTable)
+        pThis->pVTable->freeObject(pThis);
     ByteBuffer_Free(&pThis->object);
     ByteBuffer_Free(&pThis->image);
     DiskImageScriptEngine_Free(&pThis->script);
@@ -101,7 +98,7 @@ static void DiskImageScriptEngine_ProcessScriptFile(DiskImageScriptEngine* pThis
     {
         pThis->pScriptFilename = pScriptFilename;
         pThis->pDiskImage = pDiskImage;
-        __throwing_func( pThis->pTextFile = TextFile_CreateFromFile(pScriptFilename) );
+        pThis->pTextFile = TextFile_CreateFromFile(pScriptFilename);
     }
     __catch
     {
@@ -173,13 +170,13 @@ static void processBlockScriptLine(DiskImageScriptEngine* pThis, size_t fieldCou
     
     __try
     {
-        __throwing_func( DiskImage_ReadObjectFile(pThis->pDiskImage, ppFields[1]) );
+        DiskImage_ReadObjectFile(pThis->pDiskImage, ppFields[1]);
         pThis->insert.sourceOffset = strtoul(ppFields[2], NULL, 0);
         pThis->insert.length = parseLengthField(pThis, ppFields[3]);
         pThis->insert.type = DISK_IMAGE_INSERTION_BLOCK;
         parseBlockRelatedFieldsAndSetInsertFields(pThis, fieldCount, ppFields);
         rememberLastInsertionInformation(pThis);
-        __throwing_func( DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert) );
+        DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert);
     }
     __catch
     {
@@ -244,13 +241,13 @@ static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCo
     
     __try
     {
-        __throwing_func( DiskImage_ReadObjectFile(pThis->pDiskImage, ppFields[1]) );
+        DiskImage_ReadObjectFile(pThis->pDiskImage, ppFields[1]);
         pThis->insert.sourceOffset = strtoul(ppFields[2], NULL, 0);
         pThis->insert.length = parseLengthField(pThis, ppFields[3]);
         pThis->insert.type = DISK_IMAGE_INSERTION_RWTS16;
         pThis->insert.track = strtoul(ppFields[4], NULL, 0);
         pThis->insert.sector = strtoul(ppFields[5], NULL, 0);
-        __throwing_func( DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert) );
+        DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert);
     }
     __catch
     {
@@ -311,7 +308,7 @@ static void DiskImageScriptEngine_ProcessScript(DiskImageScriptEngine* pThis,
     {
         pThis->pDiskImage = pDiskImage;
         pThis->pScriptFilename = "<null>";
-        __throwing_func( pThis->pTextFile = TextFile_CreateFromString(pScriptText) );
+        pThis->pTextFile = TextFile_CreateFromString(pScriptText);
     }
     __catch
     {
@@ -329,19 +326,22 @@ static long getFileSize(FILE* pFile);
 static unsigned int roundUpLengthToBlockSize(unsigned int length);
 __throws void DiskImage_ReadObjectFile(DiskImage* pThis, const char* pFilename)
 {
-    FILE*         pFile;
+    FILE*         pFile = NULL;
     unsigned int  roundedObjectSize;
     
     __try
     {
-        __throwing_func( pFile = openFile(pFilename, "r") );
+        pFile = openFile(pFilename, "r");
         determineObjectSizeFromFileHeader(pThis, pFile);
         roundedObjectSize = roundUpLengthToBlockSize(pThis->objectFileLength);
-        __throwing_func( ByteBuffer_Allocate(&pThis->object, roundedObjectSize) );
-        __throwing_func( ByteBuffer_ReadPartialFromFile(&pThis->object, pThis->objectFileLength, pFile) );
+        ByteBuffer_Allocate(&pThis->object, roundedObjectSize);
+        ByteBuffer_ReadPartialFromFile(&pThis->object, pThis->objectFileLength, pFile);
     }
     __catch
     {
+        if (pFile)
+            fclose(pFile);
+        __rethrow;
     }
     
     fclose(pFile);    
@@ -351,7 +351,7 @@ static FILE* openFile(const char* pFilename, const char* pMode)
 {
     FILE* pFile = fopen(pFilename, pMode);
     if (!pFile)
-        __throw_and_return(fileException, pFile);
+        __throw(fileException);
     return pFile;
 }
 
@@ -417,8 +417,8 @@ __throws void DiskImage_WriteImage(DiskImage* pThis, const char* pImageFilename)
 
     __try
     {
-        __throwing_func( pFile = openFile(pImageFilename, "w") );
-        __throwing_func( ByteBuffer_WriteToFile(&pThis->image, pFile) );
+        pFile = openFile(pImageFilename, "w");
+        ByteBuffer_WriteToFile(&pThis->image, pFile);
     }
     __catch
     {

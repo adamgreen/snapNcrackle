@@ -201,11 +201,11 @@ static void evaluateOperation(Assembler* pAssembler, ExpressionEvaluation* pEval
         operatorHandler      handleOperator;
         ExpressionEvaluation rightEval;
         
-        __throwing_func( handleOperator = determineHandlerForOperator(pAssembler, *pEval->pCurrent) );
+        handleOperator = determineHandlerForOperator(pAssembler, *pEval->pCurrent);
         memset(&rightEval, 0, sizeof(rightEval));
         rightEval.pCurrent = pEval->pCurrent + 1;
-        __throwing_func( evaluatePrimitive(pAssembler, &rightEval) );
-        __throwing_func( handleOperator(pAssembler, pEval, &rightEval) );
+        evaluatePrimitive(pAssembler, &rightEval);
+        handleOperator(pAssembler, pEval, &rightEval);
         combineExpressionTypeAndFlags(&pEval->expression, &rightEval.expression);
         pEval->pCurrent = rightEval.pNext;
     }
@@ -235,7 +235,7 @@ static operatorHandler determineHandlerForOperator(Assembler* pAssembler, char o
         return andHandler;
     default:
         LOG_ERROR(pAssembler, "'%c' is unexpected operator.", operatorChar);
-        __throw_and_return(invalidArgumentException, (operatorHandler)NULL);
+        __throw(invalidArgumentException);
     }
 }
 
@@ -354,7 +354,7 @@ static unsigned short parseHexDigit(char digit)
     else if (digit >= 'A' && digit <= 'F')
         return digit - 'A' + 10;
     else
-        __throw_and_return(invalidHexDigitException, 0);
+        __throw(invalidHexDigitException);
 }
 
 static int isBinaryPrefix(char prefixChar)
@@ -380,7 +380,7 @@ static unsigned short parseBinaryDigit(char digit)
     if (digit >= '0' && digit <= '1')
         return digit - '0';
     else
-        __throw_and_return(invalidBinaryDigitException, 0);
+        __throw(invalidBinaryDigitException);
 }
 
 static int isDecimal(char firstChar)
@@ -406,7 +406,7 @@ static unsigned short parseDecimalDigit(char digit)
     if (digit >= '0' && digit <= '9')
         return digit - '0';
     else
-        __throw_and_return(invalidDecimalDigitException, 0);
+        __throw(invalidDecimalDigitException);
 }
 
 static int isSingleQuoteASCII(char prefixChar)

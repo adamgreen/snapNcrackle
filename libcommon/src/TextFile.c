@@ -32,7 +32,7 @@ __throws TextFile* TextFile_CreateFromString(char* pText)
     __try
         pThis = allocateObject();
     __catch
-        __rethrow_and_return(NULL);
+        __rethrow;
 
     initObject(pThis, pText);
     
@@ -45,7 +45,7 @@ __throws static TextFile* allocateObject(void)
     
     pThis = malloc(sizeof(*pThis));
     if (!pThis)
-        __throw_and_return(outOfMemoryException, NULL);
+        __throw(outOfMemoryException);
     memset(pThis, 0, sizeof(*pThis));
     
     return pThis;
@@ -71,21 +71,21 @@ __throws TextFile* TextFile_CreateFromFile(const char* pFilename)
     
     pFile = fopen(pFilename, "r");
     if (!pFile)
-        __throw_and_return(fileNotFoundException, NULL);
+        __throw(fileNotFoundException);
 
     __try
     {
-        __throwing_func( textLength = getTextLength(pFile) );
-        __throwing_func( pTextBuffer = allocateTextBuffer(textLength) );
-        __throwing_func( readFileContentIntoTextBufferAndNullTerminate(pTextBuffer, textLength, pFile) );
-        __throwing_func( pThis = TextFile_CreateFromString(pTextBuffer) );
+        textLength = getTextLength(pFile);
+        pTextBuffer = allocateTextBuffer(textLength);
+        readFileContentIntoTextBufferAndNullTerminate(pTextBuffer, textLength, pFile);
+        pThis = TextFile_CreateFromString(pTextBuffer);
         pThis->pFileBuffer = pTextBuffer;
     }
     __catch
     {
         free(pTextBuffer);
         fclose(pFile);
-        __rethrow_and_return(NULL);
+        __rethrow;
     }
     
     fclose(pFile);
@@ -99,15 +99,15 @@ static long getTextLength(FILE* pFile)
     
     result = fseek(pFile, 0, SEEK_END);
     if (result != 0)
-        __throw_and_return(fileException, -1);
+        __throw(fileException);
         
     fileSize = ftell(pFile);
     if (fileSize == -1)
-        __throw_and_return(fileException, -1);
+        __throw(fileException);
         
     result = fseek(pFile, 0, SEEK_SET);
     if (result != 0)
-        __throw_and_return(fileException, -1);
+        __throw(fileException);
         
     return adjustFileSizeToAllowForTrailingNull(fileSize);
 }
@@ -123,7 +123,7 @@ static char* allocateTextBuffer(long textLength)
     
     pTextBuffer = malloc(textLength);
     if (!pTextBuffer)
-        __throw_and_return(outOfMemoryException, NULL);
+        __throw(outOfMemoryException);
         
     return pTextBuffer;
 }

@@ -59,7 +59,6 @@ TEST_GROUP(AddressingMode)
     
     void validateInvalidArgumentExceptionThrown()
     {
-        LONGS_EQUAL(ADDRESSING_MODE_INVALID, m_addressingMode.mode);
         LONGS_EQUAL(invalidArgumentException, getExceptionCode());
         clearExceptionCode();
     }
@@ -92,7 +91,7 @@ TEST(AddressingMode, AbsoluteMode)
 
 TEST(AddressingMode, InvalidAbsoluteModeValue)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "+65535");
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "+65535") );
     validateInvalidArgumentExceptionThrown();
 }
 
@@ -136,7 +135,7 @@ TEST(AddressingMode, ZeroPageAbsoluteIndexedXMode)
 
 TEST(AddressingMode, InvalidAbsoluteIndexedXModeValue)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "+256,X");
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "+256,X") );
     validateInvalidArgumentExceptionThrown();
 }
 
@@ -166,13 +165,13 @@ TEST(AddressingMode, ZeroPageAbsoluteIndexedYMode)
 
 TEST(AddressingMode, InvalidAbsoluteIndexedYModeValue)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "+256,Y");
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "+256,Y") );
     validateInvalidArgumentExceptionThrown();
 }
 
 TEST(AddressingMode, InvalidAbsoluteIndexedAddressingMode)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "255,Z");
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "255,Z") );
     validateInvalidArgumentExceptionThrown();
 }
 
@@ -210,19 +209,19 @@ TEST(AddressingMode, AbsoluteIndexedIndirectModeLowerCase)
 
 TEST(AddressingMode, InvalidIndexedIndirectModeValue)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(-,x)");
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(-,x)") );
     validateInvalidArgumentExceptionThrown();
 }
 
 TEST(AddressingMode, InvalidIndexedIndirectModeWithMissingCloseParen)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(256,x");
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(256,x") );
     validateInvalidArgumentExceptionThrown();
 }
 
 TEST(AddressingMode, InvalidIndexedIndirectModeRegister)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(255,Y)");
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(255,Y)") );
     validateInvalidArgumentExceptionThrown();
 }
 
@@ -236,13 +235,13 @@ TEST(AddressingMode, IndirectIndexedMode)
 
 TEST(AddressingMode, InvalidIndirectIndexedModeValue)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(+0),Y");
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(+0),Y") );
     validateInvalidArgumentExceptionThrown();
 }
 
 TEST(AddressingMode, InvalidIndirectIndexedModeNotInZeroPage)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(256),Y");
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(256),Y") );
     STRCMP_EQUAL("filename:0: error: '256' isn't in page zero as required for indirect indexed addressing.\n",
                  printfSpy_GetLastOutput());
     validateInvalidArgumentExceptionThrown();
@@ -250,7 +249,7 @@ TEST(AddressingMode, InvalidIndirectIndexedModeNotInZeroPage)
 
 TEST(AddressingMode, InvalidIndirectIndexedModeRegister)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(0),X");
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(0),X") );
     validateInvalidArgumentExceptionThrown();
 }
 
@@ -272,6 +271,6 @@ TEST(AddressingMode, AbsolutePageIndirectMode)
 
 TEST(AddressingMode, InvalidIndirectModeValue)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(+0)");
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(+0)") );
     validateInvalidArgumentExceptionThrown();
 }

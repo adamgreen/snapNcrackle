@@ -45,17 +45,17 @@ struct DiskImageVTable NibbleDiskImageVTable =
 
 __throws NibbleDiskImage* NibbleDiskImage_Create(void)
 {
-    NibbleDiskImage* pThis;
+    NibbleDiskImage* pThis = NULL;
     
     __try
     {
-        __throwing_func( pThis = allocateAndZero(sizeof(*pThis)) );
-        __throwing_func( pThis->super = DiskImage_Init(&NibbleDiskImageVTable, NIBBLE_DISK_IMAGE_SIZE) );
+        pThis = allocateAndZero(sizeof(*pThis));
+        DiskImage_Init(&pThis->super, &NibbleDiskImageVTable, NIBBLE_DISK_IMAGE_SIZE);
     }
     __catch
     {
         DiskImage_Free(&pThis->super);
-        __rethrow_and_return(NULL);
+        __rethrow;
     }
         
     return pThis;
@@ -128,7 +128,7 @@ __throws void NibbleDiskImage_InsertData(NibbleDiskImage* pThis, const unsigned 
 {
     __try
     {
-        __throwing_func( validateOffsetType(pInsert) );
+        validateOffsetType(pInsert);
         prepareForFirstSector(pThis, pData, pInsert);
     }
     __catch
@@ -140,7 +140,7 @@ __throws void NibbleDiskImage_InsertData(NibbleDiskImage* pThis, const unsigned 
     {
         __try
         {
-            __throwing_func( writeRWTS16Sector(pThis) );
+            writeRWTS16Sector(pThis);
             advanceToNextSector(pThis);
         }
         __catch

@@ -52,7 +52,7 @@ TEST(LineBuffer, Init)
 TEST(LineBuffer, FailFirstAllocationInInit)
 {
     MallocFailureInject_FailAllocation(1);
-    m_pLineBuffer = LineBuffer_Create();
+    __try_and_catch( m_pLineBuffer = LineBuffer_Create() );
     POINTERS_EQUAL(NULL, m_pLineBuffer);
     LONGS_EQUAL(outOfMemoryException, getExceptionCode());
     clearExceptionCode();
@@ -61,7 +61,7 @@ TEST(LineBuffer, FailFirstAllocationInInit)
 TEST(LineBuffer, FailSecondAllocationInInit)
 {
     MallocFailureInject_FailAllocation(2);
-    m_pLineBuffer = LineBuffer_Create();
+    __try_and_catch( m_pLineBuffer = LineBuffer_Create() );
     POINTERS_EQUAL(NULL, m_pLineBuffer);
     LONGS_EQUAL(outOfMemoryException, getExceptionCode());
     clearExceptionCode();
@@ -94,7 +94,7 @@ TEST(LineBuffer, FailAllocationDuringLargeTextSet)
     memset(testLine, ' ', sizeof(testLine));
     testLine[ARRAYSIZE(testLine)-1] = '\0';
     MallocFailureInject_FailAllocation(1);
-    LineBuffer_Set(m_pLineBuffer, testLine);
+    __try_and_catch( LineBuffer_Set(m_pLineBuffer, testLine) );
     LONGS_EQUAL(outOfMemoryException, getExceptionCode());
     STRCMP_EQUAL("", LineBuffer_Get(m_pLineBuffer));
     clearExceptionCode();

@@ -29,14 +29,14 @@ __throws LineBuffer* LineBuffer_Create(void)
     
     __try
     {
-        __throwing_func( pThis = allocAndZero() );
-        __throwing_func( growLineTextBufferIfTooSmall(pThis, 256) );
+        pThis = allocAndZero();
+        growLineTextBufferIfTooSmall(pThis, 256);
         pThis->pText[0] = '\0';
     }
     __catch
     {
         LineBuffer_Free(pThis);
-        __rethrow_and_return(NULL);
+        __rethrow;
     }
 
     return pThis;
@@ -46,7 +46,7 @@ static LineBuffer* allocAndZero(void)
 {
     LineBuffer* pThis = malloc(sizeof(*pThis));
     if (!pThis)
-        __throw_and_return(outOfMemoryException, NULL);
+        __throw(outOfMemoryException);
     memset(pThis, 0, sizeof(*pThis));
     return pThis;
 }

@@ -50,6 +50,6 @@ struct DiskImage
 };
 
 
-__throws DiskImage DiskImage_Init(DiskImageVTable* pVTable, unsigned int imageSize);
+__throws void DiskImage_Init(DiskImage* pThis, DiskImageVTable* pVTable, unsigned int imageSize);
 
 #endif /* _DISK_IMAGE_PRIV_H_ */

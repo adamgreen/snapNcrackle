@@ -55,34 +55,35 @@ TEST_GROUP(CrackleCommandLine)
         CHECK(m_argc < (int)ARRAYSIZE(m_argv));
         m_argv[m_argc++] = pArg;
     }
+    
+    void validateInvalidArgumentExceptionThrown()
+    {
+        LONGS_EQUAL(invalidArgumentException, getExceptionCode());
+        clearExceptionCode();
+        STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+    }
 };
 
 
 TEST(CrackleCommandLine, NoParameters)
 {
-    m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
-    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
-    clearExceptionCode();
-    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+    __try_and_catch( m_commandLine = CrackleCommandLine_Init(m_argc, m_argv) );
+    validateInvalidArgumentExceptionThrown();
 }
 
 TEST(CrackleCommandLine, InvalidCaseOfOneParameter)
 {
     addArg("pop1.crackle");
-    m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
-    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
-    clearExceptionCode();
-    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+    __try_and_catch( m_commandLine = CrackleCommandLine_Init(m_argc, m_argv) );
+    validateInvalidArgumentExceptionThrown();
 }
 
 TEST(CrackleCommandLine, InvalidCaseOfTwoParameters)
 {
     addArg("pop1.crackle");
     addArg("pop1.nib");
-    m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
-    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
-    clearExceptionCode();
-    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+    __try_and_catch( m_commandLine = CrackleCommandLine_Init(m_argc, m_argv) );
+    validateInvalidArgumentExceptionThrown();
 }
 
 TEST(CrackleCommandLine, InvalidCaseOfThreeParameters)
@@ -90,10 +91,8 @@ TEST(CrackleCommandLine, InvalidCaseOfThreeParameters)
     addArg("--format");
     addArg("pop1.crackle");
     addArg("pop1.nib");
-    m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
-    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
-    clearExceptionCode();
-    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+    __try_and_catch( m_commandLine = CrackleCommandLine_Init(m_argc, m_argv) );
+    validateInvalidArgumentExceptionThrown();
 }
 
 TEST(CrackleCommandLine, InvalidFormatParameter)
@@ -102,10 +101,8 @@ TEST(CrackleCommandLine, InvalidFormatParameter)
     addArg("foo.bar");
     addArg("pop1.crackle");
     addArg("pop1.nib");
-    m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
-    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
-    clearExceptionCode();
-    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+    __try_and_catch( m_commandLine = CrackleCommandLine_Init(m_argc, m_argv) );
+    validateInvalidArgumentExceptionThrown();
 }
 
 TEST(CrackleCommandLine, InvalidDoubleDashFlagParameter)
@@ -114,10 +111,8 @@ TEST(CrackleCommandLine, InvalidDoubleDashFlagParameter)
     addArg("foo.bar");
     addArg("pop1.crackle");
     addArg("pop1.nib");
-    m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
-    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
-    clearExceptionCode();
-    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+    __try_and_catch( m_commandLine = CrackleCommandLine_Init(m_argc, m_argv) );
+    validateInvalidArgumentExceptionThrown();
 }
 
 TEST(CrackleCommandLine, MissingFormatType)
@@ -125,10 +120,8 @@ TEST(CrackleCommandLine, MissingFormatType)
     addArg("pop1.crackle");
     addArg("pop1.nib");
     addArg("--format");
-    m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
-    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
-    clearExceptionCode();
-    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+    __try_and_catch( m_commandLine = CrackleCommandLine_Init(m_argc, m_argv) );
+    validateInvalidArgumentExceptionThrown();
 }
 
 TEST(CrackleCommandLine, ValidFormatOfNib_5_25)
@@ -164,8 +157,6 @@ TEST(CrackleCommandLine, InvalidCaseOfTooManyFilenames)
     addArg("pop1.crackle");
     addArg("pop1.nib");
     addArg("one.toomany");
-    m_commandLine = CrackleCommandLine_Init(m_argc, m_argv);
-    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
-    clearExceptionCode();
-    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+    __try_and_catch ( m_commandLine = CrackleCommandLine_Init(m_argc, m_argv) );
+    validateInvalidArgumentExceptionThrown();
 }

@@ -79,16 +79,13 @@ TEST(ExpressionEval, EvaluateHexLiteral)
 
 TEST(ExpressionEval, EvaluateInvalidHexDigit)
 {
-    m_expression = ExpressionEval(m_pAssembler, "$AG");
-    LONGS_EQUAL(0xA, m_expression.value);
-    LONGS_EQUAL(TYPE_ZEROPAGE, m_expression.type);
+    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, "$AG") );
     validateFailureMessage("filename:0: error: 'G' is unexpected operator.\n", invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateHexValueTooLong)
 {
-    m_expression = ExpressionEval(m_pAssembler, "$12345");
-    LONGS_EQUAL(0x0, m_expression.value);
+    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, "$12345") );
     validateFailureMessage("filename:0: error: Hexadecimal number '$12345' doesn't fit in 16-bits.\n", invalidArgumentException);
 }
 
@@ -108,16 +105,13 @@ TEST(ExpressionEval, EvaluateBinaryLiteral)
 
 TEST(ExpressionEval, EvaluateInvalidBinaryDigit)
 {
-    m_expression = ExpressionEval(m_pAssembler, "%12");
-    LONGS_EQUAL(0x1, m_expression.value);
-    LONGS_EQUAL(TYPE_ZEROPAGE, m_expression.type);
+    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, "%12") );
     validateFailureMessage("filename:0: error: '2' is unexpected operator.\n", invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateBinaryValueTooLong)
 {
-    m_expression = ExpressionEval(m_pAssembler, "%11110000111100001");
-    LONGS_EQUAL(0x0, m_expression.value);
+    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, "%11110000111100001") );
     validateFailureMessage("filename:0: error: Binary number '%11110000111100001' doesn't fit in 16-bits.\n", invalidArgumentException);
 }
 
@@ -137,16 +131,13 @@ TEST(ExpressionEval, EvaluateDecimalLiteral)
 
 TEST(ExpressionEval, EvaluateInvalidDecimalDigit)
 {
-    m_expression = ExpressionEval(m_pAssembler, "1f");
-    LONGS_EQUAL(0x1, m_expression.value);
-    LONGS_EQUAL(TYPE_ZEROPAGE, m_expression.type);
+    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, "1f") );
     validateFailureMessage("filename:0: error: 'f' is unexpected operator.\n", invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateDecimalValueTooLong)
 {
-    m_expression = ExpressionEval(m_pAssembler, "65536");
-    LONGS_EQUAL(0x0, m_expression.value);
+    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, "65536") );
     validateFailureMessage("filename:0: error: Decimal number '65536' doesn't fit in 16-bits.\n", invalidArgumentException);
 }
 
@@ -194,19 +185,19 @@ TEST(ExpressionEval, ImmediateValueLargerThan8BitsWithCaretPrefix)
 
 TEST(ExpressionEval, InvalidUseOfLessThanPrefixOnNonImmediateValue)
 {
-    m_expression = ExpressionEval(m_pAssembler, "<$100");
+    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, "<$100") );
     validateFailureMessage("filename:0: error: '$' is unexpected operator.\n", invalidArgumentException);
 }
 
 TEST(ExpressionEval, InvalidUseOfGreaterThanPrefixOnNonImmediateValue)
 {
-    m_expression = ExpressionEval(m_pAssembler, ">$100");
+    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, ">$100") );
     validateFailureMessage("filename:0: error: '$' is unexpected operator.\n", invalidArgumentException);
 }
 
 TEST(ExpressionEval, InvalidUseOfCaretPrefixOnNonImmediateValue)
 {
-    m_expression = ExpressionEval(m_pAssembler, "^$100");
+    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, "^$100") );
     validateFailureMessage("filename:0: error: '$' is unexpected operator.\n", invalidArgumentException);
 }
 
@@ -368,11 +359,9 @@ TEST(ExpressionEval, BackwardLabelReference)
 TEST(ExpressionEval, FailAllocationOnForwardLabelReference)
 {
     MallocFailureInject_FailAllocation(1);
-    m_expression = ExpressionEval(m_pAssembler, "fwd_label");
+    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, "fwd_label") );
     MallocFailureInject_Restore();
 
-    LONGS_EQUAL(0x0, m_expression.value);
-    LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
     LONGS_EQUAL(outOfMemoryException, getExceptionCode());
     clearExceptionCode();
 }

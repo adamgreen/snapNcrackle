@@ -133,7 +133,7 @@ TEST(ByteBuffer, InitZeroByteBuffer)
 TEST(ByteBuffer, FailInit)
 {
     MallocFailureInject_FailAllocation(1);
-    ByteBuffer_Allocate(&m_buffer, 0);
+    __try_and_catch( ByteBuffer_Allocate(&m_buffer, 0) );
     LONGS_EQUAL(outOfMemoryException, getExceptionCode());
     POINTERS_EQUAL(NULL, m_buffer.pBuffer);
     LONGS_EQUAL(0, m_buffer.bufferSize);
@@ -178,7 +178,7 @@ TEST(ByteBuffer, FailWriteToFile)
     memset(m_buffer.pBuffer, 0xa5, m_buffer.bufferSize);
     
     fwriteFail(m_buffer.bufferSize - 1);
-        writeBufferToFile();
+        __try_and_catch( writeBufferToFile() );
     fwriteRestore();
     validateFileExceptionThrown();
 }
@@ -197,7 +197,7 @@ TEST(ByteBuffer, FailReadFromFile)
 {
     ByteBuffer_Allocate(&m_buffer, 10);
     freadFail(0);
-        ByteBuffer_ReadFromFile(&m_buffer, NULL);
+        __try_and_catch( ByteBuffer_ReadFromFile(&m_buffer, NULL) );
     freadRestore();
     validateFileExceptionThrown();
 }
@@ -217,7 +217,7 @@ TEST(ByteBuffer, FailReadPartialFromFile)
 {
     ByteBuffer_Allocate(&m_buffer, 10);
     freadFail(0);
-        ByteBuffer_ReadPartialFromFile(&m_buffer, 5, NULL);
+        __try_and_catch( ByteBuffer_ReadPartialFromFile(&m_buffer, 5, NULL) );
     freadRestore();
     validateFileExceptionThrown();
 }
@@ -225,7 +225,7 @@ TEST(ByteBuffer, FailReadPartialFromFile)
 TEST(ByteBuffer, FailByReadingTooMuchFromReadPartialFromFile)
 {
     ByteBuffer_Allocate(&m_buffer, 10);
-    ByteBuffer_ReadPartialFromFile(&m_buffer, 11, NULL);
+    __try_and_catch( ByteBuffer_ReadPartialFromFile(&m_buffer, 11, NULL) );
     LONGS_EQUAL(invalidArgumentException, getExceptionCode());
     clearExceptionCode();
 }

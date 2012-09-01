@@ -52,7 +52,7 @@ __throws CrackleCommandLine CrackleCommandLine_Init(int argc, const char** argv)
         __try
             argumentsUsed = parseArgument(&commandLine, argc, argv);
         __catch
-            __rethrow_and_return(commandLine);
+            __rethrow;
             
         argc -= argumentsUsed;
         argv += argumentsUsed;
@@ -61,7 +61,7 @@ __throws CrackleCommandLine CrackleCommandLine_Init(int argc, const char** argv)
     __try
         throwIfRequiredArgumentNotSpecified(&commandLine);
     __catch
-        __rethrow_and_return(commandLine);
+        __rethrow;
         
     return commandLine;
 }
@@ -86,14 +86,14 @@ static int parseFlagArgument(CrackleCommandLine* pThis, int argc, const char** p
         __try
             parseFormat(pThis, argc - 1, ppArgs[1]);
         __catch
-            __rethrow_and_return(-1);
+            __rethrow;
 
         return 2;
     }
     else
     {
         displayUsage();
-        __throw_and_return(invalidArgumentException, -1);
+        __throw(invalidArgumentException);
     }
 }
 
@@ -134,7 +134,7 @@ static int parseFilenameArgument(CrackleCommandLine* pThis, int argc, const char
     else
     {
         displayUsage();
-        __throw_and_return(invalidArgumentException, -1);
+        __throw(invalidArgumentException);
     }
 }
 

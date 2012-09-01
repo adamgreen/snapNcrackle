@@ -326,7 +326,7 @@ TEST(SymbolTable, FailAllocationWhenAddingLineInfoToSymbol)
     createOneSymbol();
     
     MallocFailureInject_FailAllocation(1);
-    Symbol_LineReferenceAdd(m_pSymbol1, &m_lineInfo1);
+    __try_and_catch( Symbol_LineReferenceAdd(m_pSymbol1, &m_lineInfo1) );
     MallocFailureInject_Restore();
 
     LONGS_EQUAL(outOfMemoryException, getExceptionCode());

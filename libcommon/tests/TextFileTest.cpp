@@ -171,7 +171,7 @@ TEST(TextFile, FailTextBufferAllocation)
 {
     createTestFile("\n\r");
     MallocFailureInject_FailAllocation(1);
-    m_pTextFile = TextFile_CreateFromFile(tempFilename);
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename) );
     MallocFailureInject_Restore();
     
     POINTERS_EQUAL(NULL, m_pTextFile);
@@ -183,7 +183,7 @@ TEST(TextFile, FailFOpen)
 {
     createTestFile("\n\r");
     fopenFail(NULL);
-    m_pTextFile = TextFile_CreateFromFile(tempFilename);
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename) );
     fopenRestore();
 
     POINTERS_EQUAL(NULL, m_pTextFile);
@@ -196,7 +196,7 @@ TEST(TextFile, FailFSeekToEOF)
     createTestFile("\n\r");
     fseekSetFailureCode(-1);
     fseekSetCallsBeforeFailure(0);
-    m_pTextFile = TextFile_CreateFromFile(tempFilename);
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename) );
     fseekRestore();
     validateFileExceptionThrown();
 }
@@ -206,7 +206,7 @@ TEST(TextFile, FailFSeekBackToStart)
     createTestFile("\n\r");
     fseekSetFailureCode(-1);
     fseekSetCallsBeforeFailure(1);
-    m_pTextFile = TextFile_CreateFromFile(tempFilename);
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename) );
     fseekRestore();
     validateFileExceptionThrown();
 }
@@ -215,7 +215,7 @@ TEST(TextFile, FailFTell)
 {
     createTestFile("\n\r");
     ftellFail(-1);
-    m_pTextFile = TextFile_CreateFromFile(tempFilename);
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename) );
     ftellRestore();
     validateFileExceptionThrown();
 }
@@ -224,7 +224,7 @@ TEST(TextFile, FailFRead)
 {
     createTestFile("\n\r");
     freadFail(0);
-    m_pTextFile = TextFile_CreateFromFile(tempFilename);
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename) );
     freadRestore();
     validateFileExceptionThrown();
 }

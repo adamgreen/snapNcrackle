@@ -21,7 +21,7 @@ __throws void ByteBuffer_Allocate(ByteBuffer* pThis, unsigned int bufferSize)
     __try
     {
         ByteBuffer_Free(pThis);
-        __throwing_func( pThis->pBuffer = allocateAndZero(bufferSize) );
+        pThis->pBuffer = allocateAndZero(bufferSize);
         pThis->bufferSize = bufferSize;
     }
     __catch

@@ -25,10 +25,10 @@ int main(int argc, const char** argv)
 
     __try
     {
-        __throwing_func( commandLine = CrackleCommandLine_Init(argc-1, argv+1) );
-        __throwing_func( pDiskImage = allocateDiskImageObject(&commandLine) );
-        __throwing_func( DiskImage_ProcessScriptFile(pDiskImage, commandLine.pScriptFilename) );
-        __throwing_func( DiskImage_WriteImage(pDiskImage, commandLine.pOutputImageFilename) );
+        commandLine = CrackleCommandLine_Init(argc-1, argv+1);
+        pDiskImage = allocateDiskImageObject(&commandLine);
+        DiskImage_ProcessScriptFile(pDiskImage, commandLine.pScriptFilename);
+        DiskImage_WriteImage(pDiskImage, commandLine.pOutputImageFilename);
         printf("%s image built successfully.\n", commandLine.pOutputImageFilename);
     }
     __catch

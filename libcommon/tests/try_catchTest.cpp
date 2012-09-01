@@ -42,14 +42,18 @@ TEST_GROUP(TryCatch)
     
     void throwBufferAndArgumentExceptions()
     {
-        throwBufferOverrunException();
-        throwInvalidArgumentException();
+        __try
+            throwBufferOverrunException();
+        __catch
+            throwInvalidArgumentException();
     }
     
     void throwArgumentAndBufferExceptions()
     {
-        throwInvalidArgumentException();
-        throwBufferOverrunException();
+        __try
+            throwInvalidArgumentException();
+        __catch
+            throwBufferOverrunException();
     }
     
     void throwBufferOverrunException()
@@ -64,7 +68,7 @@ TEST_GROUP(TryCatch)
     
     int throwBufferOverrunExceptionAndReturnNegative1()
     {
-        __throw_and_return(bufferOverrunException, -1);
+        __throw(bufferOverrunException);
     }
     
     void rethrowBufferOverrunException()
@@ -81,8 +85,8 @@ TEST_GROUP(TryCatch)
         __try
             throwBufferOverrunException();
         __catch
-            __rethrow_and_return(-1);
-        __throw_and_return(invalidArgumentException, 0);
+            __rethrow;
+        __throw(invalidArgumentException);
     }
 
     void validateException(int expectedExceptionCode)
@@ -141,8 +145,8 @@ TEST(TryCatch, CatchFirstThrow)
 {
     __try
     {
-        __throwing_func( throwBufferOverrunException() );
-        __throwing_func( throwInvalidArgumentException() );
+        throwBufferOverrunException();
+        throwInvalidArgumentException();
     }
     __catch
     {
@@ -156,8 +160,8 @@ TEST(TryCatch, CatchSecondThrow)
 {
     __try
     {
-        __throwing_func( throwNoException() );
-        __throwing_func( throwInvalidArgumentException() );
+        throwNoException();
+        throwInvalidArgumentException();
     }
     __catch
     {
@@ -167,16 +171,16 @@ TEST(TryCatch, CatchSecondThrow)
     validateException(invalidArgumentException);
 }
 
-TEST(TryCatch, ThrowAndReturn)
+TEST(TryCatch, ThrowAndSkipAssignment)
 {
-    int value;
+    int value = -2;
     
     __try
         value = throwBufferOverrunExceptionAndReturnNegative1();
     __catch
         flagExceptionHit();
         
-    LONGS_EQUAL( -1, value );
+    LONGS_EQUAL( -2, value );
     validateException(bufferOverrunException);
 }
 
@@ -189,15 +193,15 @@ TEST(TryCatch, RethrowBufferOverrunException)
     validateException(bufferOverrunException);
 }
 
-TEST(TryCatch, RethrowBufferOverrunExceptionAndReturnNegative1)
+TEST(TryCatch, RethrowBufferOverrunExceptionAndSkipAssignment)
 {
-    int value;
+    int value = -2;
     
     __try
         value = rethrowBufferOverrunExceptionAndReturnNegative1();
     __catch
         flagExceptionHit();
 
-    LONGS_EQUAL( -1, value );
+    LONGS_EQUAL( -2, value );
     validateException(bufferOverrunException);
 }

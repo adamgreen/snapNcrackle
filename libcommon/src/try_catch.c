@@ -13,4 +13,5 @@
 /* Very rough exception handling like macros for C. */
 #include "try_catch.h"
 
-int g_exceptionCode;
+ExceptionHandler* g_pExceptionHandlers;
+int               g_exceptionCode;

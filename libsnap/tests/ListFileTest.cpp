@@ -53,7 +53,7 @@ TEST_GROUP(ListFile)
 TEST(ListFile, FailFirstAllocDuringCreate)
 {
     MallocFailureInject_FailAllocation(1);
-    m_pListFile = ListFile_Create(stdout);
+    __try_and_catch( m_pListFile = ListFile_Create(stdout) );
     POINTERS_EQUAL(NULL, m_pListFile);
     LONGS_EQUAL(outOfMemoryException, getExceptionCode());
     clearExceptionCode();

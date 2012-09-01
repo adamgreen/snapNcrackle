@@ -56,7 +56,7 @@ TEST_GROUP(BlockDiskImage)
         free(m_pImageOnDisk);
         remove(g_imageFilename);
         remove(g_savFilenameAllOnes);
-        remove(g_savFilenameAllOnes);
+        remove(g_savFilenameAllZeroes);
         remove(g_scriptFilename);
     }
     
@@ -122,7 +122,7 @@ TEST_GROUP(BlockDiskImage)
         insert.block = startBlock;
         insert.intraBlockOffset = 0;
 
-        BlockDiskImage_InsertData(m_pDiskImage, pBlockData, &insert);
+        __try_and_catch( BlockDiskImage_InsertData(m_pDiskImage, pBlockData, &insert) );
         free(pBlockData);
     }
     
@@ -182,7 +182,7 @@ TEST_GROUP(BlockDiskImage)
     {
         unsigned char blockData[DISK_IMAGE_BLOCK_SIZE];
         memset(blockData, 0x00, sizeof(blockData));
-        createBlockObjectFile(g_savFilenameAllOnes, blockData, sizeof(blockData));
+        createBlockObjectFile(g_savFilenameAllZeroes, blockData, sizeof(blockData));
     }
 
     void createBlockObjectFile(const char* pFilename, unsigned char* pBlockData, size_t blockDataSize)
@@ -228,8 +228,7 @@ TEST(BlockDiskImage, FailAllAllocationInCreate)
     for (int i = 1 ; i <= allocationsToFail ; i++)
     {
         MallocFailureInject_FailAllocation(i);
-        m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
-        POINTERS_EQUAL(NULL, m_pDiskImage);
+        __try_and_catch( m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT) );
         validateOutOfMemoryExceptionThrown();
     }
 
@@ -299,7 +298,7 @@ TEST(BlockDiskImage, FailFOpenInWriteImage)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     writeOnesBlocks(0, 1);
     fopenFail(NULL);
-        BlockDiskImage_WriteImage(m_pDiskImage, g_imageFilename);
+        __try_and_catch( BlockDiskImage_WriteImage(m_pDiskImage, g_imageFilename) );
     fopenRestore();
     validateFileExceptionThrown();
 }
@@ -309,7 +308,7 @@ TEST(BlockDiskImage, FailFWriteInWriteImage)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     writeOnesBlocks(0, 1);
     fwriteFail(0);
-        BlockDiskImage_WriteImage(m_pDiskImage, g_imageFilename);
+        __try_and_catch( BlockDiskImage_WriteImage(m_pDiskImage, g_imageFilename) );
     fwriteRestore();
     validateFileExceptionThrown();
 }
@@ -331,7 +330,7 @@ TEST(BlockDiskImage, ReadRawObjectFile)
 TEST(BlockDiskImage, FailFOpenForNoExistingFileInReadObjectFile)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
-    BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
+    __try_and_catch( BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes) );
     validateFileExceptionThrown();
 }
 
@@ -341,7 +340,7 @@ TEST(BlockDiskImage, FailHeaderReadInReadObjectFile)
     createOnesBlockObjectFile();
     
     freadFail(0);
-        BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
+        __try_and_catch( BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes) );
     freadRestore();
     validateFileExceptionThrown();
 }
@@ -352,7 +351,7 @@ TEST(BlockDiskImage, FailAllocationInReadObjectFile)
     createOnesBlockObjectFile();
     
     MallocFailureInject_FailAllocation(1);
-    BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
+    __try_and_catch( BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes) );
     validateOutOfMemoryExceptionThrown();
 }
 
@@ -363,7 +362,7 @@ TEST(BlockDiskImage, FailDataReadInReadObjectFile)
     
     freadFail(0);
     freadToFail(2);
-        BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
+        __try_and_catch( BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes) );
     freadRestore();
     validateFileExceptionThrown();
 }
@@ -420,7 +419,7 @@ TEST(BlockDiskImage, InvalidTypeForInsertObjectFile)
     insert.type = DISK_IMAGE_INSERTION_RWTS16;
     insert.block = 0;
     insert.intraBlockOffset = 0;
-    BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
+    __try_and_catch( BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert) );
     validateExceptionThrown(invalidInsertionTypeException);
 }
 
@@ -436,7 +435,7 @@ TEST(BlockDiskImage, OutOfBoundsStartingOffsetForInsertObjectFile)
     insert.type = DISK_IMAGE_INSERTION_BLOCK;
     insert.block = 0;
     insert.intraBlockOffset = 0;
-    BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
+    __try_and_catch( BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert) );
     validateExceptionThrown(invalidSourceOffsetException);
 }
 
@@ -452,7 +451,7 @@ TEST(BlockDiskImage, OutOfBoundsEndingOffsetOnInputObjectFile)
     insert.type = DISK_IMAGE_INSERTION_BLOCK;
     insert.block = 0;
     insert.intraBlockOffset = 0;
-    BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
+    __try_and_catch( BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert) );
     validateExceptionThrown(invalidLengthException);
 }
 
@@ -489,7 +488,7 @@ TEST(BlockDiskImage, OutOfBoundsBlockForInsertObjectFile)
     insert.type = DISK_IMAGE_INSERTION_BLOCK;
     insert.block = BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT;
     insert.intraBlockOffset = 0;
-    BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
+    __try_and_catch( BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert) );
     validateExceptionThrown(blockExceedsImageBoundsException);
 }
 
@@ -505,7 +504,7 @@ TEST(BlockDiskImage, OutOfBoundIntraBlockOffsetForInsertObjectFile)
     insert.type = DISK_IMAGE_INSERTION_BLOCK;
     insert.block = BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT;
     insert.intraBlockOffset = DISK_IMAGE_BLOCK_SIZE;
-    BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
+    __try_and_catch( BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert) );
     validateExceptionThrown(invalidIntraBlockOffsetException);
 }
 
@@ -626,7 +625,7 @@ TEST(BlockDiskImage, FailTextFileCreateInProcessScript)
     createOnesBlockObjectFile();
 
     MallocFailureInject_FailAllocation(1);
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,0\n"));
+    __try_and_catch( BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,0\n")) );
     validateOutOfMemoryExceptionThrown();
 }
 
@@ -733,6 +732,6 @@ TEST(BlockDiskImage, FailToAllocateTextFileInProcessScriptFile)
                                      "BLOCK,BlockDiskImageTestOnes.sav,0,512,1599\n");
 
     MallocFailureInject_FailAllocation(1);
-    BlockDiskImage_ProcessScriptFile(m_pDiskImage, g_scriptFilename);
+    __try_and_catch( BlockDiskImage_ProcessScriptFile(m_pDiskImage, g_scriptFilename) );
     validateOutOfMemoryExceptionThrown();
 }

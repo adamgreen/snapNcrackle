@@ -208,7 +208,7 @@ TEST_GROUP(NibbleDiskImage)
         insert.track = startTrack;
         insert.sector = startSector;
 
-        NibbleDiskImage_InsertData(m_pNibbleDiskImage, pSectorData, &insert);
+        __try_and_catch( NibbleDiskImage_InsertData(m_pNibbleDiskImage, pSectorData, &insert) );
         free(pSectorData);
     }
     
@@ -300,8 +300,7 @@ TEST(NibbleDiskImage, FailAllAllocationsInCreate)
     for (int i = 1 ; i <= allocationsToFail ; i++)
     {
         MallocFailureInject_FailAllocation(i);
-        m_pNibbleDiskImage = NibbleDiskImage_Create();
-        POINTERS_EQUAL(NULL, m_pNibbleDiskImage);
+        __try_and_catch( m_pNibbleDiskImage = NibbleDiskImage_Create() );
         validateOutOfMemoryExceptionThrown();
     }
 
@@ -491,7 +490,7 @@ TEST(NibbleDiskImage, FailFOpenInWriteImage)
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     writeZeroSectors(0, 0, 1);
     fopenFail(NULL);
-        NibbleDiskImage_WriteImage(m_pNibbleDiskImage, g_imageFilename);
+        __try_and_catch( NibbleDiskImage_WriteImage(m_pNibbleDiskImage, g_imageFilename) );
     fopenRestore();
     validateFileExceptionThrown();
 }
@@ -501,7 +500,7 @@ TEST(NibbleDiskImage, FailFWriteInWriteImage)
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     writeZeroSectors(0, 0, 1);
     fwriteFail(0);
-        NibbleDiskImage_WriteImage(m_pNibbleDiskImage, g_imageFilename);
+        __try_and_catch( NibbleDiskImage_WriteImage(m_pNibbleDiskImage, g_imageFilename) );
     fwriteRestore();
     validateFileExceptionThrown();
 }
@@ -516,7 +515,7 @@ TEST(NibbleDiskImage, ReadObjectFile)
 TEST(NibbleDiskImage, FailFOpenInReadObjectFile)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
-    NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes);
+    __try_and_catch( NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes) );
     validateFileExceptionThrown();
 }
 
@@ -526,7 +525,7 @@ TEST(NibbleDiskImage, FailHeaderReadInReadObjectFile)
     createZeroSectorObjectFile();
     
     freadFail(0);
-        NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes);
+        __try_and_catch( NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes) );
     freadRestore();
     validateFileExceptionThrown();
 }
@@ -537,7 +536,7 @@ TEST(NibbleDiskImage, FailAllocationInReadObjectFile)
     createZeroSectorObjectFile();
     
     MallocFailureInject_FailAllocation(1);
-    NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes);
+    __try_and_catch( NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes) );
     validateOutOfMemoryExceptionThrown();
 }
 
@@ -548,7 +547,7 @@ TEST(NibbleDiskImage, FailDataReadInReadObjectFile)
     
     freadFail(0);
     freadToFail(2);
-        NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes);
+        __try_and_catch( NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes) );
     freadRestore();
     validateFileExceptionThrown();
 }
@@ -585,7 +584,7 @@ TEST(NibbleDiskImage, OutOfBoundsStartingOffsetForInsertObjectFile)
     insert.length = DISK_IMAGE_BYTES_PER_SECTOR;
     insert.track = 0;
     insert.sector = 0;
-    NibbleDiskImage_InsertObjectFile(m_pNibbleDiskImage, &insert);
+    __try_and_catch( NibbleDiskImage_InsertObjectFile(m_pNibbleDiskImage, &insert) );
     validateExceptionThrown(invalidSourceOffsetException);
 }
 
@@ -601,7 +600,7 @@ TEST(NibbleDiskImage, OutOfBoundsEndingOffsetForInsertObjectFile)
     insert.length = DISK_IMAGE_BLOCK_SIZE;
     insert.track = 0;
     insert.sector = 0;
-    NibbleDiskImage_InsertObjectFile(m_pNibbleDiskImage, &insert);
+    __try_and_catch( NibbleDiskImage_InsertObjectFile(m_pNibbleDiskImage, &insert) );
     validateExceptionThrown(invalidLengthException);
 }
 
@@ -704,7 +703,7 @@ TEST(NibbleDiskImage, FailTextFileCreateInProcessScript)
     createZeroSectorObjectFile();
 
     MallocFailureInject_FailAllocation(1);
-    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0,0\n"));
+    __try_and_catch( NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0,0\n")) );
     validateOutOfMemoryExceptionThrown();
 }
 
@@ -800,7 +799,7 @@ TEST(NibbleDiskImage, FailToAllocateTextFileInProcessScriptFile)
                                      "RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,34,15\n");
 
     MallocFailureInject_FailAllocation(1);
-    NibbleDiskImage_ProcessScriptFile(m_pNibbleDiskImage, g_scriptFilename);
+    __try_and_catch( NibbleDiskImage_ProcessScriptFile(m_pNibbleDiskImage, g_scriptFilename) );
     validateOutOfMemoryExceptionThrown();
 }
 

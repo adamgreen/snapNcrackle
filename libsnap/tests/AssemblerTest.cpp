@@ -106,7 +106,6 @@ TEST_GROUP(Assembler)
     
     void validateExceptionThrown(int expectedException)
     {
-        POINTERS_EQUAL(NULL, m_pAssembler);
         LONGS_EQUAL(expectedException, getExceptionCode());
         clearExceptionCode();
     }
@@ -767,7 +766,7 @@ TEST(Assembler, FailAllInitAllocations)
     for (int i = 1 ; i <= allocationsToFail ; i++)
     {
         MallocFailureInject_FailAllocation(i);
-        m_pAssembler = Assembler_CreateFromString(dupe(""));
+        __try_and_catch( m_pAssembler = Assembler_CreateFromString(dupe("")) );
         POINTERS_EQUAL(NULL, m_pAssembler);
         validateOutOfMemoryExceptionThrown();
     }
@@ -794,18 +793,29 @@ TEST(Assembler, InitFromEmptyFile)
 
 TEST(Assembler, InitFromNonExistantFile)
 {
-    m_pAssembler = Assembler_CreateFromFile("foo.noexist.bar");
+    __try_and_catch( m_pAssembler = Assembler_CreateFromFile("foo.noexist.bar") );
     validateFileNotFoundExceptionThrown();
 }
 
-TEST(Assembler, FailFirstAllocationDuringFileInit)
+TEST(Assembler, FailAllAllocationsDuringFileInit)
 {
+    static const int allocationsToFail = 15;
     createSourceFile(" ORG $800\r\n");
-    MallocFailureInject_FailAllocation(1);
+
+    for (int i = 1 ; i <= allocationsToFail ; i++)
+    {
+        MallocFailureInject_FailAllocation(i);
+        __try_and_catch( m_pAssembler = Assembler_CreateFromFile(g_sourceFilename) );
+        POINTERS_EQUAL(NULL, m_pAssembler);
+        validateOutOfMemoryExceptionThrown();
+    }
+
+    MallocFailureInject_FailAllocation(allocationsToFail + 1);
     m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
-    validateOutOfMemoryExceptionThrown();
+    CHECK_TRUE(m_pAssembler != NULL);
 }
 
+#ifdef UNDONE
 TEST(Assembler, FailSecondAllocationDuringFileInit)
 {
     createSourceFile(" ORG $800\r\n");
@@ -845,6 +855,7 @@ TEST(Assembler, FailSixthAllocationDuringFileInit)
     m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
     validateOutOfMemoryExceptionThrown();
 }
+#endif // UnDONE
 
 TEST(Assembler, InitAndRunFromShortFile)
 {
@@ -864,25 +875,20 @@ TEST(Assembler, FailAllocationOnLongLine)
     memset(longLine, ' ', sizeof(longLine));
     longLine[ARRAYSIZE(longLine)-1] = '\0';
     m_pAssembler = Assembler_CreateFromString(longLine);
-    CHECK(m_pAssembler != NULL);
 
     MallocFailureInject_FailAllocation(1);
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(0, printfSpy_GetCallCount());
-    LONGS_EQUAL(outOfMemoryException, getExceptionCode());
-    clearExceptionCode();
+        __try_and_catch( Assembler_Run(m_pAssembler) );
+        LONGS_EQUAL(0, printfSpy_GetCallCount());
+        validateOutOfMemoryExceptionThrown();
 }
 
 TEST(Assembler, FailAllocationOnLineInfoAllocation)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("* Comment Line."));
-    CHECK(m_pAssembler != NULL);
-
     MallocFailureInject_FailAllocation(1);
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(0, printfSpy_GetCallCount());
-    LONGS_EQUAL(outOfMemoryException, getExceptionCode());
-    clearExceptionCode();
+        __try_and_catch( Assembler_Run(m_pAssembler) );
+        LONGS_EQUAL(0, printfSpy_GetCallCount());
+        validateOutOfMemoryExceptionThrown();
 }
 
 TEST(Assembler, RunOnLongLine)

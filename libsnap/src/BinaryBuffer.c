@@ -47,13 +47,13 @@ __throws BinaryBuffer* BinaryBuffer_Create(size_t bufferSize)
     __try
         pThis = allocateAndZero(sizeof(*pThis));
     __catch
-        __rethrow_and_return(NULL);
+        __rethrow;
 
     pThis->pBuffer = malloc(bufferSize);
     if (!pThis->pBuffer)
     {
         BinaryBuffer_Free(pThis);
-        __throw_and_return(outOfMemoryException, NULL);
+        __throw(outOfMemoryException);
     }
     pThis->pCurrent = pThis->pBuffer;
     pThis->pBase = pThis->pBuffer;
@@ -94,7 +94,7 @@ __throws unsigned char* BinaryBuffer_Alloc(BinaryBuffer* pThis, size_t bytesToAl
     unsigned char* pAlloc = pThis->pCurrent;
     
     if (bytesLeft < bytesToAllocate || shouldInjectFailureOnThisAllocation(pThis))
-        __throw_and_return(outOfMemoryException, NULL);
+        __throw(outOfMemoryException);
 
     pThis->pCurrent += bytesToAllocate;
     pThis->pLastAlloc = pAlloc;
@@ -119,7 +119,7 @@ __throws unsigned char* BinaryBuffer_Realloc(BinaryBuffer* pThis, unsigned char*
     if (!pToRealloc)
         return BinaryBuffer_Alloc(pThis, bytesToAllocate);
     if(pToRealloc != pThis->pLastAlloc)
-        __throw_and_return(invalidArgumentException, NULL);
+        __throw(invalidArgumentException);
         
     pThis->pCurrent = pThis->pLastAlloc;
     return BinaryBuffer_Alloc(pThis, bytesToAllocate);
@@ -153,8 +153,8 @@ __throws void BinaryBuffer_QueueWriteToFile(BinaryBuffer* pThis, const char* pFi
     
     __try
     {
-        __throwing_func( pEntry = allocateAndZero(sizeof(*pEntry)) );
-        __throwing_func( initializeFileWriteEntry(pThis, pEntry, pFilename) );
+        pEntry = allocateAndZero(sizeof(*pEntry));
+        initializeFileWriteEntry(pThis, pEntry, pFilename);
         addFileWriteEntryToList(pThis, pEntry);
     }
     __catch

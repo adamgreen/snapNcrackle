@@ -37,15 +37,15 @@ __throws Assembler* Assembler_CreateFromString(char* pText)
     
     __try
     {
-        __throwing_func( pThis = allocateAndZero(sizeof(*pThis)) );
-        __throwing_func( commonObjectInit(pThis) );
-        __throwing_func( pThis->pTextFile = TextFile_CreateFromString(pText) );
+        pThis = allocateAndZero(sizeof(*pThis));
+        commonObjectInit(pThis);
+        pThis->pTextFile = TextFile_CreateFromString(pText);
         pThis->pSourceFilename = "filename";
     }
     __catch
     {
         Assembler_Free(pThis);
-        __rethrow_and_return(NULL);
+        __rethrow;
     }
 
     return pThis;
@@ -57,12 +57,12 @@ static void commonObjectInit(Assembler* pThis)
     __try
     {
         // UNDONE: Take list file location as parameter.
-        __throwing_func( pThis->pListFile = ListFile_Create(stdout) );
-        __throwing_func( pThis->pLineText = LineBuffer_Create() );
-        __throwing_func( pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS) );
-        __throwing_func( pThis->pObjectBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS) )
-        __throwing_func( pThis->pDummyBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS) );
-        __throwing_func( createFullInstructionSetTables(pThis) );
+        pThis->pListFile = ListFile_Create(stdout);
+        pThis->pLineText = LineBuffer_Create();
+        pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
+        pThis->pObjectBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
+        pThis->pDummyBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
+        createFullInstructionSetTables(pThis);
         pThis->pLineInfo = &pThis->linesHead;
         pThis->pLocalLabelStart = pThis->labelBuffer;
         pThis->maxLocalLabelSize = sizeof(pThis->labelBuffer)-1;
@@ -79,10 +79,10 @@ static void createFullInstructionSetTables(Assembler* pThis)
 {
     __try
     {
-        __throwing_func( create6502InstructionSetTable(pThis) );
-        __throwing_func( create65c02InstructionSetTable(pThis) );
+        create6502InstructionSetTable(pThis);
+        create65c02InstructionSetTable(pThis);
 
-        __throwing_func( pThis->instructionSets[2] = allocateAndZero(sizeof(g_6502InstructionSet)) );
+        pThis->instructionSets[2] = allocateAndZero(sizeof(g_6502InstructionSet));
         pThis->instructionSetSizes[2] = ARRAYSIZE(g_6502InstructionSet);
         memcpy(pThis->instructionSets[2], pThis->instructionSets[0], sizeof(g_6502InstructionSet));
     }
@@ -96,7 +96,7 @@ static void create6502InstructionSetTable(Assembler* pThis)
 {
     __try
     {
-        __throwing_func( pThis->instructionSets[0] = allocateAndZero(sizeof(g_6502InstructionSet)) );
+        pThis->instructionSets[0] = allocateAndZero(sizeof(g_6502InstructionSet));
         memcpy(pThis->instructionSets[0], g_6502InstructionSet, sizeof(g_6502InstructionSet));
         pThis->instructionSetSizes[0] = ARRAYSIZE(g_6502InstructionSet);
         qsort(pThis->instructionSets[0], ARRAYSIZE(g_6502InstructionSet), sizeof(g_6502InstructionSet[0]), 
@@ -126,7 +126,7 @@ static void create65c02InstructionSetTable(Assembler* pThis)
     
     __try
     {
-        __throwing_func( pThis->instructionSets[1] = allocateAndZero(sizeof(OpCodeEntry) * newSetLength) );
+        pThis->instructionSets[1] = allocateAndZero(sizeof(OpCodeEntry) * newSetLength);
         memcpy(pThis->instructionSets[1], pThis->instructionSets[0], sizeof(OpCodeEntry) * baseSetLength);
         updateExistingInstructions(pThis->instructionSets[1], baseSetLength, newSetLength, 
                                    g_65c02AdditionalInstructions, ARRAYSIZE(g_65c02AdditionalInstructions));
@@ -217,15 +217,15 @@ __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename)
     
     __try
     {
-        __throwing_func( pThis = allocateAndZero(sizeof(*pThis)) );
-        __throwing_func( commonObjectInit(pThis) );
-        __throwing_func( pThis->pTextFile = TextFile_CreateFromFile(pSourceFilename) );
+        pThis = allocateAndZero(sizeof(*pThis));
+        commonObjectInit(pThis);
+        pThis->pTextFile = TextFile_CreateFromFile(pSourceFilename);
         pThis->pSourceFilename = pSourceFilename;
     }
     __catch
     {
         Assembler_Free(pThis);
-        __rethrow_and_return(NULL);
+        __rethrow;
     }
 
     return pThis;
@@ -353,9 +353,9 @@ void Assembler_Run(Assembler* pThis)
 {
     __try
     {
-        __throwing_func( firstPass(pThis) );
+        firstPass(pThis);
         checkForUndefinedSymbols(pThis);
-        __throwing_func( secondPass(pThis) );
+        secondPass(pThis);
     }
     __catch
     {
@@ -380,8 +380,8 @@ static void parseLine(Assembler* pThis, char* pLine)
 {
     __try
     {
-        __throwing_func( LineBuffer_Set(pThis->pLineText, pLine) );
-        __throwing_func( prepareLineInfoForThisLine(pThis, pLine) );
+        LineBuffer_Set(pThis->pLineText, pLine);
+        prepareLineInfoForThisLine(pThis, pLine);
         ParseLine(&pThis->parsedLine, LineBuffer_Get(pThis->pLineText));
         rememberLabel(pThis);
         firstPassAssembleLine(pThis);
@@ -420,11 +420,11 @@ static void rememberLabel(Assembler* pThis)
         Symbol*     pSymbol = NULL;
         Expression  expression;
     
-        __throwing_func( validateLabelFormat(pThis) );
-        __throwing_func( pExpandedLabelName = expandedLabelName(pThis, pThis->parsedLine.pLabel, strlen(pThis->parsedLine.pLabel)) );
+        validateLabelFormat(pThis);
+        pExpandedLabelName = expandedLabelName(pThis, pThis->parsedLine.pLabel, strlen(pThis->parsedLine.pLabel));
         expression = ExpressionEval_CreateAbsoluteExpression(pThis->programCounter);
-        __throwing_func( pSymbol = attemptToAddSymbol(pThis, pExpandedLabelName, &expression) );
-        __throwing_func( rememberGlobalLabel(pThis) );
+        pSymbol = attemptToAddSymbol(pThis, pExpandedLabelName, &expression);
+        rememberGlobalLabel(pThis);
     }
     __catch
     {
@@ -487,7 +487,7 @@ static char* copySizedLabel(Assembler* pThis, const char* pLabel, size_t labelLe
     if (labelLength > pThis->maxLocalLabelSize)
     {
         LOG_ERROR(pThis, "'%.*s' label is too long.", labelLength, pLabel);
-        __throw_and_return(bufferOverrunException, NULL);
+        __throw(bufferOverrunException);
     }
     memcpy(pThis->pLocalLabelStart, pLabel, labelLength);
     pThis->pLocalLabelStart[labelLength] = '\0';
@@ -516,7 +516,7 @@ static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName, Exp
     if (pSymbol && (isSymbolAlreadyDefined(pSymbol, pThis->pLineInfo) && !isVariableLabelName(pSymbolName)))
     {
         LOG_ERROR(pThis, "'%s' symbol has already been defined.", pSymbolName);
-        __throw_and_return(invalidArgumentException, NULL);
+        __throw(invalidArgumentException);
     }
     if (!pSymbol)
     {
@@ -527,7 +527,7 @@ static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName, Exp
         __catch
         {
             LOG_ERROR(pThis, "Failed to allocate space for '%s' symbol.", pSymbolName);
-            __rethrow_and_return(NULL);
+            __rethrow;
         }
     }
     flagSymbolAsDefined(pSymbol, pThis->pLineInfo);
@@ -690,9 +690,9 @@ static void reallocLineInfoMachineCodeBytes(Assembler* pThis, size_t bytesToAllo
 {
     __try
     {
-        __throwing_func( pThis->pLineInfo->pMachineCode = BinaryBuffer_Realloc(pThis->pCurrentBuffer, 
-                                                                               pThis->pLineInfo->pMachineCode, 
-                                                                               bytesToAllocate) );
+        pThis->pLineInfo->pMachineCode = BinaryBuffer_Realloc(pThis->pCurrentBuffer, 
+                                                              pThis->pLineInfo->pMachineCode, 
+                                                              bytesToAllocate);
         pThis->pLineInfo->machineCodeSize = bytesToAllocate;
                                                                                
     }
@@ -845,8 +845,8 @@ static void handleEQU(Assembler* pThis)
         Symbol*    pSymbol = pThis->pLineInfo->pSymbol;
         Expression expression;
         
-        __throwing_func( expression = ExpressionEval(pThis, pThis->parsedLine.pOperands) );
-        __throwing_func( validateEQULabelFormat(pThis) );
+        expression = ExpressionEval(pThis, pThis->parsedLine.pOperands);
+        validateEQULabelFormat(pThis);
         if (pSymbol)
         {
             /* pSymbol would only be NULL if out of memory was encountered earlier but continued assembly process to
@@ -918,8 +918,8 @@ static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, Li
     __try
     {
         Symbol_LineReferenceRemove(pSymbol, pLineInfo);
-        __throwing_func( pLineBuffer = LineBuffer_Create() );
-        __throwing_func( LineBuffer_Set(pLineBuffer, pLineInfo->pLineText) );
+        pLineBuffer = LineBuffer_Create();
+        LineBuffer_Set(pLineBuffer, pLineInfo->pLineText);
         ParseLine(&pThis->parsedLine, LineBuffer_Get(pLineBuffer));
         firstPassAssembleLine(pThis);
     }
@@ -964,7 +964,7 @@ static void handleASC(Assembler* pThis)
         {
             unsigned char   byte = *pCurr | mask;
             if (!alreadyAllocated)
-                __throwing_func( reallocLineInfoMachineCodeBytes(pThis, i+1) );
+                reallocLineInfoMachineCodeBytes(pThis, i+1);
             pThis->pLineInfo->pMachineCode[i++] = byte;
             pCurr++;
         }
@@ -1020,16 +1020,16 @@ static Expression getAbsoluteExpression(Assembler* pThis, SizedString* pOperands
     
     __try
     {
-        __throwing_func( expression = ExpressionEvalSizedString(pThis, pOperands) );
+        expression = ExpressionEvalSizedString(pThis, pOperands);
         if (!isTypeAbsolute(&expression))
         {
             LOG_ERROR(pThis, "'%.*s' doesn't specify an absolute address.", pOperands->stringLength, pOperands->pString);
-            __throw_and_return(invalidArgumentException, expression);
+            __throw(invalidArgumentException);
         }
     }
     __catch
     {
-        __rethrow_and_return(expression);
+        __rethrow;
     }
     return expression;
 }
@@ -1057,9 +1057,9 @@ static void handleDS(Assembler* pThis)
     SizedString_SplitString(&operands, ',', &beforeComma, &afterComma);
     __try
     {
-        __throwing_func( countExpression = getCountExpression(pThis, &beforeComma) );
+        countExpression = getCountExpression(pThis, &beforeComma);
         if (afterComma.stringLength > 0)
-            __throwing_func( fillExpression = getAbsoluteExpression(pThis, &afterComma) );
+            fillExpression = getAbsoluteExpression(pThis, &afterComma);
     }
     __catch
     {
@@ -1112,9 +1112,9 @@ static void handleHEX(Assembler* pThis)
             unsigned int   byte;
             const char*    pNext;
 
-            __throwing_func( byte = getNextHexByte(pCurr, &pNext) );
+            byte = getNextHexByte(pCurr, &pNext);
             if (!alreadyAllocated)
-                __throwing_func( reallocLineInfoMachineCodeBytes(pThis, i+1) );
+                reallocLineInfoMachineCodeBytes(pThis, i+1);
             pThis->pLineInfo->pMachineCode[i++] = byte;
             pCurr = pNext;
         }
@@ -1141,17 +1141,17 @@ static unsigned char getNextHexByte(const char* pStart, const char** ppNext)
     
     __try
     {
-        __throwing_func( value = hexCharToNibble(*pCurr++) << 4 );
+        value = hexCharToNibble(*pCurr++) << 4;
         if (*pCurr == '\0')
-            __throw_and_return(invalidArgumentException, 0);
-        __throwing_func( value |= hexCharToNibble(*pCurr++) );
+            __throw(invalidArgumentException);
+        value |= hexCharToNibble(*pCurr++);
 
         if (*pCurr == ',')
             pCurr++;
     }
     __catch
     {
-        __rethrow_and_return(0);
+        __rethrow;
     }
 
     *ppNext = pCurr;
@@ -1166,7 +1166,7 @@ static unsigned char hexCharToNibble(char value)
         return value - 'a' + 10;
     if (value >= 'A' && value <= 'F')
         return value - 'A' + 10;
-    __throw_and_return(invalidHexDigitException, 0);
+    __throw(invalidHexDigitException);
 }
 
 static void logHexParseError(Assembler* pThis)
@@ -1184,7 +1184,7 @@ static void handleORG(Assembler* pThis)
     
     __try
     {
-        __throwing_func( expression = getAbsoluteExpression(pThis, &operands) );
+        expression = getAbsoluteExpression(pThis, &operands);
         setOrgInAssemblerAndBinaryBufferModules(pThis, expression.value);
     }
     __catch
@@ -1221,9 +1221,9 @@ static void handleDB(Assembler* pThis)
         __try
         {
             SizedString_SplitString(&nextOperands, ',', &beforeComma, &afterComma);
-            __throwing_func( expression = ExpressionEvalSizedString(pThis, &beforeComma) );
+            expression = ExpressionEvalSizedString(pThis, &beforeComma);
             if (!alreadyAllocated)
-                __throwing_func( reallocLineInfoMachineCodeBytes(pThis, i + 1) );
+                reallocLineInfoMachineCodeBytes(pThis, i + 1);
             pThis->pLineInfo->pMachineCode[i++] = (unsigned char)expression.value;
             nextOperands = afterComma;
         }
@@ -1251,9 +1251,9 @@ static void handleDA(Assembler* pThis)
         __try
         {
             SizedString_SplitString(&nextOperands, ',', &beforeComma, &afterComma);
-            __throwing_func( expression = ExpressionEvalSizedString(pThis, &beforeComma) );
+            expression = ExpressionEvalSizedString(pThis, &beforeComma);
             if (!alreadyAllocated)
-                __throwing_func( reallocLineInfoMachineCodeBytes(pThis, i+2) );
+                reallocLineInfoMachineCodeBytes(pThis, i+2);
             pThis->pLineInfo->pMachineCode[i++] = (unsigned char)expression.value;
             pThis->pLineInfo->pMachineCode[i++] = (unsigned char)(expression.value >> 8);
             nextOperands = afterComma;
@@ -1340,16 +1340,16 @@ __throws Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName, s
     
     __try
     {
-        __throwing_func( pExpandedName = expandedLabelName(pThis, pLabelName, labelLength) );
+        pExpandedName = expandedLabelName(pThis, pLabelName, labelLength);
         pSymbol = SymbolTable_Find(pThis->pSymbols, pExpandedName);
         if (!pSymbol)
-            __throwing_func( pSymbol = SymbolTable_Add(pThis->pSymbols, pExpandedName) );
+            pSymbol = SymbolTable_Add(pThis->pSymbols, pExpandedName);
         if (!isSymbolAlreadyDefined(pSymbol, NULL))
-            __throwing_func( Symbol_LineReferenceAdd(pSymbol, pThis->pLineInfo) );
+            Symbol_LineReferenceAdd(pSymbol, pThis->pLineInfo);
     }
     __catch
     {
-        __rethrow_and_return(NULL);
+        __rethrow;
     }
 
     return pSymbol;

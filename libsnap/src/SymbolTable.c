@@ -48,13 +48,13 @@ __throws SymbolTable* SymbolTable_Create(size_t bucketCount)
     
     __try
     {
-        __throwing_func( pThis = allocateSymbolTable() );
-        __throwing_func( allocateBuckets(pThis, bucketCount) );
+        pThis = allocateSymbolTable();
+        allocateBuckets(pThis, bucketCount);
     }
     __catch
     {
         SymbolTable_Free(pThis);
-        __rethrow_and_return(NULL);
+        __rethrow;
     }
 
     return pThis;
@@ -64,7 +64,7 @@ static SymbolTable* allocateSymbolTable(void)
 {
     SymbolTable* pThis = malloc(sizeof(*pThis));
     if (!pThis)
-        __throw_and_return(outOfMemoryException, NULL);
+        __throw(outOfMemoryException);
     memset(pThis, 0, sizeof(*pThis));
     return pThis;
 }
@@ -152,7 +152,7 @@ Symbol* SymbolTable_Add(SymbolTable* pThis, const char* pKey)
     __try
         pElement = allocateSymbol(pKey);
     __catch
-        __rethrow_and_return(NULL);
+        __rethrow;
 
     ppBucket = &pThis->ppBuckets[hashString(pKey) % pThis->bucketCount];
     pElement->pNext = *ppBucket;
@@ -168,14 +168,14 @@ static Symbol* allocateSymbol(const char* pKey)
     
     pSymbol = malloc(sizeof(*pSymbol));
     if (!pSymbol)
-        __throw_and_return(outOfMemoryException, NULL);
+        __throw(outOfMemoryException);
     
     memset(pSymbol, 0, sizeof(*pSymbol));
     pSymbol->pKey = stringDuplicate(pKey);
     if (!pSymbol->pKey)
     {
         free(pSymbol);
-        __throw_and_return(outOfMemoryException, NULL);
+        __throw(outOfMemoryException);
     }
     
     return pSymbol;

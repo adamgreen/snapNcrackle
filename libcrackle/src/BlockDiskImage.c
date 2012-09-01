@@ -37,17 +37,17 @@ struct DiskImageVTable BlockDiskImageVTable =
 
 __throws BlockDiskImage* BlockDiskImage_Create(unsigned int blockCount)
 {
-    BlockDiskImage* pThis;
+    BlockDiskImage* pThis = NULL;
     
     __try
     {
-        __throwing_func( pThis = allocateAndZero(sizeof(*pThis)) );
-        __throwing_func( pThis->super = DiskImage_Init(&BlockDiskImageVTable, blockCount * DISK_IMAGE_BLOCK_SIZE) );
+        pThis = allocateAndZero(sizeof(*pThis));
+        DiskImage_Init(&pThis->super, &BlockDiskImageVTable, blockCount * DISK_IMAGE_BLOCK_SIZE);
     }
     __catch
     {
         DiskImage_Free(&pThis->super);
-        __rethrow_and_return(NULL);
+        __rethrow;
     }
         
     return pThis;
@@ -97,8 +97,8 @@ __throws void BlockDiskImage_InsertData(BlockDiskImage* pThis, const unsigned ch
     unsigned char* pImage = DiskImage_GetImagePointer(&pThis->super);
     __try
     {
-        __throwing_func( validateOffsetTypeIsBlock(pInsert) );
-        __throwing_func( validateImageOffsets(pThis, pInsert) );
+        validateOffsetTypeIsBlock(pInsert);
+        validateImageOffsets(pThis, pInsert);
         memcpy(pImage + calculateSourceOffset(pInsert), 
                pData + pInsert->sourceOffset, 
                pInsert->length);
