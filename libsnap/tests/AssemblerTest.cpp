@@ -815,48 +815,6 @@ TEST(Assembler, FailAllAllocationsDuringFileInit)
     CHECK_TRUE(m_pAssembler != NULL);
 }
 
-#ifdef UNDONE
-TEST(Assembler, FailSecondAllocationDuringFileInit)
-{
-    createSourceFile(" ORG $800\r\n");
-    MallocFailureInject_FailAllocation(2);
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
-    validateOutOfMemoryExceptionThrown();
-}
-
-TEST(Assembler, FailThirdAllocationDuringFileInit)
-{
-    createSourceFile(" ORG $800\r\n");
-    MallocFailureInject_FailAllocation(3);
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
-    validateOutOfMemoryExceptionThrown();
-}
-
-TEST(Assembler, FailFourthAllocationDuringFileInit)
-{
-    createSourceFile(" ORG $800\r\n");
-    MallocFailureInject_FailAllocation(4);
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
-    validateOutOfMemoryExceptionThrown();
-}
-
-TEST(Assembler, FailFifthAllocationDuringFileInit)
-{
-    createSourceFile(" ORG $800\r\n");
-    MallocFailureInject_FailAllocation(5);
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
-    validateOutOfMemoryExceptionThrown();
-}
-
-TEST(Assembler, FailSixthAllocationDuringFileInit)
-{
-    createSourceFile(" ORG $800\r\n");
-    MallocFailureInject_FailAllocation(6);
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
-    validateOutOfMemoryExceptionThrown();
-}
-#endif // UnDONE
-
 TEST(Assembler, InitAndRunFromShortFile)
 {
     createSourceFile("* Symbols\n"
