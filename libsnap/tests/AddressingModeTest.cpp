@@ -57,6 +57,12 @@ TEST_GROUP(AddressingMode)
         Assembler_Run(m_pAssembler);
     }
     
+    void validateInvalidArgumentExceptionAndMessage(const char* pExpectedFailureMessage)
+    {
+        STRCMP_EQUAL(pExpectedFailureMessage, printfSpy_GetLastErrorOutput());
+        validateInvalidArgumentExceptionThrown();
+    }
+
     void validateInvalidArgumentExceptionThrown()
     {
         LONGS_EQUAL(invalidArgumentException, getExceptionCode());
@@ -92,7 +98,7 @@ TEST(AddressingMode, AbsoluteMode)
 TEST(AddressingMode, InvalidAbsoluteModeValue)
 {
     __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "+65535") );
-    validateInvalidArgumentExceptionThrown();
+    validateInvalidArgumentExceptionAndMessage("filename:0: error: Unexpected prefix in '+65535' expression.\n");
 }
 
 TEST(AddressingMode, ZeroPageAbsoluteMode)
@@ -136,7 +142,7 @@ TEST(AddressingMode, ZeroPageAbsoluteIndexedXMode)
 TEST(AddressingMode, InvalidAbsoluteIndexedXModeValue)
 {
     __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "+256,X") );
-    validateInvalidArgumentExceptionThrown();
+    validateInvalidArgumentExceptionAndMessage("filename:0: error: Unexpected prefix in '+256' expression.\n");
 }
 
 TEST(AddressingMode, AbsoluteIndexedYMode)
@@ -166,13 +172,13 @@ TEST(AddressingMode, ZeroPageAbsoluteIndexedYMode)
 TEST(AddressingMode, InvalidAbsoluteIndexedYModeValue)
 {
     __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "+256,Y") );
-    validateInvalidArgumentExceptionThrown();
+    validateInvalidArgumentExceptionAndMessage("filename:0: error: Unexpected prefix in '+256' expression.\n");
 }
 
 TEST(AddressingMode, InvalidAbsoluteIndexedAddressingMode)
 {
     __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "255,Z") );
-    validateInvalidArgumentExceptionThrown();
+    validateInvalidArgumentExceptionAndMessage("filename:0: error: 'Z' isn't a valid index register for this addressing mode.\n");
 }
 
 TEST(AddressingMode, ZeroPageIndexedIndirectMode)
@@ -210,19 +216,19 @@ TEST(AddressingMode, AbsoluteIndexedIndirectModeLowerCase)
 TEST(AddressingMode, InvalidIndexedIndirectModeValue)
 {
     __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(-,x)") );
-    validateInvalidArgumentExceptionThrown();
+    validateInvalidArgumentExceptionAndMessage("filename:0: error: Unexpected prefix in '' expression.\n");
 }
 
 TEST(AddressingMode, InvalidIndexedIndirectModeWithMissingCloseParen)
 {
     __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(256,x") );
-    validateInvalidArgumentExceptionThrown();
+    validateInvalidArgumentExceptionAndMessage("filename:0: error: '(256,x' doesn't represent a known addressing mode.\n");
 }
 
 TEST(AddressingMode, InvalidIndexedIndirectModeRegister)
 {
     __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(255,Y)") );
-    validateInvalidArgumentExceptionThrown();
+    validateInvalidArgumentExceptionAndMessage("filename:0: error: 'Y' isn't a valid index register for this addressing mode.\n");
 }
 
 TEST(AddressingMode, IndirectIndexedMode)
@@ -236,21 +242,19 @@ TEST(AddressingMode, IndirectIndexedMode)
 TEST(AddressingMode, InvalidIndirectIndexedModeValue)
 {
     __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(+0),Y") );
-    validateInvalidArgumentExceptionThrown();
+    validateInvalidArgumentExceptionAndMessage("filename:0: error: Unexpected prefix in '+0' expression.\n");
 }
 
 TEST(AddressingMode, InvalidIndirectIndexedModeNotInZeroPage)
 {
     __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(256),Y") );
-    STRCMP_EQUAL("filename:0: error: '256' isn't in page zero as required for indirect indexed addressing.\n",
-                 printfSpy_GetLastOutput());
-    validateInvalidArgumentExceptionThrown();
+    validateInvalidArgumentExceptionAndMessage("filename:0: error: '256' isn't in page zero as required for indirect indexed addressing.\n");
 }
 
 TEST(AddressingMode, InvalidIndirectIndexedModeRegister)
 {
     __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(0),X") );
-    validateInvalidArgumentExceptionThrown();
+    validateInvalidArgumentExceptionAndMessage("filename:0: error: 'X' isn't a valid index register for this addressing mode.\n");
 }
 
 TEST(AddressingMode, ZeroPageIndirectMode)
@@ -272,5 +276,5 @@ TEST(AddressingMode, AbsolutePageIndirectMode)
 TEST(AddressingMode, InvalidIndirectModeValue)
 {
     __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(+0)") );
-    validateInvalidArgumentExceptionThrown();
+    validateInvalidArgumentExceptionAndMessage("filename:0: error: Unexpected prefix in '+0' expression.\n");
 }

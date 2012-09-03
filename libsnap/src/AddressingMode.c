@@ -48,9 +48,11 @@ static AddressingMode indirectAddressing(Assembler* pAssembler, SizedString* pOp
 static int usesIndexedAddressing(CharLocations* pLocations);
 static int hasCommaAndNoParens(CharLocations* pLocations);
 static AddressingMode indexedAddressing(Assembler* pAssembler, SizedString* pOperandsString);
+static AddressingMode reportAndThrowOnInvalidIndexRegister(Assembler* pAssembler, SizedString* pIndexRegister);
 static int hasNoCommaOrParens(CharLocations* pLocations);
 static AddressingMode immediateOrAbsoluteAddressing(Assembler* pAssembler, SizedString* pOperandsString);
 static int usesImmediateAddressing(SizedString* pOperandsString);
+static AddressingMode reportAndThrowOnInvalidAddressingMode(Assembler* pAssembler, const char* pOperands);
 
 
 __throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, const char* pOperands)
@@ -71,7 +73,7 @@ __throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, const char* p
     else if (hasNoCommaOrParens(&locations))
         return immediateOrAbsoluteAddressing(pAssembler, &operandsString);
     else
-        __throw(invalidArgumentException);
+        return reportAndThrowOnInvalidAddressingMode(pAssembler, pOperands);
 }
 
 static CharLocations initCharLocations(SizedString* pOperandsString)
@@ -145,11 +147,14 @@ static AddressingMode indexedIndirectAddressing(Assembler* pAssembler, SizedStri
     SizedString    afterOpenParen;
     SizedString    beforeComma;
     SizedString    afterComma;
+    SizedString    indexRegister;
+    SizedString    afterClosingParen;
 
     SizedString_SplitString(pOperandsString, '(', &beforeOpenParen, &afterOpenParen);
     SizedString_SplitString(&afterOpenParen, ',', &beforeComma, &afterComma);
-    if (0 != SizedString_strcasecmp(&afterComma, "X)"))
-        __throw(invalidArgumentException);
+    SizedString_SplitString(&afterComma, ')', &indexRegister, &afterClosingParen);
+    if (0 != SizedString_strcasecmp(&indexRegister, "X"))
+        reportAndThrowOnInvalidIndexRegister(pAssembler, &indexRegister);
 
     __try
         addressingMode.expression = ExpressionEvalSizedString(pAssembler, &beforeComma);
@@ -178,11 +183,14 @@ static AddressingMode indirectIndexedAddressing(Assembler* pAssembler, SizedStri
     SizedString    afterOpenParen;
     SizedString    beforeCloseParen;
     SizedString    afterCloseParen;
+    SizedString    beforeComma;
+    SizedString    indexRegister;
 
     SizedString_SplitString(pOperandsString, '(', &beforeOpenParen, &afterOpenParen);
     SizedString_SplitString(&afterOpenParen, ')', &beforeCloseParen, &afterCloseParen);
-    if (0 != SizedString_strcasecmp(&afterCloseParen, ",Y"))
-        __throw(invalidArgumentException);
+    SizedString_SplitString(&afterCloseParen, ',', &beforeComma, &indexRegister);
+    if (0 != SizedString_strcasecmp(&indexRegister, "Y"))
+        reportAndThrowOnInvalidIndexRegister(pAssembler, &indexRegister);
         
     __try
         addressingMode.expression = ExpressionEvalSizedString(pAssembler, &beforeCloseParen);
@@ -246,16 +254,15 @@ static AddressingMode indexedAddressing(Assembler* pAssembler, SizedString* pOpe
     SizedString    beforeComma;
     SizedString    afterComma;
     
-    SizedString_SplitString(pOperandsString, ',', &beforeComma, &afterComma);
-    if (0 == SizedString_strcasecmp(&afterComma, "X"))
-        addressingMode.mode = ADDRESSING_MODE_ABSOLUTE_INDEXED_X;
-    else if (0 == SizedString_strcasecmp(&afterComma, "Y"))
-        addressingMode.mode = ADDRESSING_MODE_ABSOLUTE_INDEXED_Y;
-    else
-        __throw(invalidArgumentException);
-    
     __try
     {
+        SizedString_SplitString(pOperandsString, ',', &beforeComma, &afterComma);
+        if (0 == SizedString_strcasecmp(&afterComma, "X"))
+            addressingMode.mode = ADDRESSING_MODE_ABSOLUTE_INDEXED_X;
+        else if (0 == SizedString_strcasecmp(&afterComma, "Y"))
+            addressingMode.mode = ADDRESSING_MODE_ABSOLUTE_INDEXED_Y;
+        else
+            reportAndThrowOnInvalidIndexRegister(pAssembler, &afterComma);
         addressingMode.expression = ExpressionEvalSizedString(pAssembler, &beforeComma);
     }
     __catch
@@ -265,6 +272,13 @@ static AddressingMode indexedAddressing(Assembler* pAssembler, SizedString* pOpe
     }
             
     return addressingMode;
+}
+
+static AddressingMode reportAndThrowOnInvalidIndexRegister(Assembler* pAssembler, SizedString* pIndexRegister)
+{
+    LOG_ERROR(pAssembler, "'%.*s' isn't a valid index register for this addressing mode.", 
+              pIndexRegister->stringLength, pIndexRegister->pString);
+    __throw(invalidArgumentException);
 }
 
 static int hasNoCommaOrParens(CharLocations* pLocations)
@@ -297,4 +311,10 @@ static AddressingMode immediateOrAbsoluteAddressing(Assembler* pAssembler, Sized
 static int usesImmediateAddressing(SizedString* pOperandsString)
 {
     return pOperandsString->pString[0] == '#';
+}
+
+static AddressingMode reportAndThrowOnInvalidAddressingMode(Assembler* pAssembler, const char* pOperands)
+{
+    LOG_ERROR(pAssembler, "'%s' doesn't represent a known addressing mode.", pOperands);
+    __throw(invalidArgumentException);
 }
