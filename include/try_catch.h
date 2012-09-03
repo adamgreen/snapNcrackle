@@ -32,6 +32,7 @@
 #define invalidIntraBlockOffsetException    13
 #define blockExceedsImageBoundsException    14
 #define invalidInsertionTypeException       15
+#define missingOperandException             16
 
 
 #ifndef __debugbreak

@@ -1175,10 +1175,24 @@ TEST(Assembler, EqualSignDirective)
     runAssemblerAndValidateOutputIs("    :    =0800     1 org = $800\n");
 }
 
+TEST(Assembler, EqualSignMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("Label =\n"));
+    runAssemblerAndValidateFailure("filename:1: error: = directive requires operand.\n",
+                                   "    :              1 Label =\n", 2);
+}
+
 TEST(Assembler, EQUDirective)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("org EQU $800\n"));
     runAssemblerAndValidateOutputIs("    :    =0800     1 org EQU $800\n");
+}
+
+TEST(Assembler, EQUDirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("Label EQU\n"));
+    runAssemblerAndValidateFailure("filename:1: error: EQU directive requires operand.\n",
+                                   "    :              1 Label EQU\n", 2);
 }
 
 TEST(Assembler, MultipleDefinedSymbolFailure)
@@ -1323,6 +1337,13 @@ TEST(Assembler, HEXDirectiveWithInvalidDigit)
                                    "    :              1  hex fg\n");
 }
 
+TEST(Assembler, HEXDirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex\n"));
+    runAssemblerAndValidateFailure("filename:1: error: hex directive requires operand.\n",
+                                   "    :              1  hex\n", 2);
+}
+
 TEST(Assembler, FailBinaryBufferAllocationInHEXDirective)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex ff\n"));
@@ -1363,6 +1384,13 @@ TEST(Assembler, ORGDirectiveWithInvalidImmediate)
     m_pAssembler = Assembler_CreateFromString(dupe(" org #$00\n"));
     runAssemblerAndValidateFailure("filename:1: error: '#$00' doesn't specify an absolute address.\n",
                                    "    :              1  org #$00\n");
+}
+
+TEST(Assembler, ORGDirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org\n"));
+    runAssemblerAndValidateFailure("filename:1: error: org directive requires operand.\n",
+                                   "    :              1  org\n", 2);
 }
 
 TEST(Assembler, DUMandDEND_Directive)
@@ -1435,6 +1463,20 @@ TEST(Assembler, DEND_DirectiveWithoutDUM)
                                    "    :              1  dend\n");
 }
 
+TEST(Assembler, DUMDirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dum\n"));
+    runAssemblerAndValidateFailure("filename:1: error: dum directive requires operand.\n",
+                                   "    :              1  dum\n", 2);
+}
+
+TEST(Assembler, DENDDirectiveWithOperandWhenNotExpected)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dend $100\n"));
+    runAssemblerAndValidateFailure("filename:1: error: dend directive doesn't require operand.\n",
+                                   "    :              1  dend $100\n", 2);
+}
+
 TEST(Assembler, DS_DirectiveWithSmallRepeatValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" ds 1\n"
@@ -1485,6 +1527,13 @@ TEST(Assembler, DS_DirectiveWithForwardReference)
                                               "    :    =00FF     2 Fill equ $ff\n");
 }
 
+TEST(Assembler, DS_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds\n"));
+    runAssemblerAndValidateFailure("filename:1: error: ds directive requires operand.\n",
+                                   "    :              1  ds\n", 2);
+}
+
 TEST(Assembler, FailBinaryBufferAllocationInDSDirective)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" ds 1\n"));
@@ -1518,6 +1567,13 @@ TEST(Assembler, ASC_DirectiveWithNoEndingDelimiter)
                                    "8000: 54 73 74     1  asc 'Tst\n");
 }
 
+TEST(Assembler, ASC_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc\n"));
+    runAssemblerAndValidateFailure("filename:1: error: asc directive requires operand.\n",
+                                   "    :              1  asc\n", 2);
+}
+
 TEST(Assembler, SAV_DirectiveOnEmptyObjectFile)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" sav AssemblerTest.sav\n"));
@@ -1546,6 +1602,13 @@ TEST(Assembler, SAV_DirectiveShouldBeIgnoredOnErrors)
     LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
     m_pFile = fopen(g_objectFilename, "r");
     POINTERS_EQUAL(NULL, m_pFile);
+}
+
+TEST(Assembler, SAV_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sav\n"));
+    runAssemblerAndValidateFailure("filename:1: error: sav directive requires operand.\n",
+                                   "    :              1  sav\n", 2);
 }
 
 TEST(Assembler, DB_DirectiveWithSingleExpression)
@@ -1582,10 +1645,24 @@ TEST(Assembler, DB_DirectiveWithInvalidExpression)
                                    "    :              1  db ($800\n");
 }
 
+TEST(Assembler, DB_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" db\n"));
+    runAssemblerAndValidateFailure("filename:1: error: db directive requires operand.\n",
+                                   "    :              1  db\n", 2);
+}
+
 TEST(Assembler, DFB_DirectiveSameAsDB)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" dfb 2,0,1\n"));
     runAssemblerAndValidateOutputIs("8000: 02 00 01     1  dfb 2,0,1\n");
+}
+
+TEST(Assembler, DFB_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dfb\n"));
+    runAssemblerAndValidateFailure("filename:1: error: dfb directive requires operand.\n",
+                                   "    :              1  dfb\n", 2);
 }
 
 TEST(Assembler, TR_DirectiveIsIgnored)
@@ -1622,11 +1699,25 @@ TEST(Assembler, DA_DirectiveWithInvalidExpression)
                                    "    :              1  da ($800\n");
 }
 
+TEST(Assembler, DA_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" da\n"));
+    runAssemblerAndValidateFailure("filename:1: error: da directive requires operand.\n",
+                                   "    :              1  da\n", 2);
+}
+
 TEST(Assembler, DW_DirectiveSameAsDA)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" dw $ff+1,$ff,$1233+1\n"));
     runAssemblerAndValidateOutputIsTwoLinesOf("8000: 00 01 FF     1  dw $ff+1,$ff,$1233+1\n",
                                               "8003: 00 34 12\n");
+}
+
+TEST(Assembler, DW_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dw\n"));
+    runAssemblerAndValidateFailure("filename:1: error: dw directive requires operand.\n",
+                                   "    :              1  dw\n", 2);
 }
 
 /* UNDONE: This should test that a 65C02 instruction is allowed after issue. */

@@ -330,12 +330,14 @@ static void handleZeroPageOrAbsoluteIndexedYAddressingMode(Assembler*         pT
 static void handleZeroPageOrAbsoluteIndirectAddressingMode(Assembler*         pThis, 
                                                            AddressingMode*    pAddressingMode, 
                                                            const OpCodeEntry* pOpcodeEntry);
+static void validateOperandWasProvided(Assembler* pThis);
 static void validateEQULabelFormat(Assembler* pThis);
 static void updateLinesWhichForwardReferencedThisLabel(Assembler* pThis, Symbol* pSymbol);
 static int symbolContainsForwardReferences(Symbol* pSymbol);
 static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, LineInfo* pLineInfo);
 static void handleInvalidOperator(Assembler* pThis);
 static const char* fullOperandStringWithSpaces(Assembler* pThis);
+static void validateNoOperandWasProvided(Assembler* pThis);
 static Expression getAbsoluteExpression(Assembler* pThis, SizedString* pOperands);
 static int isTypeAbsolute(Expression* pExpression);
 static int isAlreadyInDUMSection(Assembler* pThis);
@@ -845,6 +847,7 @@ static void handleEQU(Assembler* pThis)
         Symbol*    pSymbol = pThis->pLineInfo->pSymbol;
         Expression expression;
         
+        validateOperandWasProvided(pThis);
         expression = ExpressionEval(pThis, pThis->parsedLine.pOperands);
         validateEQULabelFormat(pThis);
         if (pSymbol)
@@ -860,6 +863,15 @@ static void handleEQU(Assembler* pThis)
     {
         __nothrow;
     }
+}
+
+static void validateOperandWasProvided(Assembler* pThis)
+{
+    if (pThis->parsedLine.pOperands)
+        return;
+
+    LOG_ERROR(pThis, "%s directive requires operand.", pThis->parsedLine.pOperator);
+    __throw(missingOperandException);
 }
 
 static void validateEQULabelFormat(Assembler* pThis)
@@ -951,16 +963,22 @@ static void handleInvalidOperator(Assembler* pThis)
 
 static void handleASC(Assembler* pThis)
 {
-    const char*    pOperands = fullOperandStringWithSpaces(pThis);
-    char           delimiter = *pOperands;
-    const char*    pCurr = &pOperands[1];
-    size_t         i = 0;
-    unsigned char  mask = delimiter < '\'' ? 0x80 : 0x00;
-    int            alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
-
-    while (*pCurr && *pCurr != delimiter)
+    __try
     {
-        __try
+        size_t         i = 0;
+        int            alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
+        const char*    pOperands;
+        char           delimiter;
+        const char*    pCurr;
+        unsigned char  mask;
+
+        validateOperandWasProvided(pThis);
+        pOperands = fullOperandStringWithSpaces(pThis);
+        delimiter = *pOperands;
+        pCurr = &pOperands[1];
+        mask = delimiter < '\'' ? 0x80 : 0x00;
+
+        while (*pCurr && *pCurr != delimiter)
         {
             unsigned char   byte = *pCurr | mask;
             if (!alreadyAllocated)
@@ -968,16 +986,16 @@ static void handleASC(Assembler* pThis)
             pThis->pLineInfo->pMachineCode[i++] = byte;
             pCurr++;
         }
-        __catch
-        {
-            reallocLineInfoMachineCodeBytes(pThis, 0);
-            __nothrow;
-        }
-    }
-    assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
+        assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
     
-    if (*pCurr == '\0')
-        LOG_ERROR(pThis, "%s didn't end with the expected %c delimiter.", pThis->parsedLine.pOperands, delimiter);
+        if (*pCurr == '\0')
+            LOG_ERROR(pThis, "%s didn't end with the expected %c delimiter.", pThis->parsedLine.pOperands, delimiter);
+    }
+    __catch
+    {
+        reallocLineInfoMachineCodeBytes(pThis, 0);
+        __nothrow;
+    }
 }
 
 static const char* fullOperandStringWithSpaces(Assembler* pThis)
@@ -988,30 +1006,53 @@ static const char* fullOperandStringWithSpaces(Assembler* pThis)
 
 static void handleDEND(Assembler* pThis)
 {
-    if (!isAlreadyInDUMSection(pThis))
+    __try
     {
-        LOG_ERROR(pThis, "%s isn't allowed without a preceding DUM directive.", pThis->parsedLine.pOperator);
-        return;
-    }
+        validateNoOperandWasProvided(pThis);
+        if (!isAlreadyInDUMSection(pThis))
+        {
+            LOG_ERROR(pThis, "%s isn't allowed without a preceding DUM directive.", pThis->parsedLine.pOperator);
+            return;
+        }
 
-    pThis->programCounter = pThis->programCounterBeforeDUM;
-    pThis->pCurrentBuffer = pThis->pObjectBuffer;
+        pThis->programCounter = pThis->programCounterBeforeDUM;
+        pThis->pCurrentBuffer = pThis->pObjectBuffer;
+    }
+    __catch
+    {
+        __nothrow;
+    }
+}
+
+static void validateNoOperandWasProvided(Assembler* pThis)
+{
+    if (!pThis->parsedLine.pOperands)
+        return;
+
+    LOG_ERROR(pThis, "%s directive doesn't require operand.", pThis->parsedLine.pOperator);
+    __throw(invalidArgumentException);
 }
 
 static void handleDUM(Assembler* pThis)
 {
-    SizedString operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
-    Expression  expression;
-    
     __try
+    {
+        SizedString operands;
+        Expression  expression;
+        
+        validateOperandWasProvided(pThis);
+        operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
         expression = getAbsoluteExpression(pThis, &operands);
-    __catch
-        __nothrow;
 
-    if (!isAlreadyInDUMSection(pThis))
-        pThis->programCounterBeforeDUM = pThis->programCounter;
-    pThis->programCounter = expression.value;
-    pThis->pCurrentBuffer = pThis->pDummyBuffer;
+        if (!isAlreadyInDUMSection(pThis))
+            pThis->programCounterBeforeDUM = pThis->programCounter;
+        pThis->programCounter = expression.value;
+        pThis->pCurrentBuffer = pThis->pDummyBuffer;
+    }
+    __catch
+    {
+        __nothrow;
+    }
 }
 
 static Expression getAbsoluteExpression(Assembler* pThis, SizedString* pOperands)
@@ -1047,26 +1088,27 @@ static int isAlreadyInDUMSection(Assembler* pThis)
 
 static void handleDS(Assembler* pThis)
 {
-    SizedString   operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
-    SizedString   beforeComma;
-    SizedString   afterComma;
-    Expression    countExpression;
-    Expression    fillExpression;
-    
-    memset(&fillExpression, 0, sizeof(fillExpression));
-    SizedString_SplitString(&operands, ',', &beforeComma, &afterComma);
     __try
     {
+        SizedString   operands;
+        SizedString   beforeComma;
+        SizedString   afterComma;
+        Expression    countExpression;
+        Expression    fillExpression;
+
+        validateOperandWasProvided(pThis);
+        memset(&fillExpression, 0, sizeof(fillExpression));
+        operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
+        SizedString_SplitString(&operands, ',', &beforeComma, &afterComma);
         countExpression = getCountExpression(pThis, &beforeComma);
         if (afterComma.stringLength > 0)
             fillExpression = getAbsoluteExpression(pThis, &afterComma);
+        saveDSInfoInLineInfo(pThis, countExpression.value, (unsigned char)fillExpression.value);
     }
     __catch
     {
         __nothrow;
     }
-
-    saveDSInfoInLineInfo(pThis, countExpression.value, (unsigned char)fillExpression.value);
 }
 
 static Expression getCountExpression(Assembler* pThis, SizedString* pString)
@@ -1105,9 +1147,11 @@ static void handleHEX(Assembler* pThis)
     size_t         i = 0;
     int            alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
 
-    while (*pCurr && i < 32)
+    __try
     {
-        __try
+        validateOperandWasProvided(pThis);
+
+        while (*pCurr && i < 32)
         {
             unsigned int   byte;
             const char*    pNext;
@@ -1118,19 +1162,19 @@ static void handleHEX(Assembler* pThis)
             pThis->pLineInfo->pMachineCode[i++] = byte;
             pCurr = pNext;
         }
-        __catch
+        assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
+    
+        if (*pCurr)
         {
-            logHexParseError(pThis);
-            reallocLineInfoMachineCodeBytes(pThis, 0);
-            __nothrow;
+            LOG_ERROR(pThis, "'%s' contains more than 32 values.", pThis->parsedLine.pOperands);
+            return;
         }
     }
-    assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
-    
-    if (*pCurr)
+    __catch
     {
-        LOG_ERROR(pThis, "'%s' contains more than 32 values.", pThis->parsedLine.pOperands);
-        return;
+        logHexParseError(pThis);
+        reallocLineInfoMachineCodeBytes(pThis, 0);
+        __nothrow;
     }
 }
 
@@ -1178,12 +1222,14 @@ static void logHexParseError(Assembler* pThis)
 }
 
 static void handleORG(Assembler* pThis)
-{
-    SizedString operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
-    Expression  expression;
-    
+{    
     __try
     {
+        SizedString operands;
+        Expression  expression;
+        
+        validateOperandWasProvided(pThis);
+        operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
         expression = getAbsoluteExpression(pThis, &operands);
         setOrgInAssemblerAndBinaryBufferModules(pThis, expression.value);
     }
@@ -1197,29 +1243,34 @@ static void handleSAV(Assembler* pThis)
 {
     __try
     {
+        validateOperandWasProvided(pThis);
         BinaryBuffer_QueueWriteToFile(pThis->pObjectBuffer, pThis->parsedLine.pOperands);
     }
     __catch
     {
-        LOG_ERROR(pThis, "Failed to queue up save to '%s'.", pThis->parsedLine.pOperands);
+        if (getExceptionCode() != missingOperandException)
+            LOG_ERROR(pThis, "Failed to queue up save to '%s'.", pThis->parsedLine.pOperands);
         __nothrow;
     }
 }
 
 static void handleDB(Assembler* pThis)
 {
-    size_t      i = 0;
-    SizedString nextOperands = SizedString_InitFromString(pThis->parsedLine.pOperands);
-    int         alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
-
-    while (nextOperands.stringLength != 0)
+    __try
     {
-        Expression  expression;
-        SizedString beforeComma;
-        SizedString afterComma;
+        size_t      i = 0;
+        SizedString nextOperands;
+        int         alreadyAllocated;
 
-        __try
+        validateOperandWasProvided(pThis);
+        nextOperands = SizedString_InitFromString(pThis->parsedLine.pOperands);
+        alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
+        while (nextOperands.stringLength != 0)
         {
+            Expression  expression;
+            SizedString beforeComma;
+            SizedString afterComma;
+
             SizedString_SplitString(&nextOperands, ',', &beforeComma, &afterComma);
             expression = ExpressionEvalSizedString(pThis, &beforeComma);
             if (!alreadyAllocated)
@@ -1227,29 +1278,32 @@ static void handleDB(Assembler* pThis)
             pThis->pLineInfo->pMachineCode[i++] = (unsigned char)expression.value;
             nextOperands = afterComma;
         }
-        __catch
-        {
-            reallocLineInfoMachineCodeBytes(pThis, 0);
-            __nothrow;
-        }
+        assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
     }
-    assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
+    __catch
+    {
+        reallocLineInfoMachineCodeBytes(pThis, 0);
+        __nothrow;
+    }
 }
 
 static void handleDA(Assembler* pThis)
 {
-    size_t      i = 0;
-    SizedString nextOperands = SizedString_InitFromString(pThis->parsedLine.pOperands);
-    int         alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
-
-    while (nextOperands.stringLength != 0)
+    __try
     {
-        Expression  expression;
-        SizedString beforeComma;
-        SizedString afterComma;
+        size_t      i = 0;
+        SizedString nextOperands;
+        int         alreadyAllocated;
 
-        __try
+        validateOperandWasProvided(pThis);
+        nextOperands = SizedString_InitFromString(pThis->parsedLine.pOperands);
+        alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
+        while (nextOperands.stringLength != 0)
         {
+            Expression  expression;
+            SizedString beforeComma;
+            SizedString afterComma;
+
             SizedString_SplitString(&nextOperands, ',', &beforeComma, &afterComma);
             expression = ExpressionEvalSizedString(pThis, &beforeComma);
             if (!alreadyAllocated)
@@ -1258,13 +1312,13 @@ static void handleDA(Assembler* pThis)
             pThis->pLineInfo->pMachineCode[i++] = (unsigned char)(expression.value >> 8);
             nextOperands = afterComma;
         }
-        __catch
-        {
-            reallocLineInfoMachineCodeBytes(pThis, 0);
-            __nothrow;
-        }
+        assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
     }
-    assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
+    __catch
+    {
+        reallocLineInfoMachineCodeBytes(pThis, 0);
+        __nothrow;
+    }
 }
 
 static void handleXC(Assembler* pThis)
