@@ -48,11 +48,23 @@ static AddressingMode indirectAddressing(Assembler* pAssembler, SizedString* pOp
 static int usesIndexedAddressing(CharLocations* pLocations);
 static int hasCommaAndNoParens(CharLocations* pLocations);
 static AddressingMode indexedAddressing(Assembler* pAssembler, SizedString* pOperandsString);
-static AddressingMode reportAndThrowOnInvalidIndexRegister(Assembler* pAssembler, SizedString* pIndexRegister);
 static int hasNoCommaOrParens(CharLocations* pLocations);
 static AddressingMode immediateOrAbsoluteAddressing(Assembler* pAssembler, SizedString* pOperandsString);
 static int usesImmediateAddressing(SizedString* pOperandsString);
-static AddressingMode reportAndThrowOnInvalidAddressingMode(Assembler* pAssembler, const char* pOperands);
+
+
+#define reportAndThrowOnInvalidAddressingMode(pAssembler, pOperands) \
+{ \
+    LOG_ERROR(pAssembler, "'%s' doesn't represent a known addressing mode.", pOperands); \
+    __throw(invalidArgumentException); \
+}
+
+#define reportAndThrowOnInvalidIndexRegister(pAssembler, pIndexRegister) \
+{ \
+    LOG_ERROR(pAssembler, "'%.*s' isn't a valid index register for this addressing mode.", \
+              (pIndexRegister)->stringLength, (pIndexRegister)->pString); \
+    __throw(invalidArgumentException); \
+}
 
 
 __throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, const char* pOperands)
@@ -73,7 +85,7 @@ __throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, const char* p
     else if (hasNoCommaOrParens(&locations))
         return immediateOrAbsoluteAddressing(pAssembler, &operandsString);
     else
-        return reportAndThrowOnInvalidAddressingMode(pAssembler, pOperands);
+        reportAndThrowOnInvalidAddressingMode(pAssembler, pOperands);
 }
 
 static CharLocations initCharLocations(SizedString* pOperandsString)
@@ -274,13 +286,6 @@ static AddressingMode indexedAddressing(Assembler* pAssembler, SizedString* pOpe
     return addressingMode;
 }
 
-static AddressingMode reportAndThrowOnInvalidIndexRegister(Assembler* pAssembler, SizedString* pIndexRegister)
-{
-    LOG_ERROR(pAssembler, "'%.*s' isn't a valid index register for this addressing mode.", 
-              pIndexRegister->stringLength, pIndexRegister->pString);
-    __throw(invalidArgumentException);
-}
-
 static int hasNoCommaOrParens(CharLocations* pLocations)
 {
     return !pLocations->pComma && !pLocations->pOpenParen && !pLocations->pCloseParen;
@@ -311,10 +316,4 @@ static AddressingMode immediateOrAbsoluteAddressing(Assembler* pAssembler, Sized
 static int usesImmediateAddressing(SizedString* pOperandsString)
 {
     return pOperandsString->pString[0] == '#';
-}
-
-static AddressingMode reportAndThrowOnInvalidAddressingMode(Assembler* pAssembler, const char* pOperands)
-{
-    LOG_ERROR(pAssembler, "'%s' doesn't represent a known addressing mode.", pOperands);
-    __throw(invalidArgumentException);
 }
