@@ -56,10 +56,10 @@ TEST_GROUP(SnapCommandLine)
         m_argv[m_argc++] = pArg;
     }
     
-    void validateSourceFilesAndNoErrorMessage(const char** pFirstSourceFileArg, int expectedSourceFileCount)
+    void validateSourceFilesAndNoErrorMessage(const char* pSourceFilename)
     {
         validateNoErrorMessageWasDisplayed();
-        validateSourceFiles(pFirstSourceFileArg, expectedSourceFileCount);
+        validateSourceFiles(pSourceFilename);
     }
     
     void validateNoErrorMessageWasDisplayed(void)
@@ -67,31 +67,25 @@ TEST_GROUP(SnapCommandLine)
         STRCMP_EQUAL("", printfSpy_GetLastOutput());
     }
     
-    void validateSourceFiles(const char** pFirstSourceFileArg, int expectedSourceFileCount)
+    void validateSourceFiles(const char* pSourceFilename)
     {
-        LONGS_EQUAL(expectedSourceFileCount, m_commandLine.sourceFileCount);
-        CHECK(m_commandLine.pSourceFiles != NULL);
-        for (int i = 0 ; i < expectedSourceFileCount ; i++)
-            POINTERS_EQUAL(pFirstSourceFileArg[i], m_commandLine.pSourceFiles[i]);
+        STRCMP_EQUAL(pSourceFilename, m_commandLine.pSourceFilename);
+    }
+    
+    void validateInvalidArgumentExceptionAndUsageString(void)
+    {
+        LONGS_EQUAL(invalidArgumentException, getExceptionCode());
+        STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
+        clearExceptionCode();
     }
 };
 
 
 TEST(SnapCommandLine, NoParameters)
 {
-    int exceptionThrown = FALSE;
-    
-    __try
-        SnapCommandLine_Init(&m_commandLine, m_argc, m_argv);
-    __catch
-        exceptionThrown = TRUE;
-        
-    CHECK_TRUE(exceptionThrown);
-    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
-    LONGS_EQUAL(0, m_commandLine.sourceFileCount);
-    CHECK(m_commandLine.pSourceFiles == NULL);
-    STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
-    clearExceptionCode();
+    __try_and_catch( SnapCommandLine_Init(&m_commandLine, m_argc, m_argv) );
+    validateInvalidArgumentExceptionAndUsageString();
+    CHECK(m_commandLine.pSourceFilename == NULL);
 }
 
 TEST(SnapCommandLine, OneSourceFilename)
@@ -99,14 +93,14 @@ TEST(SnapCommandLine, OneSourceFilename)
     addArg("SOURCE1.S");
     
     SnapCommandLine_Init(&m_commandLine, m_argc, m_argv);
-    validateSourceFilesAndNoErrorMessage(m_argv, 1);
+    validateSourceFilesAndNoErrorMessage("SOURCE1.S");
 }
 
-TEST(SnapCommandLine, TwoSourceFilenames)
+TEST(SnapCommandLine, FailOnTwoSourceFilenames)
 {
     addArg("SOURCE1.S");
     addArg("SOURCE2.S");
     
-    SnapCommandLine_Init(&m_commandLine, m_argc, m_argv);
-    validateSourceFilesAndNoErrorMessage(m_argv, 2);
+    __try_and_catch( SnapCommandLine_Init(&m_commandLine, m_argc, m_argv) );
+    validateInvalidArgumentExceptionAndUsageString();
 }

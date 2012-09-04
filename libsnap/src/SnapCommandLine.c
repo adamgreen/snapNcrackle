@@ -17,22 +17,19 @@
 
 static void displayUsage(void)
 {
-    printf("Usage: snap sourceFilename ...\n\n"
-           "Where: sourceFilename is the name of an input assembly language file.\n"
-           "       Note: You can provide more than one sourceFilename on the\n"
-           "             command line.\n");
+    printf("Usage: snap sourceFilename\n\n"
+           "Where: sourceFilename is the name of an input assembly language file.\n");
 }
 
 __throws void SnapCommandLine_Init(SnapCommandLine* pThis, int argc, const char** argv)
 {
     memset(pThis, 0, sizeof(*pThis));
     
-    if (!argc)
+    if (argc != 1)
     {
         displayUsage();
         __throw(invalidArgumentException);
     }
         
-    pThis->sourceFileCount = argc;
-    pThis->pSourceFiles = argv;
+    pThis->pSourceFilename = argv[0];
 }

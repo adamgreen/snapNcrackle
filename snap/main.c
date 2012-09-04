@@ -27,7 +27,7 @@ int main(int argc, const char** argv)
     {
         SnapCommandLine_Init(&commandLine, argc-1, argv+1);
         params.pListFilename = NULL;
-        pAssembler = Assembler_CreateFromFile(commandLine.pSourceFiles[0], &params);
+        pAssembler = Assembler_CreateFromFile(commandLine.pSourceFilename, &params);
         Assembler_Run(pAssembler);
         displayErrorCountIfAnyWereEncountered(pAssembler);
     }
