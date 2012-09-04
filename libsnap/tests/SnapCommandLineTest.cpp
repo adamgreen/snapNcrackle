@@ -56,20 +56,18 @@ TEST_GROUP(SnapCommandLine)
         m_argv[m_argc++] = pArg;
     }
     
-    void validateSourceFilesAndNoErrorMessage(const char* pSourceFilename)
-    {
-        validateNoErrorMessageWasDisplayed();
-        validateSourceFiles(pSourceFilename);
-    }
-    
-    void validateNoErrorMessageWasDisplayed(void)
+    void validateParamsAndNoErrorMessage(const char* pSourceFilename, const char* pListFilename)
     {
         STRCMP_EQUAL("", printfSpy_GetLastOutput());
-    }
-    
-    void validateSourceFiles(const char* pSourceFilename)
-    {
         STRCMP_EQUAL(pSourceFilename, m_commandLine.pSourceFilename);
+        if (!pListFilename)
+        {
+            POINTERS_EQUAL(NULL, m_commandLine.pListFilename);
+        }
+        else
+        {
+            STRCMP_EQUAL(pListFilename, m_commandLine.pListFilename);
+        }
     }
     
     void validateInvalidArgumentExceptionAndUsageString(void)
@@ -93,13 +91,48 @@ TEST(SnapCommandLine, OneSourceFilename)
     addArg("SOURCE1.S");
     
     SnapCommandLine_Init(&m_commandLine, m_argc, m_argv);
-    validateSourceFilesAndNoErrorMessage("SOURCE1.S");
+    validateParamsAndNoErrorMessage("SOURCE1.S", NULL);
+}
+
+TEST(SnapCommandLine, OneSourceFilenameAndListFilename)
+{
+    addArg("--list");
+    addArg("SOURCE1.LST");
+    addArg("SOURCE1.S");
+    
+    SnapCommandLine_Init(&m_commandLine, m_argc, m_argv);
+    validateParamsAndNoErrorMessage("SOURCE1.S", "SOURCE1.LST");
 }
 
 TEST(SnapCommandLine, FailOnTwoSourceFilenames)
 {
     addArg("SOURCE1.S");
     addArg("SOURCE2.S");
+    
+    __try_and_catch( SnapCommandLine_Init(&m_commandLine, m_argc, m_argv) );
+    validateInvalidArgumentExceptionAndUsageString();
+}
+
+TEST(SnapCommandLine, FailOnListFilenameButNoSourceFilename)
+{
+    addArg("--list");
+    addArg("SOURCE1.LST");
+    
+    __try_and_catch( SnapCommandLine_Init(&m_commandLine, m_argc, m_argv) );
+    validateInvalidArgumentExceptionAndUsageString();
+}
+
+TEST(SnapCommandLine, FailOnMissingListFilename)
+{
+    addArg("--list");
+    
+    __try_and_catch( SnapCommandLine_Init(&m_commandLine, m_argc, m_argv) );
+    validateInvalidArgumentExceptionAndUsageString();
+}
+
+TEST(SnapCommandLine, FailOnInvalidFlag)
+{
+    addArg("--unknown");
     
     __try_and_catch( SnapCommandLine_Init(&m_commandLine, m_argc, m_argv) );
     validateInvalidArgumentExceptionAndUsageString();

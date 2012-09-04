@@ -17,7 +17,8 @@
 
 typedef struct SnapCommandLine
 {
-    const char*  pSourceFilename;
+    const char* pSourceFilename;
+    const char* pListFilename;
 } SnapCommandLine;
 
 

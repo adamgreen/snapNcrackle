@@ -17,19 +17,106 @@
 
 static void displayUsage(void)
 {
-    printf("Usage: snap sourceFilename\n\n"
-           "Where: sourceFilename is the name of an input assembly language file.\n");
+    printf("Usage: snap [--list listFilename] sourceFilename\n\n"
+           "Where: --list listFilename allows the list file for the assembly\n"
+           "         process to be output to the specified file.  By defaul it\n"
+           "         will be sent to stdout.\n"
+           "       sourceFilename is the required name of an input assembly\n"
+           "         language file.\n");
 }
+
+
+static int parseArgument(SnapCommandLine* pThis, int argc, const char** ppArgs);
+static int hasDoubleDashPrefix(const char* pArgument);
+static int parseFlagArgument(SnapCommandLine* pThis, int argc, const char** ppArgs);
+static void parseListFilename(SnapCommandLine* pThis, int argc, const char* pFormat);
+static int parseFilenameArgument(SnapCommandLine* pThis, int argc, const char* pArgument);
+static void throwIfRequiredArgumentNotSpecified(SnapCommandLine* pThis);
+
 
 __throws void SnapCommandLine_Init(SnapCommandLine* pThis, int argc, const char** argv)
 {
     memset(pThis, 0, sizeof(*pThis));
     
-    if (argc != 1)
+    while (argc)
+    {
+        int argumentsUsed;
+        
+        __try
+            argumentsUsed = parseArgument(pThis, argc, argv);
+        __catch
+            __rethrow;
+            
+        argc -= argumentsUsed;
+        argv += argumentsUsed;
+    }
+
+    __try
+        throwIfRequiredArgumentNotSpecified(pThis);
+    __catch
+        __rethrow;
+}
+
+static int parseArgument(SnapCommandLine* pThis, int argc, const char** ppArgs)
+{
+    if (hasDoubleDashPrefix(*ppArgs))
+        return parseFlagArgument(pThis, argc, ppArgs);
+    else
+        return parseFilenameArgument(pThis, argc, *ppArgs);
+}
+
+static int hasDoubleDashPrefix(const char* pArgument)
+{
+    return pArgument[0] == '-' && pArgument[1] == '-';
+}
+
+static int parseFlagArgument(SnapCommandLine* pThis, int argc, const char** ppArgs)
+{
+    if (0 == strcasecmp(*ppArgs, "--list"))
+    {
+        __try
+            parseListFilename(pThis, argc - 1, ppArgs[1]);
+        __catch
+            __rethrow;
+
+        return 2;
+    }
+    else
     {
         displayUsage();
         __throw(invalidArgumentException);
     }
-        
-    pThis->pSourceFilename = argv[0];
+}
+
+static void parseListFilename(SnapCommandLine* pThis, int argc, const char* pListFilename)
+{
+    if (argc < 1)
+    {
+        displayUsage();
+        __throw(invalidArgumentException);
+    }
+    pThis->pListFilename = pListFilename;
+}
+
+static int parseFilenameArgument(SnapCommandLine* pThis, int argc, const char* pArgument)
+{
+    if (!pThis->pSourceFilename)
+    {
+        pThis->pSourceFilename = pArgument;
+        return 1;
+    }
+    else
+    {
+        displayUsage();
+        __throw(invalidArgumentException);
+    }
+}
+
+static void throwIfRequiredArgumentNotSpecified(SnapCommandLine* pThis)
+{
+    if (!pThis->pSourceFilename)
+    {
+        displayUsage();
+        __throw(invalidArgumentException);
+    }
 }
