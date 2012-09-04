@@ -19,6 +19,7 @@ extern "C"
     #include "Assembler.h"
     #include "../src/AssemblerPriv.h"
     #include "MallocFailureInject.h"
+    #include "FileFailureInject.h"
     #include "printfSpy.h"
     #include "BinaryBuffer.h"
     #include "util.h"
@@ -30,6 +31,7 @@ extern "C"
 
 const char* g_sourceFilename = "AssemblerTest.S";
 const char* g_objectFilename = "AssemblerTest.sav";
+const char* g_listFilename = "AssemblerTest.lst";
 
 TEST_GROUP(Assembler)
 {
@@ -67,6 +69,7 @@ TEST_GROUP(Assembler)
         free(m_pReadBuffer);
         remove(g_sourceFilename);
         remove(g_objectFilename);
+        remove(g_listFilename);
         LONGS_EQUAL(noException, getExceptionCode());
     }
     
@@ -657,7 +660,7 @@ TEST_GROUP(Assembler)
     {
         printfSpy_Unhook();
         printfSpy_Hook(512);
-        m_pAssembler = Assembler_CreateFromString(pTestString);
+        m_pAssembler = Assembler_CreateFromString(pTestString, NULL);
         if (m_switchTo65c02)
             m_pAssembler->instructionSet = INSTRUCTION_SET_65C02;
         Assembler_Run(m_pAssembler);
@@ -720,6 +723,23 @@ TEST_GROUP(Assembler)
         return size;
     }
     
+    void validateListFileContains(const char* pExpectedContent, long expectedContentSize)
+    {
+        m_pFile = fopen(g_listFilename, "r");
+        CHECK(m_pFile != NULL);
+        LONGS_EQUAL(expectedContentSize, getFileSize(m_pFile));
+        
+        m_pReadBuffer = (char*)malloc(expectedContentSize);
+        CHECK(m_pReadBuffer != NULL);
+        LONGS_EQUAL(expectedContentSize, fread(m_pReadBuffer, 1, expectedContentSize, m_pFile));
+        CHECK(0 == memcmp(pExpectedContent, m_pReadBuffer, expectedContentSize));
+        
+        free(m_pReadBuffer);
+        m_pReadBuffer = NULL;
+        fclose(m_pFile);
+        m_pFile = NULL;
+    }
+    
     void test6502RelativeBranchInstruction(const char* pInstruction, unsigned char opcode)
     {
         char               testString[64];
@@ -763,22 +783,24 @@ TEST_GROUP(Assembler)
 TEST(Assembler, FailAllInitAllocations)
 {
     static const int allocationsToFail = 14;
+    AssemblerInitParams params;
+    params.pListFilename = g_listFilename;
     for (int i = 1 ; i <= allocationsToFail ; i++)
     {
         MallocFailureInject_FailAllocation(i);
-        __try_and_catch( m_pAssembler = Assembler_CreateFromString(dupe("")) );
+        __try_and_catch( m_pAssembler = Assembler_CreateFromString(dupe(""), &params) );
         POINTERS_EQUAL(NULL, m_pAssembler);
         validateOutOfMemoryExceptionThrown();
     }
 
     MallocFailureInject_FailAllocation(allocationsToFail + 1);
-    m_pAssembler = Assembler_CreateFromString(dupe(""));
+    m_pAssembler = Assembler_CreateFromString(dupe(""), &params);
     CHECK_TRUE(m_pAssembler != NULL);
 }
 
 TEST(Assembler, EmptyString)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(""));
+    m_pAssembler = Assembler_CreateFromString(dupe(""), NULL);
     CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(0, printfSpy_GetCallCount());
@@ -787,13 +809,13 @@ TEST(Assembler, EmptyString)
 TEST(Assembler, InitFromEmptyFile)
 {
     createSourceFile("");
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
+    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, NULL);
     CHECK(m_pAssembler != NULL);
 }
 
 TEST(Assembler, InitFromNonExistantFile)
 {
-    __try_and_catch( m_pAssembler = Assembler_CreateFromFile("foo.noexist.bar") );
+    __try_and_catch( m_pAssembler = Assembler_CreateFromFile("foo.noexist.bar", NULL) );
     validateFileNotFoundExceptionThrown();
 }
 
@@ -805,13 +827,13 @@ TEST(Assembler, FailAllAllocationsDuringFileInit)
     for (int i = 1 ; i <= allocationsToFail ; i++)
     {
         MallocFailureInject_FailAllocation(i);
-        __try_and_catch( m_pAssembler = Assembler_CreateFromFile(g_sourceFilename) );
+        __try_and_catch( m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, NULL) );
         POINTERS_EQUAL(NULL, m_pAssembler);
         validateOutOfMemoryExceptionThrown();
     }
 
     MallocFailureInject_FailAllocation(allocationsToFail + 1);
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
+    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, NULL);
     CHECK_TRUE(m_pAssembler != NULL);
 }
 
@@ -820,10 +842,38 @@ TEST(Assembler, InitAndRunFromShortFile)
     createSourceFile("* Symbols\n"
                      "SYM1 = $1\n"
                      "SYM2 EQU $2\n");
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
+    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, NULL);
     CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(3, printfSpy_GetCallCount());
+}
+
+TEST(Assembler, InitAndCreateActualListFileAndNotSendToStdOut)
+{
+    static const char expectedListOutput[] = "    :    =0001     1 SYM1 EQU $1\n";
+    createSourceFile("SYM1 EQU $1\n");
+    AssemblerInitParams params;
+    params.pListFilename = g_listFilename;
+
+    printfSpy_Unhook();
+    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, &params);
+    Assembler_Run(m_pAssembler);
+    Assembler_Free(m_pAssembler);
+    m_pAssembler = NULL;
+
+    validateListFileContains(expectedListOutput, sizeof(expectedListOutput)-1);
+}
+
+TEST(Assembler, FailAttemptToOpenListFile)
+{
+    AssemblerInitParams params;
+    params.pListFilename = g_listFilename;
+    fopenFail(NULL);
+        __try_and_catch( m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, &params) );
+    fopenRestore();
+    LONGS_EQUAL(NULL, m_pAssembler);
+    LONGS_EQUAL(fileNotFoundException, getExceptionCode());
+    clearExceptionCode();
 }
 
 TEST(Assembler, FailAllocationOnLongLine)
@@ -832,7 +882,7 @@ TEST(Assembler, FailAllocationOnLongLine)
     
     memset(longLine, ' ', sizeof(longLine));
     longLine[ARRAYSIZE(longLine)-1] = '\0';
-    m_pAssembler = Assembler_CreateFromString(longLine);
+    m_pAssembler = Assembler_CreateFromString(longLine, NULL);
 
     MallocFailureInject_FailAllocation(1);
         __try_and_catch( Assembler_Run(m_pAssembler) );
@@ -842,7 +892,7 @@ TEST(Assembler, FailAllocationOnLongLine)
 
 TEST(Assembler, FailAllocationOnLineInfoAllocation)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("* Comment Line."));
+    m_pAssembler = Assembler_CreateFromString(dupe("* Comment Line."), NULL);
     MallocFailureInject_FailAllocation(1);
         __try_and_catch( Assembler_Run(m_pAssembler) );
         LONGS_EQUAL(0, printfSpy_GetCallCount());
@@ -855,7 +905,7 @@ TEST(Assembler, RunOnLongLine)
     
     memset(longLine, ' ', sizeof(longLine));
     longLine[ARRAYSIZE(longLine)-1] = '\0';
-    m_pAssembler = Assembler_CreateFromString(longLine);
+    m_pAssembler = Assembler_CreateFromString(longLine, NULL);
     CHECK(m_pAssembler != NULL);
 
     Assembler_Run(m_pAssembler);
@@ -869,7 +919,7 @@ TEST(Assembler, LabelTooLong)
     
     memset(longLine, 'a', sizeof(longLine));
     longLine[ARRAYSIZE(longLine)-1] = '\0';
-    m_pAssembler = Assembler_CreateFromString(longLine);
+    m_pAssembler = Assembler_CreateFromString(longLine, NULL);
     CHECK(m_pAssembler != NULL);
 
     Assembler_Run(m_pAssembler);
@@ -884,7 +934,7 @@ TEST(Assembler, LocalLabelTooLong)
     
     memset(longLine, 'a', 255);
     strcpy(&longLine[sizeof(longLine) - 4], "\n:b");
-    m_pAssembler = Assembler_CreateFromString(longLine);
+    m_pAssembler = Assembler_CreateFromString(longLine, NULL);
     CHECK(m_pAssembler != NULL);
 
     Assembler_Run(m_pAssembler);
@@ -896,14 +946,14 @@ TEST(Assembler, LocalLabelTooLong)
 TEST(Assembler, SpecifySameLabelTwice)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("entry lda #$60\n"
-                                                   "entry lda #$61\n"));
+                                                   "entry lda #$61\n"), NULL);
     runAssemblerAndValidateFailure("filename:2: error: 'entry' symbol has already been defined.\n",
                                    "8002: A9 61        2 entry lda #$61\n", 3);
 }
 
 TEST(Assembler, LocalLabelDefineBeforeGlobalLabel)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(":local_label\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(":local_label\n"), NULL);
     CHECK(m_pAssembler != NULL);
 
     Assembler_Run(m_pAssembler);
@@ -914,7 +964,7 @@ TEST(Assembler, LocalLabelDefineBeforeGlobalLabel)
 
 TEST(Assembler, LocalLabelReferenceBeforeGlobalLabel)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" sta :local_label\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta :local_label\n"), NULL);
     CHECK(m_pAssembler != NULL);
 
     Assembler_Run(m_pAssembler);
@@ -925,7 +975,7 @@ TEST(Assembler, LocalLabelReferenceBeforeGlobalLabel)
 
 TEST(Assembler, LabelStartsWithInvalidCharacter)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("9Label sta $23\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe("9Label sta $23\n"), NULL);
     CHECK(m_pAssembler != NULL);
 
     Assembler_Run(m_pAssembler);
@@ -936,7 +986,7 @@ TEST(Assembler, LabelStartsWithInvalidCharacter)
 
 TEST(Assembler, LabelContainsInvalidCharacter)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("Label. sta $23\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe("Label. sta $23\n"), NULL);
     CHECK(m_pAssembler != NULL);
 
     Assembler_Run(m_pAssembler);
@@ -949,7 +999,7 @@ TEST(Assembler, ForwardReferenceLabel)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    " sta label\n"
-                                                   "label sta $2b\n"));
+                                                   "label sta $2b\n"), NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("0800: 8D 03 08     2  sta label\n",
                                               "0803: 85 2B        3 label sta $2b\n", 3);
 }
@@ -958,7 +1008,7 @@ TEST(Assembler, FailLineInfoAllocationDuringForwardReferenceLabelFixup)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    " sta label\n"
-                                                   "label sta $2b\n"));
+                                                   "label sta $2b\n"), NULL);
     MallocFailureInject_FailAllocation(8);
         runAssemblerAndValidateFailure("filename:3: error: Failed to allocate space for updating forward references to 'label' symbol.\n",
                                        "0803: 85 2B        3 label sta $2b\n", 4);
@@ -970,7 +1020,7 @@ TEST(Assembler, FailToDefineLabelTwiceAfterForwardReferenced)
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    " sta label\n"
                                                    "label sta $2b\n"
-                                                   "label sta $2c\n"));
+                                                   "label sta $2c\n"), NULL);
     CHECK(m_pAssembler != NULL);
     runAssemblerAndValidateFailure("filename:4: error: 'label' symbol has already been defined.\n",
                                    "0805: 85 2C        4 label sta $2c\n", 5);
@@ -983,7 +1033,7 @@ TEST(Assembler, LocalLabelPlusOffsetBackwardReference)
                                                    ":local sta $20\n"
                                                    "func2 sta $21\n"
                                                    ":local sta $22\n"
-                                                   " sta :local+1\n"));
+                                                   " sta :local+1\n"), NULL);
     runAssemblerAndValidateLastLineIs("0008: 85 07        6  sta :local+1\n", 6);
 }
 
@@ -994,7 +1044,7 @@ TEST(Assembler, LocalLabelPlusOffsetForwardReference)
                                                    ":local sta $20\n"
                                                    "func2 sta $21\n"
                                                    " sta :local+1\n"
-                                                   ":local sta $22\n"));
+                                                   ":local sta $22\n"), NULL);
     
     runAssemblerAndValidateOutputIsTwoLinesOf("0806: 8D 0A 08     5  sta :local+1\n",
                                               "0809: 85 22        6 :local sta $22\n", 6);
@@ -1003,7 +1053,7 @@ TEST(Assembler, LocalLabelPlusOffsetForwardReference)
 TEST(Assembler, LocalLabelForwardReferenceFromLineWithGlobalLabel)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("func1 sta :local\n"
-                                                   ":local sta $20\n"));
+                                                   ":local sta $20\n"), NULL);
     
     runAssemblerAndValidateOutputIsTwoLinesOf("8000: 8D 03 80     1 func1 sta :local\n",
                                               "8003: 85 20        2 :local sta $20\n", 2);
@@ -1013,7 +1063,7 @@ TEST(Assembler, GlobalLabelPlusOffsetForwardReference)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    " sta globalLabel+1\n"
-                                                   "globalLabel sta $22\n"));
+                                                   "globalLabel sta $22\n"), NULL);
     
     runAssemblerAndValidateOutputIsTwoLinesOf("0800: 8D 04 08     2  sta globalLabel+1\n",
                                               "0803: 85 22        3 globalLabel sta $22\n", 3);
@@ -1025,7 +1075,7 @@ TEST(Assembler, CascadedForwardReferenceOfEQUToLabel)
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    " sta 1+equLabel\n"
                                                    "equLabel equ lineLabel\n"
-                                                   "lineLabel sta $22\n"));
+                                                   "lineLabel sta $22\n"), NULL);
     Assembler_Run(m_pAssembler);
     pSecondLine = m_pAssembler->linesHead.pNext->pNext;
     LONGS_EQUAL(3, pSecondLine->machineCodeSize);
@@ -1039,7 +1089,7 @@ TEST(Assembler, MultipleForwardReferencesToSameLabel)
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    " sta 1+label\n"
                                                    " sta label+1\n"
-                                                   "label sta $22\n"));
+                                                   "label sta $22\n"), NULL);
     Assembler_Run(m_pAssembler);
     pSecondLine = m_pAssembler->linesHead.pNext->pNext;
     LONGS_EQUAL(3, pSecondLine->machineCodeSize);
@@ -1056,7 +1106,7 @@ TEST(Assembler, MultipleBackReferencesToSameVariable)
     m_pAssembler = Assembler_CreateFromString(dupe("]variable ds 1\n"
                                                    " sta ]variable\n"
                                                    "]variable ds 1\n"
-                                                   " sta ]variable\n"));
+                                                   " sta ]variable\n"), NULL);
     Assembler_Run(m_pAssembler);
     pSecondLine = m_pAssembler->linesHead.pNext->pNext;
     LONGS_EQUAL(3, pSecondLine->machineCodeSize);
@@ -1071,7 +1121,7 @@ TEST(Assembler, ForwardReferencesToVariableWithMultipleDefinitionsUsesFirstDefin
     LineInfo* pFirstLine;
     m_pAssembler = Assembler_CreateFromString(dupe(" sta ]variable\n"
                                                    "]variable ds 1\n"
-                                                   "]varaible ds 1\n"));
+                                                   "]varaible ds 1\n"), NULL);
     Assembler_Run(m_pAssembler);
     pFirstLine = m_pAssembler->linesHead.pNext;
     LONGS_EQUAL(3, pFirstLine->machineCodeSize);
@@ -1082,7 +1132,7 @@ TEST(Assembler, FailZeroPageForwardReference)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
                                                    " sta globalLabel\n"
-                                                   "globalLabel sta $22\n"));
+                                                   "globalLabel sta $22\n"), NULL);
     
     runAssemblerAndValidateFailure("filename:2: error: Couldn't properly infer size of a forward reference in 'globalLabel' operand.\n",
                                    "0003: 85 22        3 globalLabel sta $22\n", 4);
@@ -1090,21 +1140,21 @@ TEST(Assembler, FailZeroPageForwardReference)
 
 TEST(Assembler, ReferenceNonExistantLabel)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" sta badLabel\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta badLabel\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: The 'badLabel' label is undefined.\n",
                                    "8000: 8D 00 00     1  sta badLabel\n", 2);
 }
 
 TEST(Assembler, EQUMissingLineLabel)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" EQU $23\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" EQU $23\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: EQU directive requires a line label.\n",
                                    "    :              1  EQU $23\n", 2);
 }
 
 TEST(Assembler, EQULabelStartsWithInvalidCharacter)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("9Label EQU $23\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe("9Label EQU $23\n"), NULL);
     CHECK(m_pAssembler != NULL);
 
     Assembler_Run(m_pAssembler);
@@ -1115,7 +1165,7 @@ TEST(Assembler, EQULabelStartsWithInvalidCharacter)
 
 TEST(Assembler, EQULabelContainsInvalidCharacter)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("Label. EQU $23\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe("Label. EQU $23\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: 'Label.' label contains invalid character, '.'.\n", 
                                    "    :              1 Label. EQU $23\n");
 }
@@ -1123,7 +1173,7 @@ TEST(Assembler, EQULabelContainsInvalidCharacter)
 TEST(Assembler, EQULabelIsLocal)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("Global\n"
-                                                   ":Label EQU $23\n"));
+                                                   ":Label EQU $23\n"), NULL);
 
     runAssemblerAndValidateFailure("filename:2: error: ':Label' can't be a local label when used with EQU.\n", 
                                    "    :              2 :Label EQU $23\n", 3);
@@ -1132,7 +1182,7 @@ TEST(Assembler, EQULabelIsLocal)
 TEST(Assembler, ForwardReferenceEQULabel)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" sta label\n"
-                                                   "label equ $ffff\n"));
+                                                   "label equ $ffff\n"), NULL);
     CHECK(m_pAssembler != NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("8000: 8D FF FF     1  sta label\n",
                                               "    :    =FFFF     2 label equ $ffff\n");
@@ -1142,7 +1192,7 @@ TEST(Assembler, FailToDefineEquLabelTwiceAfterForwardReferenced)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" sta label\n"
                                                    "label equ $ff2b\n"
-                                                   "label equ $ff2c\n"));
+                                                   "label equ $ff2c\n"), NULL);
     CHECK(m_pAssembler != NULL);
     runAssemblerAndValidateFailure("filename:3: error: 'label' symbol has already been defined.\n",
                                    "    :              3 label equ $ff2c\n", 4);
@@ -1150,13 +1200,13 @@ TEST(Assembler, FailToDefineEquLabelTwiceAfterForwardReferenced)
 
 TEST(Assembler, CommentLine)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("*  boot\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe("*  boot\n"), NULL);
     runAssemblerAndValidateOutputIs("    :              1 *  boot\n");
 }
 
 TEST(Assembler, InvalidOperatorFromStringSource)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" foo bar\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" foo bar\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: 'foo' is not a recognized mnemonic or macro.\n", 
                                    "    :              1  foo bar\n");
 }
@@ -1164,33 +1214,33 @@ TEST(Assembler, InvalidOperatorFromStringSource)
 TEST(Assembler, InvalidOperatorFromFileSource)
 {
     createSourceFile(" foo bar\n");
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename);
+    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, NULL);
     runAssemblerAndValidateFailure("AssemblerTest.S:1: error: 'foo' is not a recognized mnemonic or macro.\n", 
                                    "    :              1  foo bar\n");
 }
 
 TEST(Assembler, EqualSignDirective)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("org = $800\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe("org = $800\n"), NULL);
     runAssemblerAndValidateOutputIs("    :    =0800     1 org = $800\n");
 }
 
 TEST(Assembler, EqualSignMissingOperand)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("Label =\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe("Label =\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: = directive requires operand.\n",
                                    "    :              1 Label =\n", 2);
 }
 
 TEST(Assembler, EQUDirective)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("org EQU $800\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe("org EQU $800\n"), NULL);
     runAssemblerAndValidateOutputIs("    :    =0800     1 org EQU $800\n");
 }
 
 TEST(Assembler, EQUDirectiveMissingOperand)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("Label EQU\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe("Label EQU\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: EQU directive requires operand.\n",
                                    "    :              1 Label EQU\n", 2);
 }
@@ -1198,14 +1248,14 @@ TEST(Assembler, EQUDirectiveMissingOperand)
 TEST(Assembler, MultipleDefinedSymbolFailure)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("org = $800\n"
-                                                   "org EQU $900\n"));
+                                                   "org EQU $900\n"), NULL);
     runAssemblerAndValidateFailure("filename:2: error: 'org' symbol has already been defined.\n", 
                                    "    :              2 org EQU $900\n", 3);
 }
 
 TEST(Assembler, FailAllocationDuringSymbolCreation)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("org = $800\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe("org = $800\n"), NULL);
     MallocFailureInject_FailAllocation(2);
     runAssemblerAndValidateFailure("filename:1: error: Failed to allocate space for 'org' symbol.\n", 
                                    "    :              1 org = $800\n");
@@ -1213,82 +1263,83 @@ TEST(Assembler, FailAllocationDuringSymbolCreation)
 
 TEST(Assembler, Immediate16BitValueTruncatedToLower8BitByDefault)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda #$100\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #$100\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: A9 00        1  lda #$100\n");
 }
 
 TEST(Assembler, Immediate16BitValueTruncatedToLower8BitByLessThanPrefix)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda #<$100\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #<$100\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: A9 00        1  lda #<$100\n");
 }
 
 TEST(Assembler, Immediate16BitValueWithGreaterThanPrefixToObtainHighByte)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda #>$100\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #>$100\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: A9 01        1  lda #>$100\n");
 }
 
 TEST(Assembler, Immediate16BitValueWithCaretPrefixToObtainHighByte)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda #^$100\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #^$100\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: A9 01        1  lda #^$100\n");
 }
 
 TEST(Assembler, InvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("org EQU (800\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe("org EQU (800\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '(800' expression.\n", 
                                    "    :              1 org EQU (800\n");
 }
 
 TEST(Assembler, IgnoreLSTDirective)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" lst off\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" lst off\n"), NULL);
     runAssemblerAndValidateOutputIs("    :              1  lst off\n");
 }
 
 TEST(Assembler, HEXDirectiveWithSingleValue)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: 01           1  hex 01\n");
 }
 
 TEST(Assembler, HEXDirectiveWithMixedCase)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex cD,Cd\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex cD,Cd\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: CD CD        1  hex cD,Cd\n");
 }
 
 TEST(Assembler, HEXDirectiveWithThreeValuesAndCommas)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0e,0c,0a\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0e,0c,0a\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: 0E 0C 0A     1  hex 0e,0c,0a\n");
 }
 
 TEST(Assembler, HEXDirectiveWithThreeValues)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0e0c0a\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0e0c0a\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: 0E 0C 0A     1  hex 0e0c0a\n");
 }
 
 TEST(Assembler, HEXDirectiveWithFourValues)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01,02,03,04\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01,02,03,04\n"), NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("8000: 01 02 03     1  hex 01,02,03,04\n",
                                               "8003: 04      \n");
 }
 
 TEST(Assembler, HEXDirectiveWithSixValues)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01,02,03,04,05,06\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01,02,03,04,05,06\n"), NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("8000: 01 02 03     1  hex 01,02,03,04,05,06\n",
                                               "8003: 04 05 06\n");
 }
 
 TEST(Assembler, HEXDirectiveWithMaximumOf32Value)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20\n"),
+                                              NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
     LONGS_EQUAL(11, printfSpy_GetCallCount());
@@ -1298,7 +1349,8 @@ TEST(Assembler, HEXDirectiveWithMaximumOf32Value)
 
 TEST(Assembler, HEXDirectiveWith33Values_1MoreThanSupported)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021\n"),
+                                              NULL);
     runAssemblerAndValidateFailure("filename:1: error: '0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021' contains more than 32 values.\n", 
                                    "801E: 1F 20   \n", 12);
 }
@@ -1306,47 +1358,47 @@ TEST(Assembler, HEXDirectiveWith33Values_1MoreThanSupported)
 TEST(Assembler, HEXDirectiveOnTwoLines)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex 01\n"
-                                                   " hex 02\n"));
+                                                   " hex 02\n"), NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("8000: 01           1  hex 01\n",
                                               "8001: 02           2  hex 02\n");
 }
 
 TEST(Assembler, HEXDirectiveWithUpperCaseHex)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex FA\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex FA\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: FA           1  hex FA\n");
 }
 
 TEST(Assembler, HEXDirectiveWithLowerCaseHex)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex fa\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex fa\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: FA           1  hex fa\n");
 }
 
 TEST(Assembler, HEXDirectiveWithOddDigitCount)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex fa0\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex fa0\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: 'fa0' doesn't contain an even number of hex digits.\n",
                                    "    :              1  hex fa0\n");
 }
 
 TEST(Assembler, HEXDirectiveWithInvalidDigit)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex fg\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex fg\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: 'fg' contains an invalid hex digit.\n",
                                    "    :              1  hex fg\n");
 }
 
 TEST(Assembler, HEXDirectiveMissingOperand)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: hex directive requires operand.\n",
                                    "    :              1  hex\n", 2);
 }
 
 TEST(Assembler, FailBinaryBufferAllocationInHEXDirective)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" hex ff\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex ff\n"), NULL);
     BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
     runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
                                    "    :              1  hex ff\n");
@@ -1355,14 +1407,14 @@ TEST(Assembler, FailBinaryBufferAllocationInHEXDirective)
 TEST(Assembler, ORGDirectiveWithLiteralValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $900\n"
-                                                   " hex 01\n"));
+                                                   " hex 01\n"), NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("    :              1  org $900\n", 
                                               "0900: 01           2  hex 01\n");
 }
 
 TEST(Assembler, ORGDirectiveWithInvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" org +900\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" org +900\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+900' expression.\n",
                                    "    :              1  org +900\n");
 }
@@ -1371,7 +1423,7 @@ TEST(Assembler, ORGDirectiveWithSymbolValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("org = $800\n"
                                                    " org org\n"
-                                                   " hex 01\n"));
+                                                   " hex 01\n"), NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(3, printfSpy_GetCallCount());
     STRCMP_EQUAL("    :              2  org org\n", printfSpy_GetPreviousOutput());
@@ -1381,14 +1433,14 @@ TEST(Assembler, ORGDirectiveWithSymbolValue)
 
 TEST(Assembler, ORGDirectiveWithInvalidImmediate)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" org #$00\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" org #$00\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: '#$00' doesn't specify an absolute address.\n",
                                    "    :              1  org #$00\n");
 }
 
 TEST(Assembler, ORGDirectiveMissingOperand)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" org\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" org\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: org directive requires operand.\n",
                                    "    :              1  org\n", 2);
 }
@@ -1399,7 +1451,7 @@ TEST(Assembler, DUMandDEND_Directive)
                                                    " dum $00\n"
                                                    " hex ff\n"
                                                    " dend\n"
-                                                   " hex fe\n"));
+                                                   " hex fe\n"), NULL);
     Assembler_Run(m_pAssembler);
     
     LineInfo* pThirdLine = m_pAssembler->linesHead.pNext->pNext->pNext;
@@ -1417,7 +1469,7 @@ TEST(Assembler, TwoDUMandDEND_Directive)
                                                    " dum $100\n"
                                                    " hex fe\n"
                                                    " dend\n"
-                                                   " hex fd\n"));
+                                                   " hex fd\n"), NULL);
     Assembler_Run(m_pAssembler);
     
     LineInfo* pThirdLine = m_pAssembler->linesHead.pNext->pNext->pNext;
@@ -1437,7 +1489,7 @@ TEST(Assembler, DUM_ORG_andDEND_Directive)
                                                    " org $100\n"
                                                    " hex fe\n"
                                                    " dend\n"
-                                                   " hex fd\n"));
+                                                   " hex fd\n"), NULL);
     Assembler_Run(m_pAssembler);
     
     LineInfo* pThirdLine = m_pAssembler->linesHead.pNext->pNext->pNext;
@@ -1451,28 +1503,28 @@ TEST(Assembler, DUM_ORG_andDEND_Directive)
 
 TEST(Assembler, DUMDirectiveWithInvalidImmediateExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" dum #$00\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" dum #$00\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: '#$00' doesn't specify an absolute address.\n",
                                    "    :              1  dum #$00\n");
 }
 
 TEST(Assembler, DEND_DirectiveWithoutDUM)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" dend\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" dend\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: dend isn't allowed without a preceding DUM directive.\n",
                                    "    :              1  dend\n");
 }
 
 TEST(Assembler, DUMDirectiveMissingOperand)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" dum\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" dum\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: dum directive requires operand.\n",
                                    "    :              1  dum\n", 2);
 }
 
 TEST(Assembler, DENDDirectiveWithOperandWhenNotExpected)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" dend $100\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" dend $100\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: dend directive doesn't require operand.\n",
                                    "    :              1  dend $100\n", 2);
 }
@@ -1480,7 +1532,7 @@ TEST(Assembler, DENDDirectiveWithOperandWhenNotExpected)
 TEST(Assembler, DS_DirectiveWithSmallRepeatValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" ds 1\n"
-                                                   " hex ff\n"));
+                                                   " hex ff\n"), NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("8000: 00           1  ds 1\n", 
                                               "8001: FF           2  hex ff\n");
 }
@@ -1488,33 +1540,33 @@ TEST(Assembler, DS_DirectiveWithSmallRepeatValue)
 TEST(Assembler, DS_DirectiveWithRepeatValueGreaterThan32)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" ds 42\n"
-                                                   " hex ff\n"));
+                                                   " hex ff\n"), NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("8027: 00 00 00\n", 
                                               "802A: FF           2  hex ff\n", 15);
 }
 
 TEST(Assembler, DS_DirectiveWithBackSlashWhenAlreadyOnPageBoundary)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" ds \\\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds \\\n"), NULL);
     runAssemblerAndValidateOutputIs("    :              1  ds \\\n");
 }
 
 TEST(Assembler, DS_DirectiveWithBackSlashWhenOneByteFromPageBoundary)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" ds 255\n"
-                                                   " ds \\,$ff\n"));
+                                                   " ds \\,$ff\n"), NULL);
     runAssemblerAndValidateLastLineIs("80FF: FF           2  ds \\,$ff\n", 86);
 }
 
 TEST(Assembler, DS_DirectiveWithSecondExpressionToSpecifyFillValue)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" ds 2,$ff\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds 2,$ff\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: FF FF        1  ds 2,$ff\n");
 }
 
 TEST(Assembler, DS_DirectiveWithInvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" ds ($800\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds ($800\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '($800' expression.\n",
                                    "    :              1  ds ($800\n");
 }
@@ -1522,21 +1574,21 @@ TEST(Assembler, DS_DirectiveWithInvalidExpression)
 TEST(Assembler, DS_DirectiveWithForwardReference)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" ds \\,Fill\n"
-                                                   "Fill equ $ff\n"));
+                                                   "Fill equ $ff\n"), NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("    :              1  ds \\,Fill\n",
                                               "    :    =00FF     2 Fill equ $ff\n");
 }
 
 TEST(Assembler, DS_DirectiveMissingOperand)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" ds\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: ds directive requires operand.\n",
                                    "    :              1  ds\n", 2);
 }
 
 TEST(Assembler, FailBinaryBufferAllocationInDSDirective)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" ds 1\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds 1\n"), NULL);
     BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
     runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
                                    "    :              1  ds 1\n");
@@ -1544,39 +1596,39 @@ TEST(Assembler, FailBinaryBufferAllocationInDSDirective)
 
 TEST(Assembler, ASC_DirectiveInDoubleQuotes)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" asc \"Tst\"\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc \"Tst\"\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: D4 F3 F4     1  asc \"Tst\"\n");
 }
 
 TEST(Assembler, ASC_DirectiveInSingleQuotes)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst'\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst'\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: 54 73 74     1  asc 'Tst'\n");
 }
 
 TEST(Assembler, ASC_DirectiveWithNoSpacesBetweenQuotes)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'a b'\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'a b'\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: 61 20 62     1  asc 'a b'\n");
 }
 
 TEST(Assembler, ASC_DirectiveWithNoEndingDelimiter)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: 'Tst didn't end with the expected ' delimiter.\n",
                                    "8000: 54 73 74     1  asc 'Tst\n");
 }
 
 TEST(Assembler, ASC_DirectiveMissingOperand)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" asc\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: asc directive requires operand.\n",
                                    "    :              1  asc\n", 2);
 }
 
 TEST(Assembler, SAV_DirectiveOnEmptyObjectFile)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" sav AssemblerTest.sav\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" sav AssemblerTest.sav\n"), NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler));
     validateObjectFileContains(0x8000, "", 0);
@@ -1586,7 +1638,7 @@ TEST(Assembler, SAV_DirectiveOnSmallObjectFile)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    " hex 00,ff\n"
-                                                   " sav AssemblerTest.sav\n"));
+                                                   " sav AssemblerTest.sav\n"), NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler));
     validateObjectFileContains(0x800, "\x00\xff", 2);
@@ -1597,7 +1649,7 @@ TEST(Assembler, SAV_DirectiveShouldBeIgnoredOnErrors)
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    " hex 00,ff\n"
                                                    " hex ($00)\n"
-                                                   " sav AssemblerTest.sav\n"));
+                                                   " sav AssemblerTest.sav\n"), NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
     m_pFile = fopen(g_objectFilename, "r");
@@ -1606,7 +1658,7 @@ TEST(Assembler, SAV_DirectiveShouldBeIgnoredOnErrors)
 
 TEST(Assembler, SAV_DirectiveMissingOperand)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" sav\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" sav\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: sav directive requires operand.\n",
                                    "    :              1  sav\n", 2);
 }
@@ -1614,72 +1666,72 @@ TEST(Assembler, SAV_DirectiveMissingOperand)
 TEST(Assembler, DB_DirectiveWithSingleExpression)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("Value EQU $fe\n"
-                                                   " db Value+1\n"));
+                                                   " db Value+1\n"), NULL);
     runAssemblerAndValidateLastLineIs("8000: FF           2  db Value+1\n", 2);
 }
 
 TEST(Assembler, DB_DirectiveWithThreeExpressions)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" db 2,0,1\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" db 2,0,1\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: 02 00 01     1  db 2,0,1\n");
 }
 
 TEST(Assembler, DB_DirectiveWithImmediateExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" db #$ff\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" db #$ff\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: FF           1  db #$ff\n");
 }
 
 TEST(Assembler, DB_DirectiveWithForwardReference)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" db Label\n"
-                                                   "Label db $12\n"));
+                                                   "Label db $12\n"), NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("8000: 01           1  db Label\n",
                                               "8001: 12           2 Label db $12\n");
 }
 
 TEST(Assembler, DB_DirectiveWithInvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" db ($800\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" db ($800\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '($800' expression.\n",
                                    "    :              1  db ($800\n");
 }
 
 TEST(Assembler, DB_DirectiveMissingOperand)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" db\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" db\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: db directive requires operand.\n",
                                    "    :              1  db\n", 2);
 }
 
 TEST(Assembler, DFB_DirectiveSameAsDB)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" dfb 2,0,1\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" dfb 2,0,1\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: 02 00 01     1  dfb 2,0,1\n");
 }
 
 TEST(Assembler, DFB_DirectiveMissingOperand)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" dfb\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" dfb\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: dfb directive requires operand.\n",
                                    "    :              1  dfb\n", 2);
 }
 
 TEST(Assembler, TR_DirectiveIsIgnored)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" tr on\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" tr on\n"), NULL);
     runAssemblerAndValidateOutputIs("    :              1  tr on\n");
 }
 
 TEST(Assembler, DA_DirectiveWithOneExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" da $ff+1\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" da $ff+1\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: 00 01        1  da $ff+1\n");
 }
 
 TEST(Assembler, DA_DirectiveWithThreeExpressions)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" da $ff+1,$ff,$1233+1\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" da $ff+1,$ff,$1233+1\n"), NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("8000: 00 01 FF     1  da $ff+1,$ff,$1233+1\n",
                                               "8003: 00 34 12\n");
 }
@@ -1687,35 +1739,35 @@ TEST(Assembler, DA_DirectiveWithThreeExpressions)
 TEST(Assembler, DA_DirectiveWithForwardReference)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" da Label\n"
-                                                   "Label da $1234\n"));
+                                                   "Label da $1234\n"), NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("8000: 02 80        1  da Label\n",
                                               "8002: 34 12        2 Label da $1234\n");
 }
 
 TEST(Assembler, DA_DirectiveWithInvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" da ($800\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" da ($800\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '($800' expression.\n",
                                    "    :              1  da ($800\n");
 }
 
 TEST(Assembler, DA_DirectiveMissingOperand)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" da\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" da\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: da directive requires operand.\n",
                                    "    :              1  da\n", 2);
 }
 
 TEST(Assembler, DW_DirectiveSameAsDA)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" dw $ff+1,$ff,$1233+1\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" dw $ff+1,$ff,$1233+1\n"), NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("8000: 00 01 FF     1  dw $ff+1,$ff,$1233+1\n",
                                               "8003: 00 34 12\n");
 }
 
 TEST(Assembler, DW_DirectiveMissingOperand)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" dw\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" dw\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: dw directive requires operand.\n",
                                    "    :              1  dw\n", 2);
 }
@@ -1723,7 +1775,7 @@ TEST(Assembler, DW_DirectiveMissingOperand)
 /* UNDONE: This should test that a 65C02 instruction is allowed after issue. */
 TEST(Assembler, XC_DirectiveSingleInvocation)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"), NULL);
     runAssemblerAndValidateOutputIs("    :              1  xc\n");
 }
 
@@ -1732,7 +1784,7 @@ TEST(Assembler, XC_DirectiveTwiceShouldCauseRTSInsertion)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"
                                                    " xc\n"
-                                                   " lda #20\n"));
+                                                   " lda #20\n"), NULL);
     runAssemblerAndValidateLastLineIs("8000: 60           3  lda #20\n", 3);
 }
 
@@ -1740,7 +1792,7 @@ TEST(Assembler, XC_DirectiveTwiceShouldCauseRTSInsertionForUnknownOpcodes)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"
                                                    " xc\n"
-                                                   " foobar\n"));
+                                                   " foobar\n"), NULL);
     runAssemblerAndValidateLastLineIs("8000: 60           3  foobar\n", 3);
 }
 
@@ -1749,7 +1801,7 @@ TEST(Assembler, XC_DirectiveWithOffOperandShouldResetTo6502)
     m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"
                                                    " xc\n"
                                                    " xc off\n"
-                                                   " lda #20\n"));
+                                                   " lda #20\n"), NULL);
     runAssemblerAndValidateLastLineIs("8000: A9 14        4  lda #20\n", 4);
 }
 
@@ -1757,7 +1809,7 @@ TEST(Assembler, XC_DirectiveThriceShouldCauseError)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"
                                                    " xc\n"
-                                                   " xc\n"));
+                                                   " xc\n"), NULL);
     runAssemblerAndValidateFailure("filename:3: error: Can't have more than 2 XC directives.\n",
                                    "    :              3  xc\n", 4);
 }
@@ -1767,7 +1819,7 @@ TEST(Assembler, XC_DirectiveForwardReferenceFrom6502To65816)
     m_pAssembler = Assembler_CreateFromString(dupe(" lda #ForwardLabel\n"
                                                    " xc\n"
                                                    " xc\n"
-                                                   "ForwardLabel lda #20\n"));
+                                                   "ForwardLabel lda #20\n"), NULL);
     runAssemblerAndValidateLastLineIs("8002: 60           4 ForwardLabel lda #20\n", 4);
 }
 
@@ -1776,7 +1828,7 @@ TEST(Assembler, VerifyObjectFileWithForwardReferenceLabel)
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    " sta label\n"
                                                    "label sta $2b\n"
-                                                   " sav AssemblerTest.sav\n"));
+                                                   " sav AssemblerTest.sav\n"), NULL);
     CHECK(m_pAssembler != NULL);
     Assembler_Run(m_pAssembler);
     validateObjectFileContains(0x800, "\x8d\x03\x08\x85\x2b", 5);
@@ -1784,7 +1836,7 @@ TEST(Assembler, VerifyObjectFileWithForwardReferenceLabel)
 
 TEST(Assembler, FailBinaryBufferAllocationInASCDirective)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst'\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst'\n"), NULL);
     BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
     runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
                                    "    :              1  asc 'Tst'\n");
@@ -1792,14 +1844,14 @@ TEST(Assembler, FailBinaryBufferAllocationInASCDirective)
 
 TEST(Assembler, FailWithInvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" sta +ff\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta +ff\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
                                    "    :              1  sta +ff\n");
 }
 
 TEST(Assembler, FailBinaryBufferAllocationOnEmitSingleByteInstruction)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" clc\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" clc\n"), NULL);
     BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
     runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
                                    "    :              1  clc\n");
@@ -1807,7 +1859,7 @@ TEST(Assembler, FailBinaryBufferAllocationOnEmitSingleByteInstruction)
 
 TEST(Assembler, FailBinaryBufferAllocationOnEmitTwoByteInstruction)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda #1\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #1\n"), NULL);
     BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
     runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
                                    "    :              1  lda #1\n");
@@ -1815,7 +1867,7 @@ TEST(Assembler, FailBinaryBufferAllocationOnEmitTwoByteInstruction)
 
 TEST(Assembler, FailBinaryBufferAllocationOnEmitThreeByteInstruction)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda $800\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda $800\n"), NULL);
     BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
     runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
                                    "    :              1  lda $800\n");
@@ -1823,7 +1875,7 @@ TEST(Assembler, FailBinaryBufferAllocationOnEmitThreeByteInstruction)
 
 TEST(Assembler, FailWriteFileQueueDuringSAVDirective)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" sav AssemblerTest.sav\n"));
+    m_pAssembler = Assembler_CreateFromString(dupe(" sav AssemblerTest.sav\n"), NULL);
     CHECK(m_pAssembler != NULL);
     MallocFailureInject_FailAllocation(2);
     runAssemblerAndValidateFailure("filename:1: error: Failed to queue up save to 'AssemblerTest.sav'.\n",
@@ -1834,7 +1886,7 @@ TEST(Assembler, STAAbsoluteViaLabel)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    "entry lda #$60\n"
-                                                   " sta entry\n"));
+                                                   " sta entry\n"), NULL);
     runAssemblerAndValidateLastLineIs("0802: 8D 00 08     3  sta entry\n", 3);
 }
 
@@ -1842,7 +1894,7 @@ TEST(Assembler, STAZeroPageAbsoluteViaLabel)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
                                                    "entry lda #$60\n"
-                                                   " sta entry\n"));
+                                                   " sta entry\n"), NULL);
     runAssemblerAndValidateLastLineIs("0002: 85 00        3  sta entry\n", 3);
 }
 
@@ -1851,21 +1903,21 @@ TEST(Assembler, STAZeroPageAbsoluteViaLabel)
 TEST(Assembler, BEQ_ZeroPageMaxNegativeTarget)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $0090\n"
-                                                   " beq *-126\n"));
+                                                   " beq *-126\n"), NULL);
     runAssemblerAndValidateLastLineIs("0090: F0 80        2  beq *-126\n", 2);
 }
 
 TEST(Assembler, BEQ_ZeroPageMaxPositiveTarget)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
-                                                   " beq *+129\n"));
+                                                   " beq *+129\n"), NULL);
     runAssemblerAndValidateLastLineIs("0000: F0 7F        2  beq *+129\n", 2);
 }
 
 TEST(Assembler, BEQ_ZeroPageInvalidNegativeTarget)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $0090\n"
-                                                   " beq *-127\n"));
+                                                   " beq *-127\n"), NULL);
     runAssemblerAndValidateFailure("filename:2: error: Relative offset of '*-127' exceeds the allowed -128 to 127 range.\n",
                                    "    :              2  beq *-127\n", 3);
 }
@@ -1873,7 +1925,7 @@ TEST(Assembler, BEQ_ZeroPageInvalidNegativeTarget)
 TEST(Assembler, BEQ_ZeroPageInvalidPositiveTarget)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
-                                                   " beq *+130\n"));
+                                                   " beq *+130\n"), NULL);
     runAssemblerAndValidateFailure("filename:2: error: Relative offset of '*+130' exceeds the allowed -128 to 127 range.\n",
                                    "    :              2  beq *+130\n", 3);
 }
@@ -1881,7 +1933,7 @@ TEST(Assembler, BEQ_ZeroPageInvalidPositiveTarget)
 TEST(Assembler, BEQ_AbsoluteTarget)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $0800\n"
-                                                   " beq *+2\n"));
+                                                   " beq *+2\n"), NULL);
     runAssemblerAndValidateLastLineIs("0800: F0 00        2  beq *+2\n", 2);
 }
 
@@ -1889,7 +1941,7 @@ TEST(Assembler, BEQ_ForwardLabelReference)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $0800\n"
                                                    " beq label\n"
-                                                   "label\n"));
+                                                   "label\n"), NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("0800: F0 00        2  beq label\n",
                                               "    :              3 label\n", 3);
 }

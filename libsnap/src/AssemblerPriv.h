@@ -56,6 +56,7 @@ struct Assembler
     TextFile*               pTextFile;
     SymbolTable*            pSymbols;
     ListFile*               pListFile;
+    FILE*                   pFileForListing;
     LineBuffer*             pLineText;
     char*                   pLocalLabelStart;
     LineInfo*               pLineInfo;

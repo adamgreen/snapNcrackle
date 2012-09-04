@@ -19,7 +19,8 @@
 #include "InstructionSets.h"
 
 
-static void commonObjectInit(Assembler* pThis);
+static void commonObjectInit(Assembler* pThis, AssemblerInitParams* pParams);
+static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, AssemblerInitParams* pParams);
 static void createFullInstructionSetTables(Assembler* pThis);
 static void create6502InstructionSetTable(Assembler* pThis);
 static int compareInstructionSetEntries(const void* pv1, const void* pv2);
@@ -31,14 +32,14 @@ static void updateExistingInstructions(OpCodeEntry* pBaseSet, size_t baseSetLeng
                                        const OpCodeEntry* pAddSet,  size_t addSetLength);
 static void updateInstructionEntry(OpCodeEntry* pEntryToUpdate, const OpCodeEntry* pAdditionalEntry);
 static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned short orgAddress);
-__throws Assembler* Assembler_CreateFromString(char* pText)
+__throws Assembler* Assembler_CreateFromString(char* pText, AssemblerInitParams* pParams)
 {
     Assembler* pThis = NULL;
     
     __try
     {
         pThis = allocateAndZero(sizeof(*pThis));
-        commonObjectInit(pThis);
+        commonObjectInit(pThis, pParams);
         pThis->pTextFile = TextFile_CreateFromString(pText);
         pThis->pSourceFilename = "filename";
     }
@@ -51,13 +52,13 @@ __throws Assembler* Assembler_CreateFromString(char* pText)
     return pThis;
 }
 
-static void commonObjectInit(Assembler* pThis)
+static void commonObjectInit(Assembler* pThis, AssemblerInitParams* pParams)
 {
     memset(pThis, 0, sizeof(*pThis));
     __try
     {
-        // UNDONE: Take list file location as parameter.
-        pThis->pListFile = ListFile_Create(stdout);
+        FILE* pListFile = createListFileOrRedirectToStdOut(pThis, pParams);
+        pThis->pListFile = ListFile_Create(pListFile);
         pThis->pLineText = LineBuffer_Create();
         pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
         pThis->pObjectBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
@@ -73,6 +74,17 @@ static void commonObjectInit(Assembler* pThis)
     {
         __rethrow;
     }
+}
+
+static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, AssemblerInitParams* pParams)
+{
+    if (!pParams || !pParams->pListFilename)
+        return stdout;
+        
+    pThis->pFileForListing = fopen(pParams->pListFilename, "w");
+    if (!pThis->pFileForListing)
+        __throw(fileNotFoundException);
+    return pThis->pFileForListing;
 }
 
 static void createFullInstructionSetTables(Assembler* pThis)
@@ -211,14 +223,14 @@ static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned s
 }
 
 
-__throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename)
+__throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, AssemblerInitParams* pParams)
 {
     Assembler* pThis = NULL;
     
     __try
     {
         pThis = allocateAndZero(sizeof(*pThis));
-        commonObjectInit(pThis);
+        commonObjectInit(pThis, pParams);
         pThis->pTextFile = TextFile_CreateFromFile(pSourceFilename);
         pThis->pSourceFilename = pSourceFilename;
     }
@@ -247,6 +259,8 @@ void Assembler_Free(Assembler* pThis)
     BinaryBuffer_Free(pThis->pObjectBuffer);
     SymbolTable_Free(pThis->pSymbols);
     TextFile_Free(pThis->pTextFile);
+    if (pThis->pFileForListing)
+        fclose(pThis->pFileForListing);
     free(pThis);
 }
 

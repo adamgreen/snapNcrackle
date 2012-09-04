@@ -52,7 +52,7 @@ TEST_GROUP(AddressingMode)
     void setupAssemblerModule(const char* pAsmSource)
     {
         Assembler_Free(m_pAssembler);
-        m_pAssembler = Assembler_CreateFromString(dupe(pAsmSource));
+        m_pAssembler = Assembler_CreateFromString(dupe(pAsmSource), NULL);
         CHECK(m_pAssembler != NULL);
         Assembler_Run(m_pAssembler);
     }

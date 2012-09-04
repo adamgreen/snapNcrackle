@@ -16,11 +16,16 @@
 #include "try_catch.h"
 
 
+typedef struct AssemblerInitParams
+{
+    const char* pListFilename;
+} AssemblerInitParams;
+
 typedef struct Assembler Assembler;
 
 
-__throws Assembler* Assembler_CreateFromString(char* pText);
-__throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename);
+__throws Assembler* Assembler_CreateFromString(char* pText, AssemblerInitParams* pParams);
+__throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, AssemblerInitParams* pParams);
          void       Assembler_Free(Assembler* pThis);
 
          void       Assembler_Run(Assembler* pThis);

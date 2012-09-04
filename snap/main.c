@@ -18,14 +18,16 @@
 static void displayErrorCountIfAnyWereEncountered(Assembler* pAssembler);
 int main(int argc, const char** argv)
 {
-    int             returnValue = 0;
-    Assembler*      pAssembler = NULL;
-    SnapCommandLine commandLine;
+    int                 returnValue = 0;
+    Assembler*          pAssembler = NULL;
+    SnapCommandLine     commandLine;
+    AssemblerInitParams params;
 
     __try
     {
         SnapCommandLine_Init(&commandLine, argc-1, argv+1);
-        pAssembler = Assembler_CreateFromFile(commandLine.pSourceFiles[0]);
+        params.pListFilename = NULL;
+        pAssembler = Assembler_CreateFromFile(commandLine.pSourceFiles[0], &params);
         Assembler_Run(pAssembler);
         displayErrorCountIfAnyWereEncountered(pAssembler);
     }

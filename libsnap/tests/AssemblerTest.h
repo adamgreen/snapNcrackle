@@ -16,6 +16,7 @@
 
 #include <MallocFailureInject.h>
 #include <printfSpy.h>
+#include <FileFailureInject.h>
 
 
 /* Spy on printf calls in test builds. */
@@ -32,5 +33,12 @@
 /* Force free() to go through function pointer so that it doesn't need CppUTest to do leak detection in production. */
 #undef  free
 #define free hook_free
+
+/* Force file I/O routines to go through hooking routines in unit tests. */
+#define fopen  hook_fopen
+#define fseek  hook_fseek
+#define ftell  hook_ftell
+#define fwrite hook_fwrite
+#define fread  hook_fread
 
 #endif /* _ASSEMBLER_TEST_H_ */
