@@ -19,10 +19,10 @@
 
 typedef struct ExpressionEvaluation
 {
-    Expression  expression;
-    const char* pCurrent;
-    const char* pEnd;
-    const char* pNext;
+    SizedString* pString;    
+    const char*  pCurrent;
+    const char*  pNext;
+    Expression   expression;
 } ExpressionEvaluation;
 
 typedef void (*operatorHandler)(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
@@ -34,7 +34,6 @@ static int isLowBytePrefix(char prefixChar);
 static int isHighBytePrefix(char prefixChar);
 static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval);
-static size_t stringLength(ExpressionEvaluation* pEval);
 static void evaluateOperation(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static operatorHandler determineHandlerForOperator(Assembler* pAssembler, char operatorChar);
 static void addHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
@@ -62,17 +61,17 @@ static void parseCurrentAddressChar(Assembler* pAssembler, ExpressionEvaluation*
 static int isUnarySubtractionOperator(char prefixChar);
 static int isLabelReference(char prefixChar);
 static void parseLabelReference(Assembler* pAssembler, ExpressionEvaluation* pEval);
-static size_t lengthOfLabel(const char* pLabel);
+static size_t lengthOfLabel(ExpressionEvaluation* pEval);
 static void flagForwardReferenceOnExpressionIfUndefinedLabel(ExpressionEvaluation* pEval, Symbol* pSymbol);
-__throws Expression ExpressionEval(Assembler* pAssembler, const SizedString* pOperands)
+__throws Expression ExpressionEval(Assembler* pAssembler, SizedString* pOperands)
 {
     ExpressionEvaluation eval;
     
     memset(&eval.expression, 0, sizeof(eval.expression));
-    eval.pCurrent = pOperands->pString;
-    eval.pEnd = pOperands->pString + pOperands->stringLength;
+    eval.pString = pOperands;
+    SizedString_EnumStart(eval.pString, &eval.pCurrent);
 
-    if (isImmediatePrefix(*eval.pCurrent))
+    if (isImmediatePrefix(SizedString_EnumCurr(eval.pString, eval.pCurrent)))
         parseImmediate(pAssembler, &eval);
     else
         expressionEval(pAssembler, &eval);
@@ -89,18 +88,18 @@ static void parseImmediate(Assembler* pAssembler, ExpressionEvaluation* pEval)
 {
     char prefixChar;
 
-    pEval->pCurrent++;
-    prefixChar = *pEval->pCurrent;
+    SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
+    prefixChar = SizedString_EnumCurr(pEval->pString, pEval->pCurrent);
     
     if (isLowBytePrefix(prefixChar))
     {
-        pEval->pCurrent++;
+        SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
         expressionEval(pAssembler, pEval);
         pEval->expression.value &= 0xff;
     }
     else if (isHighBytePrefix(prefixChar))
     {
-        pEval->pCurrent++;
+        SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
         expressionEval(pAssembler, pEval);
         pEval->expression.value >>= 8;
     }
@@ -130,7 +129,7 @@ static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
         __rethrow;
         
     pEval->pCurrent = pEval->pNext;
-    while (pEval->pCurrent < pEval->pEnd)
+    while (SizedString_EnumRemaining(pEval->pString, pEval->pCurrent) > 0)
     {
         __try
             evaluateOperation(pAssembler, pEval);
@@ -141,7 +140,7 @@ static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
 
 static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval)
 {
-    char     prefixChar = *pEval->pCurrent;
+    char     prefixChar = SizedString_EnumCurr(pEval->pString, pEval->pCurrent);
 
     if (isHexPrefix(prefixChar))
     {
@@ -165,7 +164,7 @@ static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval
     }
     else if (isUnarySubtractionOperator(prefixChar))
     {
-        pEval->pCurrent++;
+        SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
         evaluatePrimitive(pAssembler, pEval);
         pEval->expression = ExpressionEval_CreateAbsoluteExpression(-pEval->expression.value);
     }
@@ -175,16 +174,12 @@ static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval
     }
     else
     {
-        LOG_ERROR(pAssembler, "Unexpected prefix in '%.*s' expression.", stringLength(pEval), pEval->pCurrent);
+        LOG_ERROR(pAssembler, "Unexpected prefix in '%.*s' expression.", 
+                  SizedString_EnumRemaining(pEval->pString,  pEval->pCurrent), pEval->pCurrent);
         __throw(invalidArgumentException);
     }
     
     pEval->pCurrent = pEval->pNext;
-}
-
-static size_t stringLength(ExpressionEvaluation* pEval)
-{
-    return pEval->pEnd - pEval->pCurrent;
 }
 
 static void evaluateOperation(Assembler* pAssembler, ExpressionEvaluation* pEval)
@@ -194,9 +189,9 @@ static void evaluateOperation(Assembler* pAssembler, ExpressionEvaluation* pEval
         operatorHandler      handleOperator;
         ExpressionEvaluation rightEval;
         
-        handleOperator = determineHandlerForOperator(pAssembler, *pEval->pCurrent);
-        memset(&rightEval, 0, sizeof(rightEval));
-        rightEval.pCurrent = pEval->pCurrent + 1;
+        handleOperator = determineHandlerForOperator(pAssembler, SizedString_EnumCurr(pEval->pString, pEval->pCurrent));
+        rightEval = *pEval;
+        SizedString_EnumNext(rightEval.pString, &rightEval.pCurrent);
         evaluatePrimitive(pAssembler, &rightEval);
         handleOperator(pAssembler, pEval, &rightEval);
         combineExpressionTypeAndFlags(&pEval->expression, &rightEval.expression);
@@ -289,12 +284,15 @@ typedef struct Parser
 
 static void parseValue(Assembler* pAssembler, ExpressionEvaluation* pEval, Parser* pParser)
 {
-    const char*    pCurrent = pEval->pCurrent + pParser->skipPrefix;
+    const char*    pCurrent = pEval->pCurrent;
     unsigned int   value = 0;
     unsigned int   digitCount = 0;
     int            overflowDetected = FALSE;
     
-    while (*pCurrent)
+    if (pParser->skipPrefix)
+        SizedString_EnumNext(pEval->pString, &pCurrent);
+        
+    while (SizedString_EnumCurr(pEval->pString, pCurrent) != '\0')
     {
         unsigned short digit;
 
@@ -312,7 +310,7 @@ static void parseValue(Assembler* pAssembler, ExpressionEvaluation* pEval, Parse
         if (value > USHRT_MAX)
             overflowDetected = TRUE;
         digitCount++;
-        pCurrent++;
+        SizedString_EnumNext(pEval->pString, &pCurrent);
     }
     
     if (overflowDetected)
@@ -409,12 +407,16 @@ static int isSingleQuoteASCII(char prefixChar)
 
 static void parseASCIIValue(Assembler* pAssembler, ExpressionEvaluation* pEval)
 {
-    char          delimiter = pEval->pCurrent[0];
-    int           forceHighBit = delimiter == '"';
-    unsigned char value = forceHighBit ? pEval->pCurrent[1] | 0x80 : pEval->pCurrent[1];
-    int           skipTrailingQuote = pEval->pCurrent[2] == delimiter;
+    char          delimiter = SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
+    int           forceHighBit = isDoubleQuotedASCII(delimiter);
+    unsigned char value = SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
+    int           skipTrailingQuote = SizedString_EnumCurr(pEval->pString, pEval->pCurrent) == delimiter;
     
-    pEval->pNext = skipTrailingQuote ? &pEval->pCurrent[3] : &pEval->pCurrent[2];
+    if (forceHighBit)
+        value |= 0x80;
+    if (skipTrailingQuote)
+        SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
+    pEval->pNext = pEval->pCurrent;
     pEval->expression = ExpressionEval_CreateAbsoluteExpression(value);
 }
 
@@ -430,7 +432,8 @@ static int isCurrentAddressChar(char prefixChar)
 
 static void parseCurrentAddressChar(Assembler* pAssembler, ExpressionEvaluation* pEval)
 {
-    pEval->pNext = pEval->pCurrent + 1;
+    SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
+    pEval->pNext = pEval->pCurrent;
     pEval->expression = ExpressionEval_CreateAbsoluteExpression(pAssembler->programCounter);
 }
 
@@ -447,7 +450,7 @@ static int isLabelReference(char prefixChar)
 static void parseLabelReference(Assembler* pAssembler, ExpressionEvaluation* pEval)
 {
     Symbol* pSymbol = NULL;
-    size_t  labelLength = lengthOfLabel(pEval->pCurrent);
+    size_t  labelLength = lengthOfLabel(pEval);
 
     __try
         pSymbol = Assembler_FindLabel(pAssembler, pEval->pCurrent, labelLength);
@@ -455,18 +458,23 @@ static void parseLabelReference(Assembler* pAssembler, ExpressionEvaluation* pEv
         __rethrow;
 
     pEval->expression = pSymbol->expression;
-    pEval->pNext = pEval->pCurrent + labelLength;
     flagForwardReferenceOnExpressionIfUndefinedLabel(pEval, pSymbol);
 }
 
-static size_t lengthOfLabel(const char* pLabel)
+static size_t lengthOfLabel(ExpressionEvaluation* pEval)
 {
-    const char* pCurr = pLabel + 1;
-    while (*pCurr && *pCurr >= '0')
+    const char* pCurr = pEval->pCurrent;
+    char        currChar;
+    
+    SizedString_EnumNext(pEval->pString, &pCurr);
+    currChar = SizedString_EnumCurr(pEval->pString, pCurr);
+    while (currChar && currChar >= '0')
     {
-        pCurr++;
+        SizedString_EnumNext(pEval->pString, &pCurr);
+        currChar = SizedString_EnumCurr(pEval->pString, pCurr);
     }
-    return pCurr - pLabel;
+    pEval->pNext = pCurr;
+    return pCurr - pEval->pCurrent;
 }
 
 static void flagForwardReferenceOnExpressionIfUndefinedLabel(ExpressionEvaluation* pEval, Symbol* pSymbol)
