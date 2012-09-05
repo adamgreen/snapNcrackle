@@ -239,6 +239,13 @@ TEST(SizedString, EnumBlankString)
     LONGS_EQUAL(0 , SizedString_EnumRemaining(&m_sizedString, pEnumerator));
 }
 
+TEST(SizedString, EnumRemainingOnInvalidEnumerator)
+{
+    const char* pEnumerator = NULL;
+    testSizedStringInit("");
+    LONGS_EQUAL(0 , SizedString_EnumRemaining(&m_sizedString, pEnumerator));
+}
+
 TEST(SizedString, EnumSizedString)
 {
     static const char testString[] = "Test string";
