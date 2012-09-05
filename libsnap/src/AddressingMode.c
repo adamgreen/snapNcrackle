@@ -30,7 +30,7 @@ CharLocations;
 
 static CharLocations initCharLocations(SizedString* pOperandsString);
 static AddressingMode initializedAddressingModeStruct(AddressingModes mode);
-static int usesImpliedAddressing(const char* pOperands);
+static int usesImpliedAddressing(SizedString* pOperands);
 static AddressingMode impliedAddressing(void);
 static int usesIndexedIndirectAddressing(CharLocations* pLocations);
 static int hasParensAndComma(CharLocations* pLocations);
@@ -55,7 +55,8 @@ static int usesImmediateAddressing(SizedString* pOperandsString);
 
 #define reportAndThrowOnInvalidAddressingMode(pAssembler, pOperands) \
 { \
-    LOG_ERROR(pAssembler, "'%s' doesn't represent a known addressing mode.", pOperands); \
+    LOG_ERROR(pAssembler, "'%.*s' doesn't represent a known addressing mode.", \
+              (pOperands)->stringLength, (pOperands)->pString); \
     __throw(invalidArgumentException); \
 }
 
@@ -67,23 +68,22 @@ static int usesImmediateAddressing(SizedString* pOperandsString);
 }
 
 
-__throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, const char* pOperands)
+__throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, SizedString* pOperands)
 {
-    SizedString    operandsString = SizedString_InitFromString(pOperands);
-    CharLocations  locations = initCharLocations(&operandsString);
+    CharLocations  locations = initCharLocations(pOperands);
 
     if (usesImpliedAddressing(pOperands))
         return impliedAddressing();
     else if (usesIndexedIndirectAddressing(&locations))
-        return indexedIndirectAddressing(pAssembler, &operandsString);
+        return indexedIndirectAddressing(pAssembler, pOperands);
     else if (usesIndirectIndexedAddressing(&locations))
-        return indirectIndexedAddressing(pAssembler, &operandsString);
+        return indirectIndexedAddressing(pAssembler, pOperands);
     else if (usesIndirectAddressing(&locations))
-        return indirectAddressing(pAssembler, &operandsString);
+        return indirectAddressing(pAssembler, pOperands);
     else if (usesIndexedAddressing(&locations))
-        return indexedAddressing(pAssembler, &operandsString);
+        return indexedAddressing(pAssembler, pOperands);
     else if (hasNoCommaOrParens(&locations))
-        return immediateOrAbsoluteAddressing(pAssembler, &operandsString);
+        return immediateOrAbsoluteAddressing(pAssembler, pOperands);
     else
         reportAndThrowOnInvalidAddressingMode(pAssembler, pOperands);
 }
@@ -110,9 +110,9 @@ static AddressingMode initializedAddressingModeStruct(AddressingModes mode)
     return addressingMode;
 }
 
-static int usesImpliedAddressing(const char* pOperands)
+static int usesImpliedAddressing(SizedString* pOperands)
 {
-    return pOperands == NULL;
+    return SizedString_strlen(pOperands) == 0;
 }
 
 static AddressingMode impliedAddressing(void)

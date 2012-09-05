@@ -15,6 +15,7 @@
 
 #include "Assembler.h"
 #include "ExpressionEval.h"
+#include "SizedString.h"
 
 typedef enum AddressingModes
 {
@@ -36,6 +37,6 @@ typedef struct AddressingMode
 } AddressingMode;
 
 
-__throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, const char* pOperands);
+__throws AddressingMode AddressingMode_Eval(Assembler* pAssembler, SizedString* pOperands);
 
 #endif /* _ADDRESSING_MODE_H_ */

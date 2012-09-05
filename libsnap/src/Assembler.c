@@ -619,9 +619,14 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
     }
     
     __try
-        addressingMode = AddressingMode_Eval(pThis, pThis->parsedLine.pOperands);
+    {
+        SizedString operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
+        addressingMode = AddressingMode_Eval(pThis, &operands);
+    }
     __catch
+    {
         __nothrow;
+    }
         
     switch (addressingMode.mode)
     {

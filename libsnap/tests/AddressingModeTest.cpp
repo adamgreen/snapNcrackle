@@ -25,6 +25,7 @@ extern "C"
 TEST_GROUP(AddressingMode)
 {
     AddressingMode m_addressingMode;
+    SizedString    m_string;
     Assembler*     m_pAssembler;
     char           m_buffer[64];
     
@@ -48,7 +49,13 @@ TEST_GROUP(AddressingMode)
         strcpy(m_buffer, pString);
         return m_buffer;
     }
-    
+
+    SizedString* toSizedString(const char* pString)
+    {
+        m_string = SizedString_InitFromString(pString);
+        return &m_string;
+    }
+
     void setupAssemblerModule(const char* pAsmSource)
     {
         Assembler_Free(m_pAssembler);
@@ -73,7 +80,7 @@ TEST_GROUP(AddressingMode)
 
 TEST(AddressingMode, ImmediateMode)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "#1");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("#1"));
     LONGS_EQUAL(ADDRESSING_MODE_IMMEDIATE, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_IMMEDIATE, m_addressingMode.expression.type);
     LONGS_EQUAL(1, m_addressingMode.expression.value);
@@ -81,7 +88,7 @@ TEST(AddressingMode, ImmediateMode)
 
 TEST(AddressingMode, ImmediateModeValueFor16BitValue)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "#256");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("#256"));
     LONGS_EQUAL(ADDRESSING_MODE_IMMEDIATE, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_IMMEDIATE, m_addressingMode.expression.type);
     LONGS_EQUAL(256, m_addressingMode.expression.value);
@@ -89,7 +96,7 @@ TEST(AddressingMode, ImmediateModeValueFor16BitValue)
 
 TEST(AddressingMode, AbsoluteMode)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "65535");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("65535"));
     LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
     LONGS_EQUAL(65535, m_addressingMode.expression.value);
@@ -97,13 +104,13 @@ TEST(AddressingMode, AbsoluteMode)
 
 TEST(AddressingMode, InvalidAbsoluteModeValue)
 {
-    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "+65535") );
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("+65535")) );
     validateInvalidArgumentExceptionAndMessage("filename:0: error: Unexpected prefix in '+65535' expression.\n");
 }
 
 TEST(AddressingMode, ZeroPageAbsoluteMode)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "255");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("255"));
     LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
     LONGS_EQUAL(255, m_addressingMode.expression.value);
@@ -111,13 +118,13 @@ TEST(AddressingMode, ZeroPageAbsoluteMode)
 
 TEST(AddressingMode, ImpliedMode)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, NULL);
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString(NULL));
     LONGS_EQUAL(ADDRESSING_MODE_IMPLIED, m_addressingMode.mode);
 }
 
 TEST(AddressingMode, AbsoluteIndexedXMode)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "256,X");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("256,X"));
     LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE_INDEXED_X, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
     LONGS_EQUAL(256, m_addressingMode.expression.value);
@@ -125,7 +132,7 @@ TEST(AddressingMode, AbsoluteIndexedXMode)
 
 TEST(AddressingMode, AbsoluteIndexedXModeWithLowercase)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "256,x");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("256,x"));
     LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE_INDEXED_X, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
     LONGS_EQUAL(256, m_addressingMode.expression.value);
@@ -133,7 +140,7 @@ TEST(AddressingMode, AbsoluteIndexedXModeWithLowercase)
 
 TEST(AddressingMode, ZeroPageAbsoluteIndexedXMode)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "255,x");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("255,x"));
     LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE_INDEXED_X, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
     LONGS_EQUAL(255, m_addressingMode.expression.value);
@@ -141,13 +148,13 @@ TEST(AddressingMode, ZeroPageAbsoluteIndexedXMode)
 
 TEST(AddressingMode, InvalidAbsoluteIndexedXModeValue)
 {
-    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "+256,X") );
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("+256,X")) );
     validateInvalidArgumentExceptionAndMessage("filename:0: error: Unexpected prefix in '+256' expression.\n");
 }
 
 TEST(AddressingMode, AbsoluteIndexedYMode)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "256,Y");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("256,Y"));
     LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE_INDEXED_Y, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
     LONGS_EQUAL(256, m_addressingMode.expression.value);
@@ -155,7 +162,7 @@ TEST(AddressingMode, AbsoluteIndexedYMode)
 
 TEST(AddressingMode, AbsoluteIndexedYModeWithLowercase)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "256,y");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("256,y"));
     LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE_INDEXED_Y, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
     LONGS_EQUAL(256, m_addressingMode.expression.value);
@@ -163,7 +170,7 @@ TEST(AddressingMode, AbsoluteIndexedYModeWithLowercase)
 
 TEST(AddressingMode, ZeroPageAbsoluteIndexedYMode)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "255,y");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("255,y"));
     LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE_INDEXED_Y, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
     LONGS_EQUAL(255, m_addressingMode.expression.value);
@@ -171,19 +178,19 @@ TEST(AddressingMode, ZeroPageAbsoluteIndexedYMode)
 
 TEST(AddressingMode, InvalidAbsoluteIndexedYModeValue)
 {
-    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "+256,Y") );
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("+256,Y")) );
     validateInvalidArgumentExceptionAndMessage("filename:0: error: Unexpected prefix in '+256' expression.\n");
 }
 
 TEST(AddressingMode, InvalidAbsoluteIndexedAddressingMode)
 {
-    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "255,Z") );
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("255,Z")) );
     validateInvalidArgumentExceptionAndMessage("filename:0: error: 'Z' isn't a valid index register for this addressing mode.\n");
 }
 
 TEST(AddressingMode, ZeroPageIndexedIndirectMode)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(255,X)");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(255,X)"));
     LONGS_EQUAL(ADDRESSING_MODE_INDEXED_INDIRECT, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
     LONGS_EQUAL(255, m_addressingMode.expression.value);
@@ -191,7 +198,7 @@ TEST(AddressingMode, ZeroPageIndexedIndirectMode)
 
 TEST(AddressingMode, ZeroPageIndexedIndirectModeLowerCase)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(0,x)");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(0,x)"));
     LONGS_EQUAL(ADDRESSING_MODE_INDEXED_INDIRECT, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
     LONGS_EQUAL(0, m_addressingMode.expression.value);
@@ -199,7 +206,7 @@ TEST(AddressingMode, ZeroPageIndexedIndirectModeLowerCase)
 
 TEST(AddressingMode, AbsoluteIndexedIndirectMode)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(256,X)");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(256,X)"));
     LONGS_EQUAL(ADDRESSING_MODE_INDEXED_INDIRECT, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
     LONGS_EQUAL(256, m_addressingMode.expression.value);
@@ -207,7 +214,7 @@ TEST(AddressingMode, AbsoluteIndexedIndirectMode)
 
 TEST(AddressingMode, AbsoluteIndexedIndirectModeLowerCase)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(65535,x)");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(65535,x)"));
     LONGS_EQUAL(ADDRESSING_MODE_INDEXED_INDIRECT, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
     LONGS_EQUAL(65535, m_addressingMode.expression.value);
@@ -215,25 +222,25 @@ TEST(AddressingMode, AbsoluteIndexedIndirectModeLowerCase)
 
 TEST(AddressingMode, InvalidIndexedIndirectModeValue)
 {
-    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(-,x)") );
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(-,x)")) );
     validateInvalidArgumentExceptionAndMessage("filename:0: error: Unexpected prefix in '' expression.\n");
 }
 
 TEST(AddressingMode, InvalidIndexedIndirectModeWithMissingCloseParen)
 {
-    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(256,x") );
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(256,x")) );
     validateInvalidArgumentExceptionAndMessage("filename:0: error: '(256,x' doesn't represent a known addressing mode.\n");
 }
 
 TEST(AddressingMode, InvalidIndexedIndirectModeRegister)
 {
-    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(255,Y)") );
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(255,Y)")) );
     validateInvalidArgumentExceptionAndMessage("filename:0: error: 'Y' isn't a valid index register for this addressing mode.\n");
 }
 
 TEST(AddressingMode, IndirectIndexedMode)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(0),Y");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(0),Y"));
     LONGS_EQUAL(ADDRESSING_MODE_INDIRECT_INDEXED, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
     LONGS_EQUAL(0, m_addressingMode.expression.value);
@@ -241,25 +248,25 @@ TEST(AddressingMode, IndirectIndexedMode)
 
 TEST(AddressingMode, InvalidIndirectIndexedModeValue)
 {
-    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(+0),Y") );
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(+0),Y")) );
     validateInvalidArgumentExceptionAndMessage("filename:0: error: Unexpected prefix in '+0' expression.\n");
 }
 
 TEST(AddressingMode, InvalidIndirectIndexedModeNotInZeroPage)
 {
-    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(256),Y") );
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(256),Y")) );
     validateInvalidArgumentExceptionAndMessage("filename:0: error: '256' isn't in page zero as required for indirect indexed addressing.\n");
 }
 
 TEST(AddressingMode, InvalidIndirectIndexedModeRegister)
 {
-    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(0),X") );
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(0),X")) );
     validateInvalidArgumentExceptionAndMessage("filename:0: error: 'X' isn't a valid index register for this addressing mode.\n");
 }
 
 TEST(AddressingMode, ZeroPageIndirectMode)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(255)");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(255)"));
     LONGS_EQUAL(ADDRESSING_MODE_INDIRECT, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
     LONGS_EQUAL(255, m_addressingMode.expression.value);
@@ -267,7 +274,7 @@ TEST(AddressingMode, ZeroPageIndirectMode)
 
 TEST(AddressingMode, AbsolutePageIndirectMode)
 {
-    m_addressingMode = AddressingMode_Eval(m_pAssembler, "(256)");
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(256)"));
     LONGS_EQUAL(ADDRESSING_MODE_INDIRECT, m_addressingMode.mode);
     LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
     LONGS_EQUAL(256, m_addressingMode.expression.value);
@@ -275,6 +282,6 @@ TEST(AddressingMode, AbsolutePageIndirectMode)
 
 TEST(AddressingMode, InvalidIndirectModeValue)
 {
-    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, "(+0)") );
+    __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(+0)")) );
     validateInvalidArgumentExceptionAndMessage("filename:0: error: Unexpected prefix in '+0' expression.\n");
 }
