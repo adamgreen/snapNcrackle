@@ -123,7 +123,7 @@ char SizedString_EnumNext(const SizedString* pString, const char** ppEnumerator)
 {
     char ReturnValue;
 
-    if ((size_t)(*ppEnumerator - pString->pString) < pString->stringLength)
+    if ((size_t)(*ppEnumerator - pString->pString) >= pString->stringLength)
         return '\0';
     ReturnValue = **ppEnumerator;
     (*ppEnumerator)++;

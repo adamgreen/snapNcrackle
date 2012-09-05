@@ -241,12 +241,14 @@ TEST(SizedString, EnumSizedString)
 {
     static const char testString[] = "Test string";
     const char*       pEnumerator = NULL;
-    char              nextChar = '\0';
     
     testSizedStringInit(testString);
     SizedString_EnumStart(&m_sizedString, &pEnumerator);
-    for (int i = 0 ; (nextChar = SizedString_EnumNext(&m_sizedString, &pEnumerator)) != '\0' ; i++)
+    for (int i = 0 ; ; i++)
     {
+        char nextChar = SizedString_EnumNext(&m_sizedString, &pEnumerator);
         LONGS_EQUAL(testString[i], nextChar);
+        if ('\0' == nextChar)
+            break;
     }
 }
