@@ -234,18 +234,23 @@ TEST(SizedString, EnumBlankString)
     const char* pEnumerator = NULL;
     testSizedStringInit("");
     SizedString_EnumStart(&m_sizedString, &pEnumerator);
+    LONGS_EQUAL('\0', SizedString_EnumCurr(&m_sizedString, pEnumerator));
     LONGS_EQUAL('\0', SizedString_EnumNext(&m_sizedString, &pEnumerator));
+    LONGS_EQUAL(0 , SizedString_EnumRemaining(&m_sizedString, pEnumerator));
 }
 
 TEST(SizedString, EnumSizedString)
 {
     static const char testString[] = "Test string";
     const char*       pEnumerator = NULL;
+    size_t            remaining = strlen(testString);
     
     testSizedStringInit(testString);
     SizedString_EnumStart(&m_sizedString, &pEnumerator);
     for (int i = 0 ; ; i++)
     {
+        LONGS_EQUAL(remaining--, SizedString_EnumRemaining(&m_sizedString, pEnumerator));
+        LONGS_EQUAL(testString[i], SizedString_EnumCurr(&m_sizedString, pEnumerator));
         char nextChar = SizedString_EnumNext(&m_sizedString, &pEnumerator);
         LONGS_EQUAL(testString[i], nextChar);
         if ('\0' == nextChar)

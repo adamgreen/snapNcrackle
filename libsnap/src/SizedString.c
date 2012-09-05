@@ -119,14 +119,30 @@ void SizedString_EnumStart(const SizedString* pString, const char** ppEnumerator
 }
 
 
+char SizedString_EnumCurr(const SizedString* pString, const char* pEnumerator)
+{
+    if ((size_t)(pEnumerator - pString->pString) >= pString->stringLength)
+        return '\0';
+    return *pEnumerator;
+}
+
+
 char SizedString_EnumNext(const SizedString* pString, const char** ppEnumerator)
 {
-    char ReturnValue;
+    char ReturnValue = SizedString_EnumCurr(pString, *ppEnumerator);
 
-    if ((size_t)(*ppEnumerator - pString->pString) >= pString->stringLength)
-        return '\0';
-    ReturnValue = **ppEnumerator;
-    (*ppEnumerator)++;
+    if (ReturnValue != '\0')
+        (*ppEnumerator)++;
     
     return ReturnValue;
+}
+
+
+size_t SizedString_EnumRemaining(const SizedString* pString, const char* pEnumerator)
+{
+    int charsEnumerated = pEnumerator - pString->pString;
+    
+    if (charsEnumerated < 0)
+        return 0;
+    return pString->stringLength - (size_t)charsEnumerated;
 }

@@ -30,6 +30,8 @@ void        SizedString_SplitString(const SizedString* pInput, char splitAtChar,
 size_t      SizedString_strlen(const SizedString* pString);
 
 void        SizedString_EnumStart(const SizedString* pString, const char** ppEnumerator);
+char        SizedString_EnumCurr(const SizedString* pString, const char* pEnumerator);
 char        SizedString_EnumNext(const SizedString* pString, const char** ppEnumerator);
+size_t      SizedString_EnumRemaining(const SizedString* pString, const char* pEnumerator);
 
 #endif /* _SIZED_STRING_H_ */
