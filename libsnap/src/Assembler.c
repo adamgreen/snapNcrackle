@@ -858,11 +858,12 @@ static void handleEQU(Assembler* pThis)
 {
     __try
     {
-        Symbol*    pSymbol = pThis->pLineInfo->pSymbol;
-        Expression expression;
+        Symbol*     pSymbol = pThis->pLineInfo->pSymbol;
+        SizedString operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
+        Expression  expression;
         
         validateOperandWasProvided(pThis);
-        expression = ExpressionEval(pThis, pThis->parsedLine.pOperands);
+        expression = ExpressionEval(pThis, &operands);
         validateEQULabelFormat(pThis);
         if (pSymbol)
         {
@@ -1075,7 +1076,7 @@ static Expression getAbsoluteExpression(Assembler* pThis, SizedString* pOperands
     
     __try
     {
-        expression = ExpressionEvalSizedString(pThis, pOperands);
+        expression = ExpressionEval(pThis, pOperands);
         if (!isTypeAbsolute(&expression))
         {
             LOG_ERROR(pThis, "'%.*s' doesn't specify an absolute address.", pOperands->stringLength, pOperands->pString);
@@ -1286,7 +1287,7 @@ static void handleDB(Assembler* pThis)
             SizedString afterComma;
 
             SizedString_SplitString(&nextOperands, ',', &beforeComma, &afterComma);
-            expression = ExpressionEvalSizedString(pThis, &beforeComma);
+            expression = ExpressionEval(pThis, &beforeComma);
             if (!alreadyAllocated)
                 reallocLineInfoMachineCodeBytes(pThis, i + 1);
             pThis->pLineInfo->pMachineCode[i++] = (unsigned char)expression.value;
@@ -1319,7 +1320,7 @@ static void handleDA(Assembler* pThis)
             SizedString afterComma;
 
             SizedString_SplitString(&nextOperands, ',', &beforeComma, &afterComma);
-            expression = ExpressionEvalSizedString(pThis, &beforeComma);
+            expression = ExpressionEval(pThis, &beforeComma);
             if (!alreadyAllocated)
                 reallocLineInfoMachineCodeBytes(pThis, i+2);
             pThis->pLineInfo->pMachineCode[i++] = (unsigned char)expression.value;

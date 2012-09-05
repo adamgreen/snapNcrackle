@@ -28,13 +28,6 @@ typedef struct ExpressionEvaluation
 typedef void (*operatorHandler)(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
 
 
-__throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands)
-{
-    SizedString sizedString = SizedString_InitFromString(pOperands);
-    return ExpressionEvalSizedString(pAssembler, &sizedString);
-}
-
-
 static int isImmediatePrefix(char prefixChar);
 static void parseImmediate(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static int isLowBytePrefix(char prefixChar);
@@ -71,7 +64,7 @@ static int isLabelReference(char prefixChar);
 static void parseLabelReference(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static size_t lengthOfLabel(const char* pLabel);
 static void flagForwardReferenceOnExpressionIfUndefinedLabel(ExpressionEvaluation* pEval, Symbol* pSymbol);
-__throws Expression ExpressionEvalSizedString(Assembler* pAssembler, const SizedString* pOperands)
+__throws Expression ExpressionEval(Assembler* pAssembler, const SizedString* pOperands)
 {
     ExpressionEvaluation eval;
     

@@ -35,8 +35,8 @@ typedef struct Expression
     unsigned short value;
 } Expression;
 
-__throws Expression ExpressionEval(Assembler* pAssembler, const char* pOperands);
-__throws Expression ExpressionEvalSizedString(Assembler* pAssembler, const SizedString* pOperands);
+
+__throws Expression ExpressionEval(Assembler* pAssembler, const SizedString* pOperands);
          Expression ExpressionEval_CreateAbsoluteExpression(unsigned short value);
 
 #endif /* _EXPRESSION_EVAL_H_ */

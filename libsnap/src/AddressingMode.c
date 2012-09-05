@@ -169,7 +169,7 @@ static AddressingMode indexedIndirectAddressing(Assembler* pAssembler, SizedStri
         reportAndThrowOnInvalidIndexRegister(pAssembler, &indexRegister);
 
     __try
-        addressingMode.expression = ExpressionEvalSizedString(pAssembler, &beforeComma);
+        addressingMode.expression = ExpressionEval(pAssembler, &beforeComma);
     __catch
         __rethrow;
 
@@ -205,7 +205,7 @@ static AddressingMode indirectIndexedAddressing(Assembler* pAssembler, SizedStri
         reportAndThrowOnInvalidIndexRegister(pAssembler, &indexRegister);
         
     __try
-        addressingMode.expression = ExpressionEvalSizedString(pAssembler, &beforeCloseParen);
+        addressingMode.expression = ExpressionEval(pAssembler, &beforeCloseParen);
     __catch
         __rethrow;
         
@@ -242,7 +242,7 @@ static AddressingMode indirectAddressing(Assembler* pAssembler, SizedString* pOp
     SizedString_SplitString(pOperandsString, '(', &beforeOpenParen, &afterOpenParen);
     SizedString_SplitString(&afterOpenParen, ')', &beforeCloseParen, &afterCloseParen);
     __try
-        addressingMode.expression = ExpressionEvalSizedString(pAssembler, &beforeCloseParen);
+        addressingMode.expression = ExpressionEval(pAssembler, &beforeCloseParen);
     __catch
         __rethrow;
         
@@ -275,7 +275,7 @@ static AddressingMode indexedAddressing(Assembler* pAssembler, SizedString* pOpe
             addressingMode.mode = ADDRESSING_MODE_ABSOLUTE_INDEXED_Y;
         else
             reportAndThrowOnInvalidIndexRegister(pAssembler, &afterComma);
-        addressingMode.expression = ExpressionEvalSizedString(pAssembler, &beforeComma);
+        addressingMode.expression = ExpressionEval(pAssembler, &beforeComma);
     }
     __catch
     {
@@ -302,7 +302,7 @@ static AddressingMode immediateOrAbsoluteAddressing(Assembler* pAssembler, Sized
 
     __try
     {
-        addressingMode.expression = ExpressionEvalSizedString(pAssembler, pOperandsString);
+        addressingMode.expression = ExpressionEval(pAssembler, pOperandsString);
     }
     __catch
     {
