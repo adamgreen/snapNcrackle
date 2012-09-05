@@ -90,6 +90,12 @@ int SizedString_strcasecmp(const SizedString* pString, const char* pSearchString
 }
 
 
+size_t SizedString_strlen(const SizedString* pString)
+{
+    return pString->stringLength;
+}
+
+
 void SizedString_SplitString(const SizedString* pInput, char splitAtChar, SizedString* pBefore, SizedString* pAfter)
 {
     const char* pSplitChar;
@@ -104,4 +110,23 @@ void SizedString_SplitString(const SizedString* pInput, char splitAtChar, SizedS
     pBefore->stringLength = pSplitChar - pInput->pString;
     pAfter->pString = pSplitChar + 1;
     pAfter->stringLength = pInput->stringLength - pBefore->stringLength - 1;
+}
+
+
+void SizedString_EnumStart(const SizedString* pString, const char** ppEnumerator)
+{
+    *ppEnumerator = pString->pString;
+}
+
+
+char SizedString_EnumNext(const SizedString* pString, const char** ppEnumerator)
+{
+    char ReturnValue;
+
+    if ((size_t)(*ppEnumerator - pString->pString) < pString->stringLength)
+        return '\0';
+    ReturnValue = **ppEnumerator;
+    (*ppEnumerator)++;
+    
+    return ReturnValue;
 }

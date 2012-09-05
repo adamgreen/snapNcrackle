@@ -216,3 +216,37 @@ TEST(SizedString, splitStringFailToFindSeparator)
     POINTERS_EQUAL(NULL, afterComma.pString);
     LONGS_EQUAL(0, afterComma.stringLength);
 }
+
+TEST(SizedString, strlenOnBlankString)
+{
+    testSizedStringInit("");
+    LONGS_EQUAL(0, SizedString_strlen(&m_sizedString));
+}
+
+TEST(SizedString, strlenOnSizedString)
+{
+    testSizedStringInit("Test string");
+    LONGS_EQUAL(11, SizedString_strlen(&m_sizedString));
+}
+
+TEST(SizedString, EnumBlankString)
+{
+    const char* pEnumerator = NULL;
+    testSizedStringInit("");
+    SizedString_EnumStart(&m_sizedString, &pEnumerator);
+    LONGS_EQUAL('\0', SizedString_EnumNext(&m_sizedString, &pEnumerator));
+}
+
+TEST(SizedString, EnumSizedString)
+{
+    static const char testString[] = "Test string";
+    const char*       pEnumerator = NULL;
+    char              nextChar = '\0';
+    
+    testSizedStringInit(testString);
+    SizedString_EnumStart(&m_sizedString, &pEnumerator);
+    for (int i = 0 ; (nextChar = SizedString_EnumNext(&m_sizedString, &pEnumerator)) != '\0' ; i++)
+    {
+        LONGS_EQUAL(testString[i], nextChar);
+    }
+}

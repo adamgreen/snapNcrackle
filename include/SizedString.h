@@ -27,5 +27,9 @@ const char* SizedString_strchr(const SizedString* pString, char searchChar);
 int         SizedString_strcmp(const SizedString* pString, const char* pSearchString);
 int         SizedString_strcasecmp(const SizedString* pString, const char* pSearchString);
 void        SizedString_SplitString(const SizedString* pInput, char splitAtChar, SizedString* pBefore, SizedString* pAfter);
+size_t      SizedString_strlen(const SizedString* pString);
+
+void        SizedString_EnumStart(const SizedString* pString, const char** ppEnumerator);
+char        SizedString_EnumNext(const SizedString* pString, const char** ppEnumerator);
 
 #endif /* _SIZED_STRING_H_ */
