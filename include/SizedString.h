@@ -26,6 +26,7 @@ SizedString SizedString_InitFromString(const char* pString);
 const char* SizedString_strchr(const SizedString* pString, char searchChar);
 int         SizedString_strcmp(const SizedString* pString, const char* pSearchString);
 int         SizedString_strcasecmp(const SizedString* pString, const char* pSearchString);
+int         SizedString_Compare(const SizedString* pString1, const SizedString* pString2);
 void        SizedString_SplitString(const SizedString* pInput, char splitAtChar, SizedString* pBefore, SizedString* pAfter);
 size_t      SizedString_strlen(const SizedString* pString);
 

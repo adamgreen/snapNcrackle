@@ -90,6 +90,32 @@ int SizedString_strcasecmp(const SizedString* pString, const char* pSearchString
 }
 
 
+int SizedString_Compare(const SizedString* pString1, const SizedString* pString2)
+{
+    static const char  terminator = '\0';
+    size_t             charsLeft1 = pString1->stringLength;
+    size_t             charsLeft2 = pString2->stringLength;
+    const char*        p1 = pString1->pString;
+    const char*        p2 = pString2->pString;
+    
+    while (charsLeft1 > 0 && charsLeft2 > 0)
+    {
+        int diff = *p1++ - *p2++;
+        if (diff != 0)
+            return diff;
+        charsLeft1--;
+        charsLeft2--;
+    }
+    
+    if (charsLeft1 == 0)
+        p1 = &terminator;
+    if (charsLeft2 == 0)
+        p2 = &terminator;
+        
+    return *p1 - *p2;
+}
+
+
 size_t SizedString_strlen(const SizedString* pString)
 {
     return pString->stringLength;

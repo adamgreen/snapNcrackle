@@ -28,6 +28,7 @@ TEST_GROUP(SizedString)
     const char* m_pExpectedContent;
     size_t      m_expectedStringLength;
     SizedString m_sizedString;
+    SizedString m_bufferString;
     char        m_testString[64];
     
     void setup()
@@ -58,6 +59,12 @@ TEST_GROUP(SizedString)
         m_pExpectedString = pString;
         m_pExpectedContent = pString;
         m_expectedStringLength = pString ? strlen(pString) : 0;
+    }
+    
+    SizedString* toSizedString(const char* pString)
+    {
+        m_bufferString = SizedString_InitFromString(pString);
+        return &m_bufferString;
     }
 };
 
@@ -192,6 +199,36 @@ TEST(SizedString, strcasecmpFailMatchDueToSizedStringBeingTooShort)
 {
     testSizedStringInit("Test string", 4);
     LONGS_EQUAL(strcasecmp("Test", "Test string"), SizedString_strcasecmp(&m_sizedString, "Test string"));
+}
+
+TEST(SizedString, CompareMatchWholeString)
+{
+    testSizedStringInit("Test String");
+    LONGS_EQUAL(strcmp("Test String", "Test String"), SizedString_Compare(&m_sizedString, toSizedString("Test String")));
+}
+
+TEST(SizedString, CompareMatchWholeTruncatedString)
+{
+    testSizedStringInit("Test String", 4);
+    LONGS_EQUAL(strcmp("Test", "Test"), SizedString_Compare(&m_sizedString, toSizedString("Test")));
+}
+
+TEST(SizedString, CompareFailMatchDueToCaseSensitivity)
+{
+    testSizedStringInit("Test string");
+    LONGS_EQUAL(strcmp("Test string", "Test String"), SizedString_Compare(&m_sizedString, toSizedString("Test String")));
+}
+
+TEST(SizedString, CompareFailMatchDueToSearchStringBeingTooShort)
+{
+    testSizedStringInit("Test string");
+    LONGS_EQUAL(strcmp("Test string", "Test"), SizedString_Compare(&m_sizedString, toSizedString("Test")));
+}
+
+TEST(SizedString, CompareFailMatchDueToSizedStringBeingTooShort)
+{
+    testSizedStringInit("Test string", 4);
+    LONGS_EQUAL(strcmp("Test", "Test string"), SizedString_Compare(&m_sizedString, toSizedString("Test string")));
 }
 
 TEST(SizedString, splitStringAroundComma)
