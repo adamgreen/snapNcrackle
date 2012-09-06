@@ -133,3 +133,22 @@ TEST(ListFile, OutputLineWithAddressAndThreeMachineCodeBytes)
     POINTERS_EQUAL(stdout, printfSpy_GetLastFile());
     STRCMP_EQUAL("0803: AD C0 08     5  LDA $C008\n", printfSpy_GetLastOutput());
 }
+
+TEST(ListFile, OutputLineWithAddressAndFourMachineCodeBytes)
+{
+    m_pListFile = ListFile_Create(stdout);
+
+    m_lineInfo.pLineText = " DS 4";
+    m_lineInfo.lineNumber = 1;
+    m_lineInfo.address = 0x0800;
+    m_lineInfo.machineCodeSize = 4;
+    m_lineInfo.pMachineCode[0] = 0x00;
+    m_lineInfo.pMachineCode[1] = 0x00;
+    m_lineInfo.pMachineCode[2] = 0x00;
+    m_lineInfo.pMachineCode[3] = 0x00;
+    ListFile_OutputLine(m_pListFile, &m_lineInfo);
+
+    POINTERS_EQUAL(stdout, printfSpy_GetLastFile());
+    STRCMP_EQUAL("0800: 00 00 00     1  DS 4\n", printfSpy_GetPreviousOutput());
+    STRCMP_EQUAL("0803: 00      \n", printfSpy_GetLastOutput());
+}
