@@ -70,7 +70,7 @@ TEST_GROUP(SnapCommandLine)
         }
     }
     
-    void validateInvalidArgumentExceptionAndUsageString(void)
+    void validateInvalidArgumentExceptionThrownAndUsageStringDisplayed(void)
     {
         LONGS_EQUAL(invalidArgumentException, getExceptionCode());
         STRCMP_EQUAL(g_usageString, printfSpy_GetLastOutput());
@@ -82,7 +82,7 @@ TEST_GROUP(SnapCommandLine)
 TEST(SnapCommandLine, NoParameters)
 {
     __try_and_catch( SnapCommandLine_Init(&m_commandLine, m_argc, m_argv) );
-    validateInvalidArgumentExceptionAndUsageString();
+    validateInvalidArgumentExceptionThrownAndUsageStringDisplayed();
     CHECK(m_commandLine.pSourceFilename == NULL);
 }
 
@@ -110,7 +110,7 @@ TEST(SnapCommandLine, FailOnTwoSourceFilenames)
     addArg("SOURCE2.S");
     
     __try_and_catch( SnapCommandLine_Init(&m_commandLine, m_argc, m_argv) );
-    validateInvalidArgumentExceptionAndUsageString();
+    validateInvalidArgumentExceptionThrownAndUsageStringDisplayed();
 }
 
 TEST(SnapCommandLine, FailOnListFilenameButNoSourceFilename)
@@ -119,7 +119,7 @@ TEST(SnapCommandLine, FailOnListFilenameButNoSourceFilename)
     addArg("SOURCE1.LST");
     
     __try_and_catch( SnapCommandLine_Init(&m_commandLine, m_argc, m_argv) );
-    validateInvalidArgumentExceptionAndUsageString();
+    validateInvalidArgumentExceptionThrownAndUsageStringDisplayed();
 }
 
 TEST(SnapCommandLine, FailOnMissingListFilename)
@@ -127,7 +127,7 @@ TEST(SnapCommandLine, FailOnMissingListFilename)
     addArg("--list");
     
     __try_and_catch( SnapCommandLine_Init(&m_commandLine, m_argc, m_argv) );
-    validateInvalidArgumentExceptionAndUsageString();
+    validateInvalidArgumentExceptionThrownAndUsageStringDisplayed();
 }
 
 TEST(SnapCommandLine, FailOnInvalidFlag)
@@ -135,5 +135,5 @@ TEST(SnapCommandLine, FailOnInvalidFlag)
     addArg("--unknown");
     
     __try_and_catch( SnapCommandLine_Init(&m_commandLine, m_argc, m_argv) );
-    validateInvalidArgumentExceptionAndUsageString();
+    validateInvalidArgumentExceptionThrownAndUsageStringDisplayed();
 }
