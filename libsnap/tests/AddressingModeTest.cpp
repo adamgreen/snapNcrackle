@@ -75,31 +75,32 @@ TEST_GROUP(AddressingMode)
         LONGS_EQUAL(invalidArgumentException, getExceptionCode());
         clearExceptionCode();
     }
+    
+    void validateAddressingMode(AddressingModes expectedMode, ExpressionType expectedType, unsigned short expectedValue)
+    {
+        LONGS_EQUAL(expectedMode, m_addressingMode.mode);
+        LONGS_EQUAL(expectedType, m_addressingMode.expression.type);
+        LONGS_EQUAL(expectedValue, m_addressingMode.expression.value);
+    }
 };
 
 
 TEST(AddressingMode, ImmediateMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("#1"));
-    LONGS_EQUAL(ADDRESSING_MODE_IMMEDIATE, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_IMMEDIATE, m_addressingMode.expression.type);
-    LONGS_EQUAL(1, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_IMMEDIATE, TYPE_IMMEDIATE, 1);
 }
 
 TEST(AddressingMode, ImmediateModeValueFor16BitValue)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("#256"));
-    LONGS_EQUAL(ADDRESSING_MODE_IMMEDIATE, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_IMMEDIATE, m_addressingMode.expression.type);
-    LONGS_EQUAL(256, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_IMMEDIATE, TYPE_IMMEDIATE, 256);
 }
 
 TEST(AddressingMode, AbsoluteMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("65535"));
-    LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
-    LONGS_EQUAL(65535, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_ABSOLUTE, TYPE_ABSOLUTE, 65535);
 }
 
 TEST(AddressingMode, InvalidAbsoluteModeValue)
@@ -111,9 +112,7 @@ TEST(AddressingMode, InvalidAbsoluteModeValue)
 TEST(AddressingMode, ZeroPageAbsoluteMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("255"));
-    LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
-    LONGS_EQUAL(255, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_ABSOLUTE, TYPE_ZEROPAGE, 255);
 }
 
 TEST(AddressingMode, ImpliedMode)
@@ -125,25 +124,19 @@ TEST(AddressingMode, ImpliedMode)
 TEST(AddressingMode, AbsoluteIndexedXMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("256,X"));
-    LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE_INDEXED_X, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
-    LONGS_EQUAL(256, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_ABSOLUTE_INDEXED_X, TYPE_ABSOLUTE, 256);
 }
 
 TEST(AddressingMode, AbsoluteIndexedXModeWithLowercase)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("256,x"));
-    LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE_INDEXED_X, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
-    LONGS_EQUAL(256, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_ABSOLUTE_INDEXED_X, TYPE_ABSOLUTE, 256);
 }
 
 TEST(AddressingMode, ZeroPageAbsoluteIndexedXMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("255,x"));
-    LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE_INDEXED_X, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
-    LONGS_EQUAL(255, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_ABSOLUTE_INDEXED_X, TYPE_ZEROPAGE, 255);
 }
 
 TEST(AddressingMode, InvalidAbsoluteIndexedXModeValue)
@@ -155,25 +148,19 @@ TEST(AddressingMode, InvalidAbsoluteIndexedXModeValue)
 TEST(AddressingMode, AbsoluteIndexedYMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("256,Y"));
-    LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE_INDEXED_Y, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
-    LONGS_EQUAL(256, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_ABSOLUTE_INDEXED_Y, TYPE_ABSOLUTE, 256);
 }
 
 TEST(AddressingMode, AbsoluteIndexedYModeWithLowercase)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("256,y"));
-    LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE_INDEXED_Y, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
-    LONGS_EQUAL(256, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_ABSOLUTE_INDEXED_Y, TYPE_ABSOLUTE, 256);
 }
 
 TEST(AddressingMode, ZeroPageAbsoluteIndexedYMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("255,y"));
-    LONGS_EQUAL(ADDRESSING_MODE_ABSOLUTE_INDEXED_Y, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
-    LONGS_EQUAL(255, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_ABSOLUTE_INDEXED_Y, TYPE_ZEROPAGE, 255);
 }
 
 TEST(AddressingMode, InvalidAbsoluteIndexedYModeValue)
@@ -191,33 +178,25 @@ TEST(AddressingMode, InvalidAbsoluteIndexedAddressingMode)
 TEST(AddressingMode, ZeroPageIndexedIndirectMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(255,X)"));
-    LONGS_EQUAL(ADDRESSING_MODE_INDEXED_INDIRECT, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
-    LONGS_EQUAL(255, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_INDEXED_INDIRECT, TYPE_ZEROPAGE, 255);
 }
 
 TEST(AddressingMode, ZeroPageIndexedIndirectModeLowerCase)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(0,x)"));
-    LONGS_EQUAL(ADDRESSING_MODE_INDEXED_INDIRECT, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
-    LONGS_EQUAL(0, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_INDEXED_INDIRECT, TYPE_ZEROPAGE, 0);
 }
 
 TEST(AddressingMode, AbsoluteIndexedIndirectMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(256,X)"));
-    LONGS_EQUAL(ADDRESSING_MODE_INDEXED_INDIRECT, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
-    LONGS_EQUAL(256, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_INDEXED_INDIRECT, TYPE_ABSOLUTE, 256);
 }
 
 TEST(AddressingMode, AbsoluteIndexedIndirectModeLowerCase)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(65535,x)"));
-    LONGS_EQUAL(ADDRESSING_MODE_INDEXED_INDIRECT, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
-    LONGS_EQUAL(65535, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_INDEXED_INDIRECT, TYPE_ABSOLUTE, 65535);
 }
 
 TEST(AddressingMode, InvalidIndexedIndirectModeValue)
@@ -241,9 +220,7 @@ TEST(AddressingMode, InvalidIndexedIndirectModeRegister)
 TEST(AddressingMode, IndirectIndexedMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(0),Y"));
-    LONGS_EQUAL(ADDRESSING_MODE_INDIRECT_INDEXED, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
-    LONGS_EQUAL(0, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_INDIRECT_INDEXED, TYPE_ZEROPAGE, 0);
 }
 
 TEST(AddressingMode, InvalidIndirectIndexedModeValue)
@@ -267,17 +244,13 @@ TEST(AddressingMode, InvalidIndirectIndexedModeRegister)
 TEST(AddressingMode, ZeroPageIndirectMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(255)"));
-    LONGS_EQUAL(ADDRESSING_MODE_INDIRECT, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ZEROPAGE, m_addressingMode.expression.type);
-    LONGS_EQUAL(255, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_INDIRECT, TYPE_ZEROPAGE, 255);
 }
 
 TEST(AddressingMode, AbsolutePageIndirectMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(256)"));
-    LONGS_EQUAL(ADDRESSING_MODE_INDIRECT, m_addressingMode.mode);
-    LONGS_EQUAL(TYPE_ABSOLUTE, m_addressingMode.expression.type);
-    LONGS_EQUAL(256, m_addressingMode.expression.value);
+    validateAddressingMode(ADDRESSING_MODE_INDIRECT, TYPE_ABSOLUTE, 256);
 }
 
 TEST(AddressingMode, InvalidIndirectModeValue)
