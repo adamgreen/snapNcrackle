@@ -43,15 +43,43 @@ TEST_GROUP(LineParser)
         strcpy(m_buffer, pString);
         return m_buffer;
     }
+    
+    void validateParsedLine(const char* pLabel, const char* pOperator, const char* pOperands)
+    {
+        if (!pLabel)
+        {
+            LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.label));
+        }
+        else
+        {
+            LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.label, pLabel));
+        }
+            
+        if (!pOperator)
+        {
+            LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.op));
+        }
+        else
+        {
+            LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.op, pOperator));
+        }
+        
+        if (!pOperands)
+        {
+            LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.operands));
+        }
+        else
+        {
+            LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.operands, pOperands));
+        }
+    }
 };
 
 
 TEST(LineParser, EmptyLine)
 {
     ParseLine(&m_parsedLine, dupe(""));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.label));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.op));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.operands));
+    validateParsedLine(NULL, NULL, NULL);
 }
 
 TEST(LineParser, FullLineComment)
@@ -59,9 +87,7 @@ TEST(LineParser, FullLineComment)
     static const char* pCommentLine = "* Comment";
     
     ParseLine(&m_parsedLine, dupe(pCommentLine));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.label));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.op));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.operands));
+    validateParsedLine(NULL, NULL, NULL);
 }
 
 TEST(LineParser, AlternativeFullLineComment)
@@ -69,9 +95,7 @@ TEST(LineParser, AlternativeFullLineComment)
     static const char* pCommentLine = "; Other Comment";
     
     ParseLine(&m_parsedLine, dupe(pCommentLine));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.label));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.op));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.operands));
+    validateParsedLine(NULL, NULL, NULL);
 }
 
 TEST(LineParser, LabelOnly)
@@ -79,103 +103,77 @@ TEST(LineParser, LabelOnly)
     static const char* pLabelLine = ":Label";
     
     ParseLine(&m_parsedLine, dupe(pLabelLine));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.label, pLabelLine));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.op));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.operands));
+    validateParsedLine(pLabelLine, NULL, NULL);
 }
 
 TEST(LineParser, OperatorOnly)
 {
     ParseLine(&m_parsedLine, dupe(" INY"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.op, "INY"));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.label));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.operands));
+    validateParsedLine(NULL, "INY", NULL);
 }
 
 TEST(LineParser, LabelAndOperator)
 {
     ParseLine(&m_parsedLine, dupe(":Label EQU"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.label, ":Label"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.op, "EQU"));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.operands));
+    validateParsedLine(":Label", "EQU", NULL);
 }
 
 TEST(LineParser, OperatorAndOperands)
 {
     ParseLine(&m_parsedLine, dupe(" ORG $800"));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.label));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.op, "ORG"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.operands, "$800"));
+    validateParsedLine(NULL, "ORG", "$800");
 }
 
 TEST(LineParser, LabelOperatorAndOperands)
 {
     ParseLine(&m_parsedLine, dupe("org EQU $C00"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.label, "org"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.op, "EQU"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.operands, "$C00"));
+    validateParsedLine("org", "EQU", "$C00");
 }
 
 TEST(LineParser, OperatorOperandsComments)
 {
     ParseLine(&m_parsedLine, dupe(" ORG $C00 Program should start here"));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.label));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.op, "ORG"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.operands, "$C00"));
+    validateParsedLine(NULL, "ORG", "$C00");
 }
 
 TEST(LineParser, LabelOperatorOperandsComments)
 {
     ParseLine(&m_parsedLine, dupe("org EQU $C00 Program should start here"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.label, "org"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.op, "EQU"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.operands, "$C00"));
+    validateParsedLine("org", "EQU", "$C00");
 }
 
 TEST(LineParser, LabelComments)
 {
     ParseLine(&m_parsedLine, dupe("entry ;Entry point of program"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.label, "entry"));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.op));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.operands));
+    validateParsedLine("entry", NULL, NULL);
 }
 
 TEST(LineParser, OperatorComments)
 {
     ParseLine(&m_parsedLine, dupe(" INY ; Increment Y"));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.label));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.op, "INY"));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.operands));
+    validateParsedLine(NULL, "INY", NULL);
 }
 
 TEST(LineParser, MultipleSpacesBeforeOperator)
 {
     ParseLine(&m_parsedLine, dupe("    INY"));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.label));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.op, "INY"));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.operands));
+    validateParsedLine(NULL, "INY", NULL);
 }
 
 TEST(LineParser, MultipleSpacesBetweenLabelOperator)
 {
     ParseLine(&m_parsedLine, dupe("Start    INY"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.label, "Start"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.op, "INY"));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.operands));
+    validateParsedLine("Start", "INY", NULL);
 }
 
 TEST(LineParser, MultipleSpacesBetweenOperatorOperands)
 {
     ParseLine(&m_parsedLine, dupe(" BIT    $F0"));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.label));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.op, "BIT"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.operands, "$F0"));
+    validateParsedLine(NULL, "BIT", "$F0");
 }
 
 TEST(LineParser, TabForWhitespace)
 {
     ParseLine(&m_parsedLine, dupe("\tBIT\t$F0"));
-    LONGS_EQUAL(0, SizedString_strlen(&m_parsedLine.label));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.op, "BIT"));
-    LONGS_EQUAL(0, SizedString_strcmp(&m_parsedLine.operands, "$F0"));
+    validateParsedLine(NULL, "BIT", "$F0");
 }
