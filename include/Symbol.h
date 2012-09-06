@@ -14,6 +14,7 @@
 #define _SYMBOL_H_
 
 #include "ExpressionEval.h"
+#include "SizedString.h"
 #include "LineInfo.h"
 
 
@@ -23,11 +24,12 @@ typedef struct SymbolLineReference SymbolLineReference;
 
 struct Symbol
 {
-    const char*          pKey;
     SymbolLineReference* pLineReferences;
     SymbolLineReference* pEnumLineReference;
     LineInfo*            pDefinedLine;
     struct Symbol*       pNext;
+    SizedString          globalKey;
+    SizedString          localKey;
     Expression           expression;
     unsigned int         flags;
 };

@@ -24,9 +24,8 @@ __throws SymbolTable* SymbolTable_Create(size_t bucketCount);
          void         SymbolTable_Free(SymbolTable* pThis);
          
          size_t       SymbolTable_GetSymbolCount(SymbolTable* pThis);
-__throws Symbol*      SymbolTable_Add(SymbolTable* pThis, const char* pKey);
-         Symbol*      SymbolTable_Find(SymbolTable* pThis, const char* pKey);
-         Symbol*      SymbolTable_FindSized(SymbolTable* pThis, const char* pKey, size_t keyLength);
+__throws Symbol*      SymbolTable_Add(SymbolTable* pThis, SizedString* pGlobalKey, SizedString* pLocalKey);
+         Symbol*      SymbolTable_Find(SymbolTable* pThis, SizedString* pGlobalKey, SizedString* pLocalKey);
          
          void         SymbolTable_EnumStart(SymbolTable* pThis);
          Symbol*      SymbolTable_EnumNext(SymbolTable* pThis);

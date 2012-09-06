@@ -20,7 +20,7 @@
 #include "SymbolTable.h"
 #include "ParseLine.h"
 #include "ListFile.h"
-#include "LineBuffer.h"
+#include "SizedString.h"
 #include "BinaryBuffer.h"
 #include "util.h"
 
@@ -57,22 +57,19 @@ struct Assembler
     SymbolTable*            pSymbols;
     ListFile*               pListFile;
     FILE*                   pFileForListing;
-    LineBuffer*             pLineText;
-    char*                   pLocalLabelStart;
     LineInfo*               pLineInfo;
+    SizedString             globalLabel;
     BinaryBuffer*           pObjectBuffer;
     BinaryBuffer*           pDummyBuffer;
     BinaryBuffer*           pCurrentBuffer;
     OpCodeEntry*            instructionSets[INSTRUCTION_SET_INVALID];
     size_t                  instructionSetSizes[INSTRUCTION_SET_INVALID];
-    size_t                  maxLocalLabelSize;
     ParsedLine              parsedLine;
     LineInfo                linesHead;
     InstructionSetSupported instructionSet;
     unsigned int            errorCount;
     unsigned short          programCounter;
     unsigned short          programCounterBeforeDUM;
-    char                    labelBuffer[256];
 };
 
 
@@ -83,6 +80,6 @@ struct Assembler
                                        __VA_ARGS__), pASSEMBLER->errorCount++
 
 
-__throws Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName, size_t labelLength);
+__throws Symbol* Assembler_FindLabel(Assembler* pThis, SizedString* pLabelName);
 
 #endif /* _ASSEMBLER_PRIV_H_ */

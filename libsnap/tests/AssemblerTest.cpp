@@ -361,7 +361,7 @@ TEST_GROUP(Assembler)
         }
         else
         {
-            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '(null)' is not supported for '%s' instruction.\n", pInstruction);
+            sprintf(expectedErrorOutput, "filename:1: error: Addressing mode of '' is not supported for '%s' instruction.\n", pInstruction);
             sprintf(expectedListOutput, "    :              1 %s\n", testString);
             validateFailureOutput(expectedErrorOutput, expectedListOutput);
         }
@@ -782,7 +782,7 @@ TEST_GROUP(Assembler)
 
 TEST(Assembler, FailAllInitAllocations)
 {
-    static const int allocationsToFail = 14;
+    static const int allocationsToFail = 12;
     AssemblerInitParams params;
     params.pListFilename = g_listFilename;
     for (int i = 1 ; i <= allocationsToFail ; i++)
@@ -821,7 +821,7 @@ TEST(Assembler, InitFromNonExistantFile)
 
 TEST(Assembler, FailAllAllocationsDuringFileInit)
 {
-    static const int allocationsToFail = 15;
+    static const int allocationsToFail = 13;
     createSourceFile(" ORG $800\r\n");
 
     for (int i = 1 ; i <= allocationsToFail ; i++)
@@ -913,36 +913,6 @@ TEST(Assembler, RunOnLongLine)
     LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler) );
 }
 
-TEST(Assembler, LabelTooLong)
-{
-    char longLine[257];
-    
-    memset(longLine, 'a', sizeof(longLine));
-    longLine[ARRAYSIZE(longLine)-1] = '\0';
-    m_pAssembler = Assembler_CreateFromString(longLine, NULL);
-    CHECK(m_pAssembler != NULL);
-
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(2, printfSpy_GetCallCount());
-    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
-    CHECK(NULL != strstr(printfSpy_GetPreviousOutput(), " label is too long.") );
-}
-
-TEST(Assembler, LocalLabelTooLong)
-{
-    char longLine[255+1+2+1];
-    
-    memset(longLine, 'a', 255);
-    strcpy(&longLine[sizeof(longLine) - 4], "\n:b");
-    m_pAssembler = Assembler_CreateFromString(longLine, NULL);
-    CHECK(m_pAssembler != NULL);
-
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(3, printfSpy_GetCallCount());
-    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
-    CHECK(NULL != strstr(printfSpy_GetLastErrorOutput(), " label is too long.") );
-}
-
 TEST(Assembler, SpecifySameLabelTwice)
 {
     m_pAssembler = Assembler_CreateFromString(dupe("entry lda #$60\n"
@@ -1002,17 +972,6 @@ TEST(Assembler, ForwardReferenceLabel)
                                                    "label sta $2b\n"), NULL);
     runAssemblerAndValidateOutputIsTwoLinesOf("0800: 8D 03 08     2  sta label\n",
                                               "0803: 85 2B        3 label sta $2b\n", 3);
-}
-
-TEST(Assembler, FailLineInfoAllocationDuringForwardReferenceLabelFixup)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
-                                                   " sta label\n"
-                                                   "label sta $2b\n"), NULL);
-    MallocFailureInject_FailAllocation(8);
-        runAssemblerAndValidateFailure("filename:3: error: Failed to allocate space for updating forward references to 'label' symbol.\n",
-                                       "0803: 85 2B        3 label sta $2b\n", 4);
-    MallocFailureInject_Restore();
 }
 
 TEST(Assembler, FailToDefineLabelTwiceAfterForwardReferenced)

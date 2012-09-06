@@ -30,6 +30,7 @@ static const unsigned char g_testData[2] = { 0x00, 0xff };
 TEST_GROUP(BinaryBuffer)
 {
     BinaryBuffer*   m_pBinaryBuffer;
+    SizedString     m_string;
     unsigned char*  m_pAlloc;
     size_t          m_allocSize;
     FILE*           m_pFile;
@@ -57,6 +58,12 @@ TEST_GROUP(BinaryBuffer)
         BinaryBuffer_Free(m_pBinaryBuffer);
         remove(g_filename);
         remove(g_filename2);
+    }
+    
+    SizedString* toSizedString(const char* pString)
+    {
+        m_string = SizedString_InitFromString(pString);
+        return &m_string;
     }
     
     void validateOutOfMemoryExceptionThrown()
@@ -194,7 +201,7 @@ TEST(BinaryBuffer, ForceSecondAllocToFail)
 TEST(BinaryBuffer, QueueWriteToFile)
 {
     placeDataInBuffer(g_testData, sizeof(g_testData));
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, toSizedString(g_filename));
     BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
     validateObjectFileContains(g_filename, 0x0000, g_testData, sizeof(g_testData));
 }
@@ -204,7 +211,7 @@ TEST(BinaryBuffer, FailFOpenDuringWriteToFile)
     placeDataInBuffer(g_testData, sizeof(g_testData));
     
     fopenFail(NULL);
-        BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
+        BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, toSizedString(g_filename));
         __try_and_catch( BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer) );
     LONGS_EQUAL(fileException, getExceptionCode());
     clearExceptionCode();
@@ -215,7 +222,7 @@ TEST(BinaryBuffer, FailFWriteDuringWriteToFile)
     placeDataInBuffer(g_testData, sizeof(g_testData));
     
     fwriteFail(0);
-        BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
+        BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, toSizedString(g_filename));
         __try_and_catch( BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer) );
     LONGS_EQUAL(fileException, getExceptionCode());
     clearExceptionCode();
@@ -225,7 +232,7 @@ TEST(BinaryBuffer, FailMemoryAllocationDuringWriteQueue)
 {
     placeDataInBuffer(g_testData, sizeof(g_testData));
     MallocFailureInject_FailAllocation(1);
-        __try_and_catch( BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename) );
+        __try_and_catch( BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, toSizedString(g_filename)) );
     validateOutOfMemoryExceptionThrown();
 }
 
@@ -237,7 +244,7 @@ TEST(BinaryBuffer, FailToQueueALongFilename)
     longFilename[sizeof(longFilename)-1] = '\0';
     
     placeDataInBuffer(g_testData, sizeof(g_testData));
-    __try_and_catch( BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, longFilename) );
+    __try_and_catch( BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, toSizedString(longFilename)) );
     LONGS_EQUAL(invalidArgumentException, getExceptionCode());
     clearExceptionCode();
 }
@@ -258,11 +265,11 @@ TEST(BinaryBuffer, QueueUPTwoWritesFromBuffer)
     m_pBinaryBuffer = BinaryBuffer_Create(4);
     BinaryBuffer_SetOrigin(m_pBinaryBuffer, 0x800);
     placeDataInBuffer(testData1, sizeof(testData1));
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename);
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, toSizedString(g_filename));
     
     BinaryBuffer_SetOrigin(m_pBinaryBuffer, 0x900);
     placeDataInBuffer(testData2, sizeof(testData2));
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, g_filename2);
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, toSizedString(g_filename2));
 
 
     BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);

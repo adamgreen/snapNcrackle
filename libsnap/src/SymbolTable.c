@@ -117,7 +117,6 @@ static void freeBucket(Symbol* pEntry)
 
 static void freeSymbol(Symbol* pSymbol)
 {
-    free((char*)pSymbol->pKey);
     freeLineReferences(pSymbol);
     free(pSymbol);
 }
@@ -141,20 +140,19 @@ size_t SymbolTable_GetSymbolCount(SymbolTable* pThis)
 }
 
 
-static Symbol* allocateSymbol(const char* pKey);
-static size_t hashString(const char* pString);
-static char* stringDuplicate(const char* pString);
-Symbol* SymbolTable_Add(SymbolTable* pThis, const char* pKey)
+static Symbol* allocateSymbol(SizedString* pGlobalKey, SizedString* pLocalKey);
+static size_t hashString(SizedString* pGlobalKey, SizedString* pLocalKey);
+__throws Symbol* SymbolTable_Add(SymbolTable* pThis, SizedString* pGlobalKey, SizedString* pLocalKey)
 {
     Symbol*  pElement;
     Symbol** ppBucket;    
     
     __try
-        pElement = allocateSymbol(pKey);
+        pElement = allocateSymbol(pGlobalKey, pLocalKey);
     __catch
         __rethrow;
 
-    ppBucket = &pThis->ppBuckets[hashString(pKey) % pThis->bucketCount];
+    ppBucket = &pThis->ppBuckets[hashString(pGlobalKey, pLocalKey) % pThis->bucketCount];
     pElement->pNext = *ppBucket;
     *ppBucket = pElement;
     pThis->symbolCount++;
@@ -162,7 +160,7 @@ Symbol* SymbolTable_Add(SymbolTable* pThis, const char* pKey)
     return pElement;
 }
 
-static Symbol* allocateSymbol(const char* pKey)
+static Symbol* allocateSymbol(SizedString* pGlobalKey, SizedString* pLocalKey)
 {
     Symbol* pSymbol = NULL;
     
@@ -171,45 +169,37 @@ static Symbol* allocateSymbol(const char* pKey)
         __throw(outOfMemoryException);
     
     memset(pSymbol, 0, sizeof(*pSymbol));
-    pSymbol->pKey = stringDuplicate(pKey);
-    if (!pSymbol->pKey)
-    {
-        free(pSymbol);
-        __throw(outOfMemoryException);
-    }
+    pSymbol->globalKey = *pGlobalKey;
+    pSymbol->localKey = *pLocalKey;
     
     return pSymbol;
 }
 
-static char* stringDuplicate(const char* pString)
-{
-    char* pCopy = malloc(strlen(pString) + 1);
-    
-    if (!pCopy)
-        return pCopy;
-    return strcpy(pCopy, pString);
-}
-
-static size_t hashString(const char* pString)
+static size_t hashString(SizedString* pGlobalKey, SizedString* pLocalKey)
 {
     static const size_t hashMultiplier = 31;
     size_t              hash = 0;
     const char*         pCurr;
+    char                nextChar;
     
-    for (pCurr = pString ; *pCurr ; pCurr++)
-        hash = hash * hashMultiplier + (size_t)*pCurr;
-        
+    for (SizedString_EnumStart(pGlobalKey, &pCurr) ; (nextChar = SizedString_EnumNext(pGlobalKey, &pCurr)) != '\0' ; )
+        hash = hash * hashMultiplier + (size_t)nextChar;
+
+    for (SizedString_EnumStart(pLocalKey, &pCurr) ; (nextChar = SizedString_EnumNext(pLocalKey, &pCurr)) != '\0' ; )
+        hash = hash * hashMultiplier + (size_t)nextChar;
+    
     return hash;
 }
 
 
-static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey, size_t keyLength);
-Symbol* SymbolTable_FindSized(SymbolTable* pThis, const char* pKey, size_t keyLength)
+static Symbol* searchBucket(Symbol* pBucketHead, SizedString* pGlobalKey, SizedString* pLocalKey);
+static int globalAndLocalKeysMatch(Symbol* pSymbol, SizedString* pGlobalKey, SizedString* pLocalKey);
+Symbol* SymbolTable_Find(SymbolTable* pThis, SizedString* pGlobalKey, SizedString* pLocalKey)
 {
-    return searchBucket(pThis->ppBuckets[hashString(pKey) % pThis->bucketCount], pKey, keyLength);
+    return searchBucket(pThis->ppBuckets[hashString(pGlobalKey, pLocalKey) % pThis->bucketCount], pGlobalKey, pLocalKey);
 }
 
-static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey, size_t keyLength)
+static Symbol* searchBucket(Symbol* pBucketHead, SizedString* pGlobalKey, SizedString* pLocalKey)
 {
     Symbol* pCurr = pBucketHead;
     
@@ -218,7 +208,7 @@ static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey, size_t keyLen
         
     while (pCurr)
     {
-        if (strlen(pCurr->pKey) == keyLength && 0 == strncmp(pKey, pCurr->pKey, keyLength))
+        if (globalAndLocalKeysMatch(pCurr, pGlobalKey, pLocalKey))
             return pCurr;
             
         pCurr = pCurr->pNext;
@@ -226,10 +216,10 @@ static Symbol* searchBucket(Symbol* pBucketHead, const char* pKey, size_t keyLen
     return NULL;
 }
 
-
-Symbol* SymbolTable_Find(SymbolTable* pThis, const char* pKey)
+static int globalAndLocalKeysMatch(Symbol* pSymbol, SizedString* pGlobalKey, SizedString* pLocalKey)
 {
-    return searchBucket(pThis->ppBuckets[hashString(pKey) % pThis->bucketCount], pKey, strlen(pKey));
+    return 0 == SizedString_Compare(&pSymbol->globalKey, pGlobalKey) && 
+           0 == SizedString_Compare(&pSymbol->localKey, pLocalKey);
 }
 
 

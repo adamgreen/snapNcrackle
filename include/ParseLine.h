@@ -13,13 +13,15 @@
 #ifndef _PARSE_LINE_H_
 #define _PARSE_LINE_H_
 
+#include "SizedString.h"
+
 typedef struct ParsedLine
 {
-    char* pLabel;
-    char* pOperator;
-    char* pOperands;
+    SizedString label;
+    SizedString op;
+    SizedString operands;
 } ParsedLine;
 
-void ParseLine(ParsedLine* pObject, char* pLine);
+void ParseLine(ParsedLine* pObject, const char* pLine);
 
 #endif /* _PARSE_LINE_H_ */

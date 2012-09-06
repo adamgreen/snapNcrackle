@@ -59,14 +59,11 @@ static void commonObjectInit(Assembler* pThis, AssemblerInitParams* pParams)
     {
         FILE* pListFile = createListFileOrRedirectToStdOut(pThis, pParams);
         pThis->pListFile = ListFile_Create(pListFile);
-        pThis->pLineText = LineBuffer_Create();
         pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
         pThis->pObjectBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
         pThis->pDummyBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
         createFullInstructionSetTables(pThis);
         pThis->pLineInfo = &pThis->linesHead;
-        pThis->pLocalLabelStart = pThis->labelBuffer;
-        pThis->maxLocalLabelSize = sizeof(pThis->labelBuffer)-1;
         pThis->pCurrentBuffer = pThis->pObjectBuffer;
         setOrgInAssemblerAndBinaryBufferModules(pThis, 0x8000);
     }
@@ -253,7 +250,6 @@ void Assembler_Free(Assembler* pThis)
     
     freeLines(pThis);
     freeInstructionSets(pThis);
-    LineBuffer_Free(pThis->pLineText);
     ListFile_Free(pThis->pListFile);
     BinaryBuffer_Free(pThis->pDummyBuffer);
     BinaryBuffer_Free(pThis->pObjectBuffer);
@@ -291,19 +287,18 @@ static void parseLine(Assembler* pThis, char* pLine);
 static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine);
 static void rememberLabel(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
-static void validateLabelFormat(Assembler* pThis);
-static const char* expandedLabelName(Assembler* pThis, const char* pLabelName, size_t labelLength);
-static int isGlobalLabelName(const char* pLabelName);
-static int isLocalLabelName(const char* pLabelName);
-static char* copySizedLabel(Assembler* pThis, const char* pLabel, size_t labelLength);
-static void expandLocalLabelToGloballyUniqueName(Assembler* pThis, const char* pLocalLabelName, size_t length);
+static void validateLabelFormat(Assembler* pThis, SizedString* pLabel);
+static int isGlobalLabelName(SizedString* pLabelName);
+static int isLocalLabelName(SizedString* pLabelName);
 static int seenGlobalLabel(Assembler* pThis);
-static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName, Expression* pExpression);
+static Symbol* attemptToAddSymbol(Assembler* pThis, SizedString* pLabelName, Expression* pExpression);
+static SizedString initLocalLabelString(SizedString* pLabelName);
 static int isSymbolAlreadyDefined(Symbol* pSymbol, LineInfo* pThisLine);
-static int isVariableLabelName(const char* pSymbolName);
+static int isVariableLabelName(SizedString* pLabelName);
 static void flagSymbolAsDefined(Symbol* pSymbol, LineInfo* pThisLine);
 static void rememberGlobalLabel(Assembler* pThis);
 static void firstPassAssembleLine(Assembler* pThis);
+static int compareInstructionSetEntryToOperatorSizedString(const void* pvKey, const void* pvEntry);
 static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry);
 static void handleImpliedAddressingMode(Assembler* pThis, unsigned char opcodeImplied);
 static void logInvalidAddressingModeError(Assembler* pThis);
@@ -358,7 +353,7 @@ static int isAlreadyInDUMSection(Assembler* pThis);
 static Expression getCountExpression(Assembler* pThis, SizedString* pString);
 static Expression getBytesLeftInPage(Assembler* pThis);
 static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount, unsigned char fillValue);
-static unsigned char getNextHexByte(const char* pStart, const char** ppNext);
+static unsigned char getNextHexByte(SizedString* pString, const char** ppCurr);
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
 static void checkForUndefinedSymbols(Assembler* pThis);
@@ -396,9 +391,8 @@ static void parseLine(Assembler* pThis, char* pLine)
 {
     __try
     {
-        LineBuffer_Set(pThis->pLineText, pLine);
         prepareLineInfoForThisLine(pThis, pLine);
-        ParseLine(&pThis->parsedLine, LineBuffer_Get(pThis->pLineText));
+        ParseLine(&pThis->parsedLine, pLine);
         rememberLabel(pThis);
         firstPassAssembleLine(pThis);
         pThis->programCounter += pThis->pLineInfo->machineCodeSize;
@@ -432,15 +426,13 @@ static void rememberLabel(Assembler* pThis)
 
     __try
     {
-        const char* pExpandedLabelName = NULL;
         Symbol*     pSymbol = NULL;
         Expression  expression;
     
-        validateLabelFormat(pThis);
-        pExpandedLabelName = expandedLabelName(pThis, pThis->parsedLine.pLabel, strlen(pThis->parsedLine.pLabel));
+        validateLabelFormat(pThis, &pThis->parsedLine.label);
         expression = ExpressionEval_CreateAbsoluteExpression(pThis->programCounter);
-        pSymbol = attemptToAddSymbol(pThis, pExpandedLabelName, &expression);
         rememberGlobalLabel(pThis);
+        pSymbol = attemptToAddSymbol(pThis, &pThis->parsedLine.label, &expression);
     }
     __catch
     {
@@ -450,99 +442,79 @@ static void rememberLabel(Assembler* pThis)
 
 static int doesLineContainALabel(Assembler* pThis)
 {
-    return pThis->parsedLine.pLabel != NULL;
+    return SizedString_strlen(&pThis->parsedLine.label) > 0;
 }
 
-static void validateLabelFormat(Assembler* pThis)
+static void validateLabelFormat(Assembler* pThis, SizedString* pLabel)
 {
-    const char* pCurr;
+    const char*  pCurr;
+    char         ch;
     
-    if (pThis->parsedLine.pLabel[0] < ':')
+    SizedString_EnumStart(pLabel, &pCurr);
+    if (SizedString_EnumNext(pLabel, &pCurr) < ':')
     {
-        LOG_ERROR(pThis, "'%s' label starts with invalid character.", pThis->parsedLine.pLabel);
+        LOG_ERROR(pThis, "'%.*s' label starts with invalid character.", 
+                  pLabel->stringLength, pLabel->pString);
         __throw(invalidArgumentException);
     }
     
-    pCurr = &pThis->parsedLine.pLabel[1];
-    while (*pCurr)
+    while ((ch = SizedString_EnumNext(pLabel, &pCurr)) != '\0')
     {
-        if (*pCurr < '0')
+        if (ch < '0')
         {
-            LOG_ERROR(pThis, "'%s' label contains invalid character, '%c'.", pThis->parsedLine.pLabel, *pCurr);
+            LOG_ERROR(pThis, "'%.*s' label contains invalid character, '%c'.", 
+                      pLabel->stringLength, pLabel->pString,
+                      ch);
             __throw(invalidArgumentException);
         }
-        pCurr++;
+    }
+    
+    if (isLocalLabelName(pLabel) && !seenGlobalLabel(pThis))
+    {
+        LOG_ERROR(pThis, "'%.*s' local label isn't allowed before first global label.", 
+                  pLabel->stringLength, pLabel->pString);
+        __throw(invalidArgumentException);
     }
 }
 
-static const char* expandedLabelName(Assembler* pThis, const char* pLabelName, size_t labelLength)
-{
-    /* UNDONE: I don't like taking the copy of the global label here as it is really just a hack.  Might be better
-               to pass around a SizedString between these routines...all the way into the SymbolTable routines. Sized 
-               string could even be passed around between other routines to decrease the number of memory allocations
-               made to take copies of const char* pointers. */
-    if (!isLocalLabelName(pLabelName))
-        return copySizedLabel(pThis, pLabelName, labelLength);
-    
-    expandLocalLabelToGloballyUniqueName(pThis, pLabelName, labelLength);    
-    return pThis->labelBuffer;
-}
-
-static int isGlobalLabelName(const char* pLabelName)
+static int isGlobalLabelName(SizedString* pLabelName)
 {
     return !isLocalLabelName(pLabelName) && !isVariableLabelName(pLabelName);
 }
 
-static int isLocalLabelName(const char* pLabelName)
+static int isLocalLabelName(SizedString* pLabelName)
 {
-    return *pLabelName == ':';
-}
-
-static char* copySizedLabel(Assembler* pThis, const char* pLabel, size_t labelLength)
-{
-    if (labelLength > pThis->maxLocalLabelSize)
-    {
-        LOG_ERROR(pThis, "'%.*s' label is too long.", labelLength, pLabel);
-        __throw(bufferOverrunException);
-    }
-    memcpy(pThis->pLocalLabelStart, pLabel, labelLength);
-    pThis->pLocalLabelStart[labelLength] = '\0';
-    
-    return pThis->pLocalLabelStart;
-}
-
-static void expandLocalLabelToGloballyUniqueName(Assembler* pThis, const char* pLocalLabelName, size_t length)
-{
-    if (!seenGlobalLabel(pThis))
-    {
-        LOG_ERROR(pThis, "'%.*s' local label isn't allowed before first global label.", length, pLocalLabelName);
-        __throw(invalidArgumentException);
-    }
-    copySizedLabel(pThis, pLocalLabelName, length);
+    return pLabelName->pString && pLabelName->pString[0] == ':';
 }
 
 static int seenGlobalLabel(Assembler* pThis)
 {
-    return pThis->labelBuffer[0] != '\0';
+    return SizedString_strlen(&pThis->globalLabel) > 0;
 }
 
-static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName, Expression* pExpression)
+static Symbol* attemptToAddSymbol(Assembler* pThis, SizedString* pLabelName, Expression* pExpression)
 {
-    Symbol* pSymbol = SymbolTable_Find(pThis->pSymbols, pSymbolName);
-    if (pSymbol && (isSymbolAlreadyDefined(pSymbol, pThis->pLineInfo) && !isVariableLabelName(pSymbolName)))
+    SizedString localLabel = initLocalLabelString(pLabelName);
+    
+    Symbol* pSymbol = SymbolTable_Find(pThis->pSymbols, &pThis->globalLabel, &localLabel);
+    if (pSymbol && (isSymbolAlreadyDefined(pSymbol, pThis->pLineInfo) && !isVariableLabelName(pLabelName)))
     {
-        LOG_ERROR(pThis, "'%s' symbol has already been defined.", pSymbolName);
+        LOG_ERROR(pThis, "'%.*s%.*s' symbol has already been defined.", 
+                  pThis->globalLabel.stringLength, pThis->globalLabel.pString,
+                  localLabel.stringLength, localLabel.pString);
         __throw(invalidArgumentException);
     }
     if (!pSymbol)
     {
         __try
         {
-            pSymbol = SymbolTable_Add(pThis->pSymbols, pSymbolName);
+            pSymbol = SymbolTable_Add(pThis->pSymbols, &pThis->globalLabel, &localLabel);
         }
         __catch
         {
-            LOG_ERROR(pThis, "Failed to allocate space for '%s' symbol.", pSymbolName);
+            LOG_ERROR(pThis, "Failed to allocate space for '%.*s%.*s' symbol.",
+                      pThis->globalLabel.stringLength, pThis->globalLabel.pString,
+                      localLabel.stringLength, localLabel.pString);
             __rethrow;
         }
     }
@@ -552,14 +524,21 @@ static Symbol* attemptToAddSymbol(Assembler* pThis, const char* pSymbolName, Exp
     return pSymbol;
 }
 
+static SizedString initLocalLabelString(SizedString* pLabelName)
+{
+    if (isLocalLabelName(pLabelName))
+        return *pLabelName;
+    return SizedString_InitFromString(NULL);
+}
+
 static int isSymbolAlreadyDefined(Symbol* pSymbol, LineInfo* pThisLine)
 {
     return pSymbol->pDefinedLine != NULL && pSymbol->pDefinedLine != pThisLine;
 }
 
-static int isVariableLabelName(const char* pSymbolName)
+static int isVariableLabelName(SizedString* pLabelName)
 {
-    return pSymbolName[0] == ']';
+    return pLabelName->pString && pLabelName->pString[0] == ']';
 }
 
 static void flagSymbolAsDefined(Symbol* pSymbol, LineInfo* pThisLine)
@@ -570,35 +549,37 @@ static void flagSymbolAsDefined(Symbol* pSymbol, LineInfo* pThisLine)
 
 static void rememberGlobalLabel(Assembler* pThis)
 {
-    size_t length = strlen(pThis->parsedLine.pLabel);
-
-    if (!isGlobalLabelName(pThis->parsedLine.pLabel))
+    if (!isGlobalLabelName(&pThis->parsedLine.label))
         return;
-
-    /* The length of the global label was already validated earlier in the expandedLabelName()'s call to 
-       copySizedLabel. */
-    assert ( length < sizeof(pThis->labelBuffer) );
-    memcpy(pThis->labelBuffer, pThis->parsedLine.pLabel, length);
-    pThis->pLocalLabelStart = &pThis->labelBuffer[length];
-    pThis->maxLocalLabelSize = sizeof(pThis->labelBuffer) - length - 1;
+        
+    pThis->globalLabel = pThis->parsedLine.label;
 }
 
 static void firstPassAssembleLine(Assembler* pThis)
 {
     const OpCodeEntry* pInstructionSet = pThis->instructionSets[pThis->pLineInfo->instructionSet];
     size_t             instructionSetSize = pThis->instructionSetSizes[pThis->pLineInfo->instructionSet];
+    SizedString*       pOperator = &pThis->parsedLine.op;
     const OpCodeEntry* pFoundEntry;
     
-    if (pThis->parsedLine.pOperator == NULL)
+    if (SizedString_strlen(pOperator) == 0)
         return;
     
-    pFoundEntry = bsearch(pThis->parsedLine.pOperator, 
+    pFoundEntry = bsearch(pOperator, 
                           pInstructionSet, instructionSetSize, sizeof(*pInstructionSet), 
-                          compareInstructionSetEntryToOperatorString);
+                          compareInstructionSetEntryToOperatorSizedString);
     if (pFoundEntry)
         handleOpcode(pThis, pFoundEntry);
     else
         handleInvalidOperator(pThis);
+}
+
+static int compareInstructionSetEntryToOperatorSizedString(const void* pvKey, const void* pvEntry)
+{
+    const SizedString* pKey = (const SizedString*)pvKey;
+    const OpCodeEntry* pEntry = (OpCodeEntry*)pvEntry;
+    
+    return SizedString_strcasecmp(pKey, pEntry->pOperator);
 }
 
 static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
@@ -619,14 +600,9 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
     }
     
     __try
-    {
-        SizedString operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
-        addressingMode = AddressingMode_Eval(pThis, &operands);
-    }
+        addressingMode = AddressingMode_Eval(pThis, &pThis->parsedLine.operands);
     __catch
-    {
         __nothrow;
-    }
         
     switch (addressingMode.mode)
     {
@@ -672,8 +648,9 @@ static void handleImpliedAddressingMode(Assembler* pThis, unsigned char opcodeIm
 
 static void logInvalidAddressingModeError(Assembler* pThis)
 {
-    LOG_ERROR(pThis, "Addressing mode of '%s' is not supported for '%s' instruction.", 
-              pThis->parsedLine.pOperands, pThis->parsedLine.pOperator);
+    LOG_ERROR(pThis, "Addressing mode of '%.*s' is not supported for '%.*s' instruction.", 
+              pThis->parsedLine.operands.stringLength, pThis->parsedLine.operands.pString, 
+              pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
 }
 
 static void emitSingleByteInstruction(Assembler* pThis, unsigned char opCode)
@@ -702,7 +679,8 @@ static void verifyThatMachineCodeSizeFromForwardReferenceMatches(Assembler* pThi
 {
     if (pThis->pLineInfo->machineCodeSize != bytesToAllocate)
     {
-        LOG_ERROR(pThis, "Couldn't properly infer size of a forward reference in '%s' operand.", pThis->parsedLine.pOperands);
+        LOG_ERROR(pThis, "Couldn't properly infer size of a forward reference in '%.*s' operand.", 
+                  pThis->parsedLine.operands.stringLength, pThis->parsedLine.operands.pString);
         __throw(invalidArgumentException);
     }
 }
@@ -760,7 +738,8 @@ static void handleRelativeAddressingMode(Assembler* pThis, AddressingMode* pAddr
     
     if (!expressionContainsForwardReference(&pAddressingMode->expression) && (offset < -128 || offset > 127))
     {
-        LOG_ERROR(pThis, "Relative offset of '%s' exceeds the allowed -128 to 127 range.", pThis->parsedLine.pOperands);
+        LOG_ERROR(pThis, "Relative offset of '%.*s' exceeds the allowed -128 to 127 range.", 
+                  pThis->parsedLine.operands.stringLength, pThis->parsedLine.operands.pString);
         return;
     }
     
@@ -864,11 +843,10 @@ static void handleEQU(Assembler* pThis)
     __try
     {
         Symbol*     pSymbol = pThis->pLineInfo->pSymbol;
-        SizedString operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
         Expression  expression;
         
         validateOperandWasProvided(pThis);
-        expression = ExpressionEval(pThis, &operands);
+        expression = ExpressionEval(pThis, &pThis->parsedLine.operands);
         validateEQULabelFormat(pThis);
         if (pSymbol)
         {
@@ -887,23 +865,25 @@ static void handleEQU(Assembler* pThis)
 
 static void validateOperandWasProvided(Assembler* pThis)
 {
-    if (pThis->parsedLine.pOperands)
+    if (SizedString_strlen(&pThis->parsedLine.operands) > 0)
         return;
 
-    LOG_ERROR(pThis, "%s directive requires operand.", pThis->parsedLine.pOperator);
+    LOG_ERROR(pThis, "%.*s directive requires operand.", 
+              pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
     __throw(missingOperandException);
 }
 
 static void validateEQULabelFormat(Assembler* pThis)
 {
-    if (!pThis->parsedLine.pLabel)
+    if (SizedString_strlen(&pThis->parsedLine.label) == 0)
     {
         LOG_ERROR(pThis, "%s directive requires a line label.", "EQU");
         __throw(invalidArgumentException);
     }
-    if (pThis->parsedLine.pLabel[0] == ':')
+    if (pThis->parsedLine.label.pString[0] == ':')
     {
-        LOG_ERROR(pThis, "'%s' can't be a local label when used with EQU.", pThis->parsedLine.pLabel);
+        LOG_ERROR(pThis, "'%.*s' can't be a local label when used with EQU.", 
+                  pThis->parsedLine.label.stringLength, pThis->parsedLine.label.pString);
         __throw(invalidArgumentException);
     }
 }
@@ -919,17 +899,7 @@ static void updateLinesWhichForwardReferencedThisLabel(Assembler* pThis, Symbol*
         
     Symbol_LineReferenceEnumStart(pSymbol);
     while (NULL != (pCurr = Symbol_LineReferenceEnumNext(pSymbol)))
-    {
-        __try
-        {
-            updateLineWithForwardReference(pThis, pSymbol, pCurr);
-        }
-        __catch
-        {
-            LOG_ERROR(pThis, "Failed to allocate space for updating forward references to '%s' symbol.", pSymbol->pKey);
-            __nothrow;
-        }
-    }
+        updateLineWithForwardReference(pThis, pSymbol, pCurr);
 }
 
 static int symbolContainsForwardReferences(Symbol* pSymbol)
@@ -939,7 +909,6 @@ static int symbolContainsForwardReferences(Symbol* pSymbol)
 
 static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, LineInfo* pLineInfo)
 {
-    LineBuffer* pLineBuffer = NULL;
     LineInfo*   pLineInfoSave;
     ParsedLine  parsedLineSave;
     
@@ -947,21 +916,11 @@ static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, Li
     parsedLineSave = pThis->parsedLine;
     pThis->pLineInfo = pLineInfo;
 
-    __try
-    {
-        Symbol_LineReferenceRemove(pSymbol, pLineInfo);
-        pLineBuffer = LineBuffer_Create();
-        LineBuffer_Set(pLineBuffer, pLineInfo->pLineText);
-        ParseLine(&pThis->parsedLine, LineBuffer_Get(pLineBuffer));
-        firstPassAssembleLine(pThis);
-    }
-    __catch
-    {
-        /* Fall through to cleanup code below. */
-    }
+    Symbol_LineReferenceRemove(pSymbol, pLineInfo);
+    ParseLine(&pThis->parsedLine, pLineInfo->pLineText);
+    firstPassAssembleLine(pThis);
 
     pThis->parsedLine = parsedLineSave;
-    LineBuffer_Free(pLineBuffer);
     pThis->pLineInfo = pLineInfoSave;
 }
 
@@ -978,7 +937,8 @@ static void handleInvalidOperator(Assembler* pThis)
         return;
     }
 
-    LOG_ERROR(pThis, "'%s' is not a recognized mnemonic or macro.", pThis->parsedLine.pOperator);
+    LOG_ERROR(pThis, "'%.*s' is not a recognized mnemonic or macro.", 
+              pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
 }
 
 static void handleASC(Assembler* pThis)
@@ -1009,7 +969,9 @@ static void handleASC(Assembler* pThis)
         assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
     
         if (*pCurr == '\0')
-            LOG_ERROR(pThis, "%s didn't end with the expected %c delimiter.", pThis->parsedLine.pOperands, delimiter);
+            LOG_ERROR(pThis, "%.*s didn't end with the expected %c delimiter.", 
+                      pThis->parsedLine.operands.stringLength, pThis->parsedLine.operands.pString,
+                      delimiter);
     }
     __catch
     {
@@ -1020,8 +982,7 @@ static void handleASC(Assembler* pThis)
 
 static const char* fullOperandStringWithSpaces(Assembler* pThis)
 {
-    int offsetOfOperandsWithInLine = pThis->parsedLine.pOperands - LineBuffer_Get(pThis->pLineText);
-    return pThis->pLineInfo->pLineText + offsetOfOperandsWithInLine;
+    return pThis->parsedLine.operands.pString;
 }
 
 static void handleDEND(Assembler* pThis)
@@ -1031,7 +992,8 @@ static void handleDEND(Assembler* pThis)
         validateNoOperandWasProvided(pThis);
         if (!isAlreadyInDUMSection(pThis))
         {
-            LOG_ERROR(pThis, "%s isn't allowed without a preceding DUM directive.", pThis->parsedLine.pOperator);
+            LOG_ERROR(pThis, "%.*s isn't allowed without a preceding DUM directive.", 
+                      pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
             return;
         }
 
@@ -1046,10 +1008,11 @@ static void handleDEND(Assembler* pThis)
 
 static void validateNoOperandWasProvided(Assembler* pThis)
 {
-    if (!pThis->parsedLine.pOperands)
+    if (SizedString_strlen(&pThis->parsedLine.operands) == 0)
         return;
 
-    LOG_ERROR(pThis, "%s directive doesn't require operand.", pThis->parsedLine.pOperator);
+    LOG_ERROR(pThis, "%.*s directive doesn't require operand.", 
+              pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
     __throw(invalidArgumentException);
 }
 
@@ -1057,12 +1020,10 @@ static void handleDUM(Assembler* pThis)
 {
     __try
     {
-        SizedString operands;
         Expression  expression;
         
         validateOperandWasProvided(pThis);
-        operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
-        expression = getAbsoluteExpression(pThis, &operands);
+        expression = getAbsoluteExpression(pThis, &pThis->parsedLine.operands);
 
         if (!isAlreadyInDUMSection(pThis))
             pThis->programCounterBeforeDUM = pThis->programCounter;
@@ -1110,7 +1071,6 @@ static void handleDS(Assembler* pThis)
 {
     __try
     {
-        SizedString   operands;
         SizedString   beforeComma;
         SizedString   afterComma;
         Expression    countExpression;
@@ -1118,8 +1078,7 @@ static void handleDS(Assembler* pThis)
 
         validateOperandWasProvided(pThis);
         memset(&fillExpression, 0, sizeof(fillExpression));
-        operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
-        SizedString_SplitString(&operands, ',', &beforeComma, &afterComma);
+        SizedString_SplitString(&pThis->parsedLine.operands, ',', &beforeComma, &afterComma);
         countExpression = getCountExpression(pThis, &beforeComma);
         if (afterComma.stringLength > 0)
             fillExpression = getAbsoluteExpression(pThis, &afterComma);
@@ -1163,30 +1122,31 @@ static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount, u
 
 static void handleHEX(Assembler* pThis)
 {
-    const char*    pCurr = pThis->parsedLine.pOperands;
-    size_t         i = 0;
-    int            alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
-
     __try
     {
+        SizedString* pOperands = &pThis->parsedLine.operands;
+        size_t       i = 0;
+        int          alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
+        const char*  pCurr;
+        
         validateOperandWasProvided(pThis);
 
-        while (*pCurr && i < 32)
+        SizedString_EnumStart(pOperands, &pCurr);
+        while (SizedString_EnumCurr(pOperands, pCurr) != '\0' && i < 32)
         {
             unsigned int   byte;
-            const char*    pNext;
 
-            byte = getNextHexByte(pCurr, &pNext);
+            byte = getNextHexByte(pOperands, &pCurr);
             if (!alreadyAllocated)
                 reallocLineInfoMachineCodeBytes(pThis, i+1);
             pThis->pLineInfo->pMachineCode[i++] = byte;
-            pCurr = pNext;
         }
         assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
     
         if (*pCurr)
         {
-            LOG_ERROR(pThis, "'%s' contains more than 32 values.", pThis->parsedLine.pOperands);
+            LOG_ERROR(pThis, "'%.*s' contains more than 32 values.", 
+                      pThis->parsedLine.operands.stringLength, pThis->parsedLine.operands.pString);
             return;
         }
     }
@@ -1198,27 +1158,25 @@ static void handleHEX(Assembler* pThis)
     }
 }
 
-static unsigned char getNextHexByte(const char* pStart, const char** ppNext)
+static unsigned char getNextHexByte(SizedString* pString, const char** ppCurr)
 {
-    const char*   pCurr = pStart;
     unsigned char value;
     
     __try
     {
-        value = hexCharToNibble(*pCurr++) << 4;
-        if (*pCurr == '\0')
+        value = hexCharToNibble(SizedString_EnumNext(pString, ppCurr)) << 4;
+        if (SizedString_EnumCurr(pString, *ppCurr) == '\0')
             __throw(invalidArgumentException);
-        value |= hexCharToNibble(*pCurr++);
+        value |= hexCharToNibble(SizedString_EnumNext(pString, ppCurr));
 
-        if (*pCurr == ',')
-            pCurr++;
+        if (SizedString_EnumCurr(pString, *ppCurr) == ',')
+            SizedString_EnumNext(pString, ppCurr);
     }
     __catch
     {
         __rethrow;
     }
 
-    *ppNext = pCurr;
     return value;
 }
 
@@ -1236,21 +1194,21 @@ static unsigned char hexCharToNibble(char value)
 static void logHexParseError(Assembler* pThis)
 {
     if (getExceptionCode() == invalidArgumentException)
-        LOG_ERROR(pThis, "'%s' doesn't contain an even number of hex digits.", pThis->parsedLine.pOperands);
+        LOG_ERROR(pThis, "'%.*s' doesn't contain an even number of hex digits.", 
+                  pThis->parsedLine.operands.stringLength, pThis->parsedLine.operands.pString);
     else if (getExceptionCode() == invalidHexDigitException)
-        LOG_ERROR(pThis, "'%s' contains an invalid hex digit.", pThis->parsedLine.pOperands);
+        LOG_ERROR(pThis, "'%.*s' contains an invalid hex digit.",
+                  pThis->parsedLine.operands.stringLength, pThis->parsedLine.operands.pString);
 }
 
 static void handleORG(Assembler* pThis)
 {    
     __try
     {
-        SizedString operands;
         Expression  expression;
         
         validateOperandWasProvided(pThis);
-        operands = SizedString_InitFromString(pThis->parsedLine.pOperands);
-        expression = getAbsoluteExpression(pThis, &operands);
+        expression = getAbsoluteExpression(pThis, &pThis->parsedLine.operands);
         setOrgInAssemblerAndBinaryBufferModules(pThis, expression.value);
     }
     __catch
@@ -1264,12 +1222,13 @@ static void handleSAV(Assembler* pThis)
     __try
     {
         validateOperandWasProvided(pThis);
-        BinaryBuffer_QueueWriteToFile(pThis->pObjectBuffer, pThis->parsedLine.pOperands);
+        BinaryBuffer_QueueWriteToFile(pThis->pObjectBuffer, &pThis->parsedLine.operands);
     }
     __catch
     {
         if (getExceptionCode() != missingOperandException)
-            LOG_ERROR(pThis, "Failed to queue up save to '%s'.", pThis->parsedLine.pOperands);
+            LOG_ERROR(pThis, "Failed to queue up save to '%.*s'.", 
+                      pThis->parsedLine.operands.stringLength, pThis->parsedLine.operands.pString);
         __nothrow;
     }
 }
@@ -1283,9 +1242,9 @@ static void handleDB(Assembler* pThis)
         int         alreadyAllocated;
 
         validateOperandWasProvided(pThis);
-        nextOperands = SizedString_InitFromString(pThis->parsedLine.pOperands);
+        nextOperands = pThis->parsedLine.operands;
         alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
-        while (nextOperands.stringLength != 0)
+        while (SizedString_strlen(&nextOperands) != 0)
         {
             Expression  expression;
             SizedString beforeComma;
@@ -1316,9 +1275,9 @@ static void handleDA(Assembler* pThis)
         int         alreadyAllocated;
 
         validateOperandWasProvided(pThis);
-        nextOperands = SizedString_InitFromString(pThis->parsedLine.pOperands);
+        nextOperands = pThis->parsedLine.operands;
         alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
-        while (nextOperands.stringLength != 0)
+        while (SizedString_strlen(&nextOperands) != 0)
         {
             Expression  expression;
             SizedString beforeComma;
@@ -1343,7 +1302,7 @@ static void handleDA(Assembler* pThis)
 
 static void handleXC(Assembler* pThis)
 {
-    if (pThis->parsedLine.pOperands && 0 == strcasecmp(pThis->parsedLine.pOperands, "OFF"))
+    if (0 == SizedString_strcasecmp(&pThis->parsedLine.operands, "OFF"))
     {
         pThis->instructionSet = INSTRUCTION_SET_6502;
         return;
@@ -1377,7 +1336,9 @@ static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol*
     while (NULL != (pLineInfo = Symbol_LineReferenceEnumNext(pSymbol)))
     {
         pThis->pLineInfo = pLineInfo;
-        LOG_ERROR(pThis, "The '%s' label is undefined.", pSymbol->pKey);
+        LOG_ERROR(pThis, "The '%.*s%.*s' label is undefined.", 
+                  pSymbol->globalKey.stringLength, pSymbol->globalKey.pString,
+                  pSymbol->localKey.stringLength, pSymbol->localKey.pString);
     }
 }
 
@@ -1407,17 +1368,20 @@ unsigned int Assembler_GetErrorCount(Assembler* pThis)
 }
 
 
-__throws Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName, size_t labelLength)
+static SizedString initGlobalLabelString(Assembler* pThis, SizedString* pLabelName);
+__throws Symbol* Assembler_FindLabel(Assembler* pThis, SizedString* pLabelName)
 {
     Symbol*     pSymbol = NULL;
-    const char* pExpandedName = NULL;
     
     __try
     {
-        pExpandedName = expandedLabelName(pThis, pLabelName, labelLength);
-        pSymbol = SymbolTable_Find(pThis->pSymbols, pExpandedName);
+        SizedString globalLabel = initGlobalLabelString(pThis, pLabelName);
+        SizedString localLabel = initLocalLabelString(pLabelName);
+
+        validateLabelFormat(pThis, pLabelName);
+        pSymbol = SymbolTable_Find(pThis->pSymbols, &globalLabel, &localLabel);
         if (!pSymbol)
-            pSymbol = SymbolTable_Add(pThis->pSymbols, pExpandedName);
+            pSymbol = SymbolTable_Add(pThis->pSymbols, &globalLabel, &localLabel);
         if (!isSymbolAlreadyDefined(pSymbol, NULL))
             Symbol_LineReferenceAdd(pSymbol, pThis->pLineInfo);
     }
@@ -1427,4 +1391,12 @@ __throws Symbol* Assembler_FindLabel(Assembler* pThis, const char* pLabelName, s
     }
 
     return pSymbol;
+}
+
+static SizedString initGlobalLabelString(Assembler* pThis, SizedString* pLabelName)
+{
+    if (!isGlobalLabelName(pLabelName))
+        return pThis->globalLabel;
+
+    return *pLabelName;
 }

@@ -449,11 +449,12 @@ static int isLabelReference(char prefixChar)
 
 static void parseLabelReference(Assembler* pAssembler, ExpressionEvaluation* pEval)
 {
-    Symbol* pSymbol = NULL;
-    size_t  labelLength = lengthOfLabel(pEval);
+    Symbol*     pSymbol = NULL;
+    size_t      labelLength = lengthOfLabel(pEval);
+    SizedString labelName = SizedString_Init(pEval->pCurrent, labelLength);
 
     __try
-        pSymbol = Assembler_FindLabel(pAssembler, pEval->pCurrent, labelLength);
+        pSymbol = Assembler_FindLabel(pAssembler, &labelName);
     __catch
         __rethrow;
 

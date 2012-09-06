@@ -15,19 +15,19 @@
 #include "ParseLine.h"
 
 
-static int isLineEmptyOrFullLineComment(char* pLine);
-static int isLineEmpty(char* pLine);
-static int isFullLineComment(char* pLine);
-static char* extractLabel(ParsedLine* pObject, char* pLine);
-static int containsLabel(char* pLine);
-static char* extractOperator(ParsedLine* pObject, char* pLine);
-static char* extractField(char** ppField, char* pLine);
-static char* skipOverWhitespace(char* pCurr);
-static int isEndOfLineOrComment(char* pLine);
-static int isStartOfComment(char* pLine);
-static char* findNextWhitespace(char* pCurr);
-static char* extractOperands(ParsedLine* pObject, char* pLine);
-void ParseLine(ParsedLine* pObject, char* pLine)
+static int isLineEmptyOrFullLineComment(const char* pLine);
+static int isLineEmpty(const char* pLine);
+static int isFullLineComment(const char* pLine);
+static const char* extractLabel(ParsedLine* pObject, const char* pLine);
+static int containsLabel(const char* pLine);
+static const char* extractOperator(ParsedLine* pObject, const char* pLine);
+static const char* extractField(SizedString* pField, const char* pLine);
+static const char* skipOverWhitespace(const char* pCurr);
+static int isEndOfLineOrComment(const char* pLine);
+static int isStartOfComment(const char* pLine);
+static const char* findNextWhitespace(const char* pCurr);
+static const char* extractOperands(ParsedLine* pObject, const char* pLine);
+void ParseLine(ParsedLine* pObject, const char* pLine)
 {
     memset(pObject, 0, sizeof(*pObject));
     
@@ -39,79 +39,77 @@ void ParseLine(ParsedLine* pObject, char* pLine)
     pLine = extractOperands(pObject, pLine);
 }
 
-static int isLineEmptyOrFullLineComment(char* pLine)
+static int isLineEmptyOrFullLineComment(const char* pLine)
 {
     return isLineEmpty(pLine) || isFullLineComment(pLine);
 }
 
-static int isLineEmpty(char* pLine)
+static int isLineEmpty(const char* pLine)
 {
     return pLine[0] == '\0';
 }
 
-static int isFullLineComment(char* pLine)
+static int isFullLineComment(const char* pLine)
 {
     return pLine[0] == '*' || pLine[0] == ';';
 }
 
-static char* extractLabel(ParsedLine* pObject, char* pLine)
+static const char* extractLabel(ParsedLine* pObject, const char* pLine)
 {
     if (containsLabel(pLine))
     {
-        pObject->pLabel = pLine;
+        const char* pLabel = pLine;
         pLine = findNextWhitespace(pLine);
-        if (*pLine)
-            *pLine++ = '\0';
+        pObject->label = SizedString_Init(pLabel, pLine - pLabel);
     }
     return pLine;
 }
 
-static int containsLabel(char* pLine)
+static int containsLabel(const char* pLine)
 {
     return !isspace(pLine[0]);
 }
 
-static char* extractOperator(ParsedLine* pObject, char* pLine)
+static const char* extractOperator(ParsedLine* pObject, const char* pLine)
 {
-    return extractField(&pObject->pOperator, pLine);
+    return extractField(&pObject->op, pLine);
 }
 
-static char* extractOperands(ParsedLine* pObject, char* pLine)
+static const char* extractOperands(ParsedLine* pObject, const char* pLine)
 {
-    return extractField(&pObject->pOperands, pLine);
+    return extractField(&pObject->operands, pLine);
 }
 
-static char* extractField(char** ppField, char* pLine)
+static const char* extractField(SizedString* pField, const char* pLine)
 {
     pLine = skipOverWhitespace(pLine);
     if (!isEndOfLineOrComment(pLine))
     {
-        *ppField = pLine;
+        const char* pStart = pLine;
         pLine = findNextWhitespace(pLine);
-        if (*pLine)
-            *pLine++ = '\0';
+        *pField = SizedString_Init(pStart, pLine - pStart);
     }
     return pLine;
 }
 
-static char* skipOverWhitespace(char* pCurr)
+static const char* skipOverWhitespace(const char* pCurr)
 {
     while (*pCurr && isspace(*pCurr))
         pCurr++;
     return pCurr;
 }
 
-static int isEndOfLineOrComment(char* pLine)
+static int isEndOfLineOrComment(const char* pLine)
 {
     return isLineEmpty(pLine) || isStartOfComment(pLine);
 }
 
-static int isStartOfComment(char* pLine)
+static int isStartOfComment(const char* pLine)
 {
     return *pLine == ';';
 }
 
-static char* findNextWhitespace(char* pCurr)
+static const char* findNextWhitespace(const char* pCurr)
 {
     while (*pCurr && !isspace(*pCurr))
         pCurr++;

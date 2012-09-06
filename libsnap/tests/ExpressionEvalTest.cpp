@@ -322,7 +322,7 @@ TEST(ExpressionEval, ForwardLabelReference)
     LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
     CHECK_TRUE(m_expression.flags & EXPRESSION_FLAG_FORWARD_REFERENCE);
     
-    Symbol* pSymbol = Assembler_FindLabel(m_pAssembler, labelName, strlen(labelName));
+    Symbol* pSymbol = Assembler_FindLabel(m_pAssembler, toSizedString(labelName));
     CHECK(pSymbol);
     Symbol_LineReferenceEnumStart(pSymbol);
     LineInfo* pLineInfo = Symbol_LineReferenceEnumNext(pSymbol);
@@ -356,7 +356,7 @@ TEST(ExpressionEval, BackwardLabelReference)
     LONGS_EQUAL(TYPE_ABSOLUTE, m_expression.type);
     CHECK_FALSE(m_expression.flags & EXPRESSION_FLAG_FORWARD_REFERENCE);
 
-    Symbol* pSymbol = Assembler_FindLabel(m_pAssembler, labelName, strlen(labelName));
+    Symbol* pSymbol = Assembler_FindLabel(m_pAssembler, toSizedString(labelName));
     CHECK(pSymbol);
     Symbol_LineReferenceEnumStart(pSymbol);
     LineInfo* pLineInfo = Symbol_LineReferenceEnumNext(pSymbol);

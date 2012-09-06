@@ -145,9 +145,9 @@ unsigned short BinaryBuffer_GetOrigin(BinaryBuffer* pThis)
 }
 
 
-static void initializeFileWriteEntry(BinaryBuffer* pThis, FileWriteEntry* pEntry, const char* pFilename);
+static void initializeFileWriteEntry(BinaryBuffer* pThis, FileWriteEntry* pEntry, SizedString* pFilename);
 static void addFileWriteEntryToList(BinaryBuffer* pThis, FileWriteEntry* pEntry);
-__throws void BinaryBuffer_QueueWriteToFile(BinaryBuffer* pThis, const char* pFilename)
+__throws void BinaryBuffer_QueueWriteToFile(BinaryBuffer* pThis, SizedString* pFilename)
 {
     FileWriteEntry* pEntry = NULL;
     
@@ -164,12 +164,14 @@ __throws void BinaryBuffer_QueueWriteToFile(BinaryBuffer* pThis, const char* pFi
     }
 }
 
-static void initializeFileWriteEntry(BinaryBuffer* pThis, FileWriteEntry* pEntry, const char* pFilename)
+static void initializeFileWriteEntry(BinaryBuffer* pThis, FileWriteEntry* pEntry, SizedString* pFilename)
 {
-    if (strlen(pFilename) > sizeof(pEntry->filename)-1)
+    size_t length = SizedString_strlen(pFilename);
+    if (length > sizeof(pEntry->filename)-1)
         __throw(invalidArgumentException);
 
-    strcpy(pEntry->filename, pFilename);
+    memcpy(pEntry->filename, pFilename->pString, length);
+    pEntry->filename[length] = '\0';
     pEntry->baseAddress = pThis->baseAddress;
     pEntry->pBase = pThis->pBase;
     pEntry->length = pThis->pCurrent - pThis->pBase;
