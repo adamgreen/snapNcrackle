@@ -1,0 +1,571 @@
+/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+*/
+/* Tests for the assembler directives.
+   NOTE: EQU directive is tested as part of the AssemblerLabelTest set of unit tests.
+*/
+#include "AssemblerBaseTest.h"
+
+
+TEST_GROUP_BASE(AssemblerDirectives, AssemblerBase)
+{
+};
+
+
+TEST(AssemblerDirectives, IgnoreLSTDirective)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lst off\n"), NULL);
+    runAssemblerAndValidateOutputIs("    :              1  lst off\n");
+}
+
+TEST(AssemblerDirectives, HEXDirectiveWithSingleValue)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: 01           1  hex 01\n");
+}
+
+TEST(AssemblerDirectives, HEXDirectiveWithMixedCase)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex cD,Cd\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: CD CD        1  hex cD,Cd\n");
+}
+
+TEST(AssemblerDirectives, HEXDirectiveWithThreeValuesAndCommas)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0e,0c,0a\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: 0E 0C 0A     1  hex 0e,0c,0a\n");
+}
+
+TEST(AssemblerDirectives, HEXDirectiveWithThreeValues)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0e0c0a\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: 0E 0C 0A     1  hex 0e0c0a\n");
+}
+
+TEST(AssemblerDirectives, HEXDirectiveWithFourValues)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01,02,03,04\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 01 02 03     1  hex 01,02,03,04\n",
+                                                   "8003: 04      \n");
+}
+
+TEST(AssemblerDirectives, HEXDirectiveWithSixValues)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01,02,03,04,05,06\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 01 02 03     1  hex 01,02,03,04,05,06\n",
+                                                   "8003: 04 05 06\n");
+}
+
+TEST(AssemblerDirectives, HEXDirectiveWithMaximumOf32Value)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20\n"),
+                                              NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("801B: 1C 1D 1E\n",
+                                                   "801E: 1F 20   \n", 11);
+}
+
+TEST(AssemblerDirectives, HEXDirectiveWith33Values_1MoreThanSupported)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021\n"),
+                                              NULL);
+    runAssemblerAndValidateFailure("filename:1: error: '0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021' contains more than 32 values.\n", 
+                                   "801E: 1F 20   \n", 12);
+}
+
+TEST(AssemblerDirectives, HEXDirectiveOnTwoLines)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01\n"
+                                                   " hex 02\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 01           1  hex 01\n",
+                                                   "8001: 02           2  hex 02\n");
+}
+
+TEST(AssemblerDirectives, HEXDirectiveWithUpperCaseHex)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex FA\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: FA           1  hex FA\n");
+}
+
+TEST(AssemblerDirectives, HEXDirectiveWithLowerCaseHex)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex fa\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: FA           1  hex fa\n");
+}
+
+TEST(AssemblerDirectives, HEXDirectiveWithOddDigitCount)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex fa0\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: 'fa0' doesn't contain an even number of hex digits.\n",
+                                   "    :              1  hex fa0\n");
+}
+
+TEST(AssemblerDirectives, HEXDirectiveWithInvalidDigit)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex fg\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: 'fg' contains an invalid hex digit.\n",
+                                   "    :              1  hex fg\n");
+}
+
+TEST(AssemblerDirectives, HEXDirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: hex directive requires operand.\n",
+                                   "    :              1  hex\n", 2);
+}
+
+TEST(AssemblerDirectives, FailBinaryBufferAllocationInHEXDirective)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex ff\n"), NULL);
+    BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
+    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
+                                   "    :              1  hex ff\n");
+}
+
+TEST(AssemblerDirectives, ORGDirectiveWithLiteralValue)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $900\n"
+                                                   " hex 01\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              1  org $900\n", 
+                                                   "0900: 01           2  hex 01\n");
+}
+
+TEST(AssemblerDirectives, ORGDirectiveWithInvalidExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org +900\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+900' expression.\n",
+                                   "    :              1  org +900\n");
+}
+
+TEST(AssemblerDirectives, ORGDirectiveWithSymbolValue)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("org = $800\n"
+                                                   " org org\n"
+                                                   " hex 01\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              2  org org\n",
+                                                   "0800: 01           3  hex 01\n", 3);
+}
+
+TEST(AssemblerDirectives, ORGDirectiveWithInvalidImmediate)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org #$00\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: '#$00' doesn't specify an absolute address.\n",
+                                   "    :              1  org #$00\n");
+}
+
+TEST(AssemblerDirectives, ORGDirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: org directive requires operand.\n",
+                                   "    :              1  org\n", 2);
+}
+
+TEST(AssemblerDirectives, DUMandDEND_Directive)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " dum $00\n"
+                                                   " hex ff\n"
+                                                   " dend\n"
+                                                   " hex fe\n"), NULL);
+    Assembler_Run(m_pAssembler);
+    
+    LineInfo* pThirdLine = m_pAssembler->linesHead.pNext->pNext->pNext;
+    LineInfo* pFifthLine = pThirdLine->pNext->pNext;
+    
+    validateLineInfo(pThirdLine, 0x0000, 1, "\xff");
+    validateLineInfo(pFifthLine, 0x0800, 1, "\xfe");
+}
+
+TEST(AssemblerDirectives, TwoDUMandDEND_Directive)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " dum $00\n"
+                                                   " hex ff\n"
+                                                   " dum $100\n"
+                                                   " hex fe\n"
+                                                   " dend\n"
+                                                   " hex fd\n"), NULL);
+    Assembler_Run(m_pAssembler);
+    
+    LineInfo* pThirdLine = m_pAssembler->linesHead.pNext->pNext->pNext;
+    LineInfo* pFifthLine = pThirdLine->pNext->pNext;
+    LineInfo* pSeventhLine = pFifthLine->pNext->pNext;
+    
+    validateLineInfo(pThirdLine, 0x0000, 1, "\xff");
+    validateLineInfo(pFifthLine, 0x0100, 1, "\xfe");
+    validateLineInfo(pSeventhLine, 0x0800, 1, "\xfd");
+}
+
+TEST(AssemblerDirectives, DUM_ORG_andDEND_Directive)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " dum $00\n"
+                                                   " hex ff\n"
+                                                   " org $100\n"
+                                                   " hex fe\n"
+                                                   " dend\n"
+                                                   " hex fd\n"), NULL);
+    Assembler_Run(m_pAssembler);
+    
+    LineInfo* pThirdLine = m_pAssembler->linesHead.pNext->pNext->pNext;
+    LineInfo* pFifthLine = pThirdLine->pNext->pNext;
+    LineInfo* pSeventhLine = pFifthLine->pNext->pNext;
+    
+    validateLineInfo(pThirdLine, 0x0000, 1, "\xff");
+    validateLineInfo(pFifthLine, 0x0100, 1, "\xfe");
+    validateLineInfo(pSeventhLine, 0x0800, 1, "\xfd");
+}
+
+TEST(AssemblerDirectives, DUMDirectiveWithInvalidImmediateExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dum #$00\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: '#$00' doesn't specify an absolute address.\n",
+                                   "    :              1  dum #$00\n");
+}
+
+TEST(AssemblerDirectives, DEND_DirectiveWithoutDUM)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dend\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: dend isn't allowed without a preceding DUM directive.\n",
+                                   "    :              1  dend\n");
+}
+
+TEST(AssemblerDirectives, DUMDirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dum\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: dum directive requires operand.\n",
+                                   "    :              1  dum\n", 2);
+}
+
+TEST(AssemblerDirectives, DENDDirectiveWithOperandWhenNotExpected)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dend $100\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: dend directive doesn't require operand.\n",
+                                   "    :              1  dend $100\n", 2);
+}
+
+TEST(AssemblerDirectives, DS_DirectiveWithSmallRepeatValue)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds 1\n"
+                                                   " hex ff\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 00           1  ds 1\n", 
+                                                   "8001: FF           2  hex ff\n");
+}
+
+TEST(AssemblerDirectives, DS_DirectiveWithRepeatValueGreaterThan32)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds 42\n"
+                                                   " hex ff\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8027: 00 00 00\n", 
+                                                   "802A: FF           2  hex ff\n", 15);
+}
+
+TEST(AssemblerDirectives, DS_DirectiveWithBackSlashWhenAlreadyOnPageBoundary)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds \\\n"), NULL);
+    runAssemblerAndValidateOutputIs("    :              1  ds \\\n");
+}
+
+TEST(AssemblerDirectives, DS_DirectiveWithBackSlashWhenOneByteFromPageBoundary)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds 255\n"
+                                                   " ds \\,$ff\n"), NULL);
+    runAssemblerAndValidateLastLineIs("80FF: FF           2  ds \\,$ff\n", 86);
+}
+
+TEST(AssemblerDirectives, DS_DirectiveWithSecondExpressionToSpecifyFillValue)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds 2,$ff\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: FF FF        1  ds 2,$ff\n");
+}
+
+TEST(AssemblerDirectives, DS_DirectiveWithInvalidExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds ($800\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '($800' expression.\n",
+                                   "    :              1  ds ($800\n");
+}
+
+TEST(AssemblerDirectives, DS_DirectiveWithForwardReference)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds \\,Fill\n"
+                                                   "Fill equ $ff\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              1  ds \\,Fill\n",
+                                                   "    :    =00FF     2 Fill equ $ff\n");
+}
+
+TEST(AssemblerDirectives, DS_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: ds directive requires operand.\n",
+                                   "    :              1  ds\n", 2);
+}
+
+TEST(AssemblerDirectives, FailBinaryBufferAllocationInDSDirective)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" ds 1\n"), NULL);
+    BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
+    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
+                                   "    :              1  ds 1\n");
+}
+
+TEST(AssemblerDirectives, ASC_DirectiveInDoubleQuotes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc \"Tst\"\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: D4 F3 F4     1  asc \"Tst\"\n");
+}
+
+TEST(AssemblerDirectives, ASC_DirectiveInSingleQuotes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst'\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: 54 73 74     1  asc 'Tst'\n");
+}
+
+TEST(AssemblerDirectives, ASC_DirectiveWithNoSpacesBetweenQuotes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'a b'\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: 61 20 62     1  asc 'a b'\n");
+}
+
+TEST(AssemblerDirectives, ASC_DirectiveWithNoEndingDelimiter)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: 'Tst didn't end with the expected ' delimiter.\n",
+                                   "8000: 54 73 74     1  asc 'Tst\n");
+}
+
+TEST(AssemblerDirectives, ASC_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: asc directive requires operand.\n",
+                                   "    :              1  asc\n", 2);
+}
+
+TEST(AssemblerDirectives, SAV_DirectiveOnEmptyObjectFile)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sav AssemblerTest.sav\n"), NULL);
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler));
+    validateObjectFileContains(0x8000, "", 0);
+}
+
+TEST(AssemblerDirectives, SAV_DirectiveOnSmallObjectFile)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " hex 00,ff\n"
+                                                   " sav AssemblerTest.sav\n"), NULL);
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler));
+    validateObjectFileContains(0x800, "\x00\xff", 2);
+}
+
+TEST(AssemblerDirectives, SAV_DirectiveShouldBeIgnoredOnErrors)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " hex 00,ff\n"
+                                                   " hex ($00)\n"
+                                                   " sav AssemblerTest.sav\n"), NULL);
+    Assembler_Run(m_pAssembler);
+    LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
+    m_pFile = fopen(g_objectFilename, "r");
+    POINTERS_EQUAL(NULL, m_pFile);
+}
+
+TEST(AssemblerDirectives, SAV_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sav\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: sav directive requires operand.\n",
+                                   "    :              1  sav\n", 2);
+}
+
+TEST(AssemblerDirectives, DB_DirectiveWithSingleExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("Value EQU $fe\n"
+                                                   " db Value+1\n"), NULL);
+    runAssemblerAndValidateLastLineIs("8000: FF           2  db Value+1\n", 2);
+}
+
+TEST(AssemblerDirectives, DB_DirectiveWithThreeExpressions)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" db 2,0,1\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: 02 00 01     1  db 2,0,1\n");
+}
+
+TEST(AssemblerDirectives, DB_DirectiveWithImmediateExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" db #$ff\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: FF           1  db #$ff\n");
+}
+
+TEST(AssemblerDirectives, DB_DirectiveWithForwardReference)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" db Label\n"
+                                                   "Label db $12\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 01           1  db Label\n",
+                                                   "8001: 12           2 Label db $12\n");
+}
+
+TEST(AssemblerDirectives, DB_DirectiveWithInvalidExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" db ($800\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '($800' expression.\n",
+                                   "    :              1  db ($800\n");
+}
+
+TEST(AssemblerDirectives, DB_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" db\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: db directive requires operand.\n",
+                                   "    :              1  db\n", 2);
+}
+
+TEST(AssemblerDirectives, DFB_DirectiveSameAsDB)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dfb 2,0,1\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: 02 00 01     1  dfb 2,0,1\n");
+}
+
+TEST(AssemblerDirectives, DFB_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dfb\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: dfb directive requires operand.\n",
+                                   "    :              1  dfb\n", 2);
+}
+
+TEST(AssemblerDirectives, TR_DirectiveIsIgnored)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" tr on\n"), NULL);
+    runAssemblerAndValidateOutputIs("    :              1  tr on\n");
+}
+
+TEST(AssemblerDirectives, DA_DirectiveWithOneExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" da $ff+1\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: 00 01        1  da $ff+1\n");
+}
+
+TEST(AssemblerDirectives, DA_DirectiveWithThreeExpressions)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" da $ff+1,$ff,$1233+1\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 00 01 FF     1  da $ff+1,$ff,$1233+1\n",
+                                                   "8003: 00 34 12\n");
+}
+
+TEST(AssemblerDirectives, DA_DirectiveWithForwardReference)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" da Label\n"
+                                                   "Label da $1234\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 02 80        1  da Label\n",
+                                                   "8002: 34 12        2 Label da $1234\n");
+}
+
+TEST(AssemblerDirectives, DA_DirectiveWithInvalidExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" da ($800\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '($800' expression.\n",
+                                   "    :              1  da ($800\n");
+}
+
+TEST(AssemblerDirectives, DA_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" da\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: da directive requires operand.\n",
+                                   "    :              1  da\n", 2);
+}
+
+TEST(AssemblerDirectives, DW_DirectiveSameAsDA)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dw $ff+1,$ff,$1233+1\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 00 01 FF     1  dw $ff+1,$ff,$1233+1\n",
+                                                   "8003: 00 34 12\n");
+}
+
+TEST(AssemblerDirectives, DW_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" dw\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: dw directive requires operand.\n",
+                                   "    :              1  dw\n", 2);
+}
+
+/* UNDONE: This should test that a 65C02 instruction is allowed after issue. */
+TEST(AssemblerDirectives, XC_DirectiveSingleInvocation)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"), NULL);
+    runAssemblerAndValidateOutputIs("    :              1  xc\n");
+}
+
+/* UNDONE: This is testing a temporary hack to ignore 65802/65816 instructions as I don't support those at this time. */
+TEST(AssemblerDirectives, XC_DirectiveTwiceShouldCauseRTSInsertion)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"
+                                                   " xc\n"
+                                                   " lda #20\n"), NULL);
+    runAssemblerAndValidateLastLineIs("8000: 60           3  lda #20\n", 3);
+}
+
+TEST(AssemblerDirectives, XC_DirectiveTwiceShouldCauseRTSInsertionForUnknownOpcodes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"
+                                                   " xc\n"
+                                                   " foobar\n"), NULL);
+    runAssemblerAndValidateLastLineIs("8000: 60           3  foobar\n", 3);
+}
+
+TEST(AssemblerDirectives, XC_DirectiveWithOffOperandShouldResetTo6502)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"
+                                                   " xc\n"
+                                                   " xc off\n"
+                                                   " lda #20\n"), NULL);
+    runAssemblerAndValidateLastLineIs("8000: A9 14        4  lda #20\n", 4);
+}
+
+TEST(AssemblerDirectives, XC_DirectiveThriceShouldCauseError)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" xc\n"
+                                                   " xc\n"
+                                                   " xc\n"), NULL);
+    runAssemblerAndValidateFailure("filename:3: error: Can't have more than 2 XC directives.\n",
+                                   "    :              3  xc\n", 4);
+}
+
+TEST(AssemblerDirectives, XC_DirectiveForwardReferenceFrom6502To65816)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #ForwardLabel\n"
+                                                   " xc\n"
+                                                   " xc\n"
+                                                   "ForwardLabel lda #20\n"), NULL);
+    runAssemblerAndValidateLastLineIs("8002: 60           4 ForwardLabel lda #20\n", 4);
+}
+
+TEST(AssemblerDirectives, FailBinaryBufferAllocationInASCDirective)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst'\n"), NULL);
+    BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
+    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
+                                   "    :              1  asc 'Tst'\n");
+}
+
+TEST(AssemblerDirectives, STAAbsoluteViaLabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   "entry lda #$60\n"
+                                                   " sta entry\n"), NULL);
+    runAssemblerAndValidateLastLineIs("0802: 8D 00 08     3  sta entry\n", 3);
+}
+
+TEST(AssemblerDirectives, STAZeroPageAbsoluteViaLabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
+                                                   "entry lda #$60\n"
+                                                   " sta entry\n"), NULL);
+    runAssemblerAndValidateLastLineIs("0002: 85 00        3  sta entry\n", 3);
+}
