@@ -16,6 +16,311 @@
 
 TEST_GROUP_BASE(AssemblerInstructions, AssemblerBase)
 {
+    int             m_isInvalidMode;
+    int             m_isZeroPageTreatedAsAbsolute;
+    int             m_isInvalidInstruction;
+    int             m_switchTo65c02;
+    unsigned char   m_expectedOpcode;
+
+    void setup()
+    {
+        AssemblerBase::setup();
+        m_isInvalidInstruction = FALSE;
+        m_switchTo65c02 = FALSE;
+    }
+
+    void test6502RelativeBranchInstruction(const char* pInstruction, unsigned char opcode)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+        char               expectedErrorOutput[128];
+
+        sprintf(testString, " %s *+129\n", pInstruction);
+        runAssembler(testString);
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+            return;
+        }
+        else
+        {
+            sprintf(expectedListOutput, "8000: %02X 7F        1 %s\n", opcode, testString);
+            validateSuccessfulOutput(expectedListOutput);
+        }
+        
+        m_isInvalidMode = TRUE;
+        m_expectedOpcode = 0x00;
+        m_isZeroPageTreatedAsAbsolute = FALSE;
+        testImmediateAddressing(pInstruction);
+        testImpliedAddressing(pInstruction);
+        testZeroPageIndexedIndirectAddressing(pInstruction);
+        testIndirectIndexedAddressing(pInstruction);
+        testZeroPageIndexedXAddressing(pInstruction);
+        testZeroPageIndexedYAddressing(pInstruction);
+        testAbsoluteIndexedXAddressing(pInstruction);
+        testAbsoluteIndexedYAddressing(pInstruction);
+        testRelativeAddressing(pInstruction);
+        testAbsoluteIndirectAddressing(pInstruction);
+        testAbsoluteIndexedIndirectAddressing(pInstruction);
+        testZeroPageIndirectAddressing(pInstruction);
+    }
+    
+    void test65c02OnlyInstruction(const char* pInstruction, const char* pInstructionTableEntry)
+    {
+        m_isInvalidInstruction = TRUE;
+        m_switchTo65c02 = FALSE;
+        testInstruction(pInstruction, pInstructionTableEntry);
+
+        m_isInvalidInstruction = FALSE;
+        m_switchTo65c02 = TRUE;
+        testInstruction(pInstruction, pInstructionTableEntry);
+    }
+
+    void test6502_65c02Instruction(const char* pInstruction, const char* pInstructionTableEntry)
+    {
+        m_switchTo65c02 = FALSE;
+        testInstruction(pInstruction, pInstructionTableEntry);
+
+        m_switchTo65c02 = TRUE;
+        testInstruction(pInstruction, pInstructionTableEntry);
+    }
+
+    void testInstruction(const char* pInstruction, const char* pInstructionTableEntry)
+    {
+        const char*        pCurr = pInstructionTableEntry;
+    
+        CHECK_TRUE(strlen(pInstructionTableEntry) >= 14*3-1);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testImmediateAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testAbsoluteAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testZeroPageAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testImpliedAddressing(pInstruction);
+
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testZeroPageIndexedIndirectAddressing(pInstruction);
+
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testIndirectIndexedAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testZeroPageIndexedXAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testZeroPageIndexedYAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testAbsoluteIndexedXAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testAbsoluteIndexedYAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testRelativeAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testAbsoluteIndirectAddressing(pInstruction);
+
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testAbsoluteIndexedIndirectAddressing(pInstruction);
+        
+        pCurr = parseEntryAndAdvanceToNextEntry(pCurr);
+        testZeroPageIndirectAddressing(pInstruction);
+        
+        CHECK_TRUE(*pCurr == '\0');
+    }
+    
+    const char* parseEntryAndAdvanceToNextEntry(const char* pCurr)
+    {
+        m_isInvalidMode = FALSE;
+        m_isZeroPageTreatedAsAbsolute = FALSE;
+        if (0 == strncmp(pCurr, "XX", 2))
+            m_isInvalidMode = TRUE;
+        else
+        {
+            if (*pCurr == '^')
+            {
+                m_isZeroPageTreatedAsAbsolute = TRUE;
+                pCurr++;
+            }
+            if (*pCurr == '*')
+            {
+                m_isInvalidMode = m_switchTo65c02 ? FALSE : TRUE;
+                pCurr++;
+            }
+
+            m_expectedOpcode = strtoul(pCurr, NULL, 16);
+        }
+            
+        if (pCurr[2] == ',')
+            return pCurr + 3;
+        else
+            return pCurr + 2;
+    }
+    
+    typedef struct AddressingModeStrings
+    {
+        const char* pTestOperand;
+        const char* pSuccessfulOperandMachineCode;
+        const char* pSuccessfulAbsoluteOperandMachineCode;
+    } AddressingModeStrings;
+    
+    void testAddressingMode(const char* pInstruction, const AddressingModeStrings* pAddressingModeStrings)
+    {
+        char testString[64];
+        char expectedListOutput[128];
+        char expectedErrorOutput[128];
+
+        assert ( pAddressingModeStrings->pSuccessfulAbsoluteOperandMachineCode || !m_isZeroPageTreatedAsAbsolute );
+        
+        sprintf(testString, " %s %s\n", pInstruction, pAddressingModeStrings->pTestOperand);
+        runAssembler(testString);
+        if (m_isInvalidInstruction)
+        {
+            sprintf(expectedErrorOutput, 
+                    "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", 
+                    pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+        else if (!m_isInvalidMode)
+        {
+            sprintf(expectedListOutput, 
+                    "8000: %02X %s     1 %s\n", 
+                    m_expectedOpcode, 
+                    m_isZeroPageTreatedAsAbsolute ? pAddressingModeStrings->pSuccessfulAbsoluteOperandMachineCode :
+                                                    pAddressingModeStrings->pSuccessfulOperandMachineCode, 
+                    testString);
+            validateSuccessfulOutput(expectedListOutput);
+        } 
+        else
+        {
+            sprintf(expectedErrorOutput, 
+                    "filename:1: error: Addressing mode of '%s' is not supported for '%s' instruction.\n", 
+                    pAddressingModeStrings->pTestOperand,
+                    pInstruction);
+            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            validateFailureOutput(expectedErrorOutput, expectedListOutput);
+        }
+    }
+    
+    void testImmediateAddressing(const char* pInstruction)
+    {
+        static const AddressingModeStrings addressingModeStrings = {"#$ff", "FF   ", NULL};
+        testAddressingMode(pInstruction, &addressingModeStrings);
+    }
+    
+    void testAbsoluteAddressing(const char* pInstruction)
+    {
+        static const AddressingModeStrings addressingModeStrings = {"$100", "00 01", NULL};
+        testAddressingMode(pInstruction, &addressingModeStrings);
+    }
+    
+    void testZeroPageAddressing(const char* pInstruction)
+    {
+        static const AddressingModeStrings addressingModeStrings = {"$ff", "FF   ", "FF 00"};
+        testAddressingMode(pInstruction, &addressingModeStrings);
+    }
+    
+    void testImpliedAddressing(const char* pInstruction)
+    {
+        static const AddressingModeStrings addressingModeStrings = {"", "     ", "     "};
+        testAddressingMode(pInstruction, &addressingModeStrings);
+    }
+    
+    void testZeroPageIndexedIndirectAddressing(const char* pInstruction)
+    {
+        static const AddressingModeStrings addressingModeStrings = {"($ff,x)", "FF   ", "FF 00"};
+        testAddressingMode(pInstruction, &addressingModeStrings);
+    }
+    
+    void testIndirectIndexedAddressing(const char* pInstruction)
+    {
+        static const AddressingModeStrings addressingModeStrings = {"($ff),y", "FF   ", NULL};
+        testAddressingMode(pInstruction, &addressingModeStrings);
+    }
+    
+    void testZeroPageIndexedXAddressing(const char* pInstruction)
+    {
+        static const AddressingModeStrings addressingModeStrings = {"$ff,x", "FF   ", "FF 00"};
+        testAddressingMode(pInstruction, &addressingModeStrings);
+    }
+    
+    void testZeroPageIndexedYAddressing(const char* pInstruction)
+    {
+        static const AddressingModeStrings addressingModeStrings = {"$ff,y", "FF   ", "FF 00"};
+        testAddressingMode(pInstruction, &addressingModeStrings);
+    }
+    
+    void testAbsoluteIndexedXAddressing(const char* pInstruction)
+    {
+        static const AddressingModeStrings addressingModeStrings = {"$100,x", "00 01", NULL};
+        testAddressingMode(pInstruction, &addressingModeStrings);
+    }
+    
+    void testAbsoluteIndexedYAddressing(const char* pInstruction)
+    {
+        static const AddressingModeStrings addressingModeStrings = {"$100,y", "00 01", NULL};
+        testAddressingMode(pInstruction, &addressingModeStrings);
+    }
+    
+    void testRelativeAddressing(const char* pInstruction)
+    {
+        char               testString[64];
+        char               expectedListOutput[128];
+
+        CHECK_FALSE(m_isZeroPageTreatedAsAbsolute);
+        if (m_isInvalidMode || m_isInvalidInstruction)
+            return;
+        
+        sprintf(testString, " %s *\n", pInstruction);
+        runAssembler(testString);
+        sprintf(expectedListOutput, "8000: %02X FE        1 %s\n", m_expectedOpcode, testString);
+        validateSuccessfulOutput(expectedListOutput);
+    }
+    
+    void testAbsoluteIndirectAddressing(const char* pInstruction)
+    {
+        static const AddressingModeStrings addressingModeStrings = {"($100)", "00 01", NULL};
+        testAddressingMode(pInstruction, &addressingModeStrings);
+    }
+    
+    void testAbsoluteIndexedIndirectAddressing(const char* pInstruction)
+    {
+        static const AddressingModeStrings addressingModeStrings = {"($100,x)", "00 01", NULL};
+        testAddressingMode(pInstruction, &addressingModeStrings);
+    }
+    
+    void testZeroPageIndirectAddressing(const char* pInstruction)
+    {
+        static const AddressingModeStrings addressingModeStrings = {"($ff)", "FF   ", "FF 00"};
+        testAddressingMode(pInstruction, &addressingModeStrings);
+    }
+        
+    void runAssembler(char* pTestString)
+    {
+        clearOutputLogs();
+        m_pAssembler = Assembler_CreateFromString(pTestString, NULL);
+        if (m_switchTo65c02)
+            m_pAssembler->instructionSet = INSTRUCTION_SET_65C02;
+        Assembler_Run(m_pAssembler);
+        Assembler_Free(m_pAssembler);
+        m_pAssembler = NULL;
+    }
+    
+    void clearOutputLogs()
+    {
+        printfSpy_Unhook();
+        printfSpy_Hook(512);
+    }
 };
 
 
