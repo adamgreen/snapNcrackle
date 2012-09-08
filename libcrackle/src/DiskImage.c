@@ -91,14 +91,15 @@ __throws void DiskImage_ProcessScriptFile(DiskImage* pThis, const char* pScriptF
 }
 
 static void DiskImageScriptEngine_ProcessScriptFile(DiskImageScriptEngine* pThis, 
-                                                    DiskImage*               pDiskImage, 
-                                                    const char*              pScriptFilename)
+                                                    DiskImage*             pDiskImage, 
+                                                    const char*            pScriptFilename)
 {
     __try
     {
+        SizedString scriptFilename = SizedString_InitFromString(pScriptFilename);
         pThis->pScriptFilename = pScriptFilename;
         pThis->pDiskImage = pDiskImage;
-        pThis->pTextFile = TextFile_CreateFromFile(pScriptFilename);
+        pThis->pTextFile = TextFile_CreateFromFile(&scriptFilename);
     }
     __catch
     {

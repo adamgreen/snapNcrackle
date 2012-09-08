@@ -41,7 +41,6 @@ __throws Assembler* Assembler_CreateFromString(char* pText, AssemblerInitParams*
         pThis = allocateAndZero(sizeof(*pThis));
         commonObjectInit(pThis, pParams);
         pThis->pTextFile = TextFile_CreateFromString(pText);
-        pThis->pSourceFilename = "filename";
     }
     __catch
     {
@@ -222,14 +221,15 @@ static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned s
 
 __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, AssemblerInitParams* pParams)
 {
-    Assembler* pThis = NULL;
+    Assembler*  pThis = NULL;
+    SizedString filename;
     
     __try
     {
         pThis = allocateAndZero(sizeof(*pThis));
         commonObjectInit(pThis, pParams);
-        pThis->pTextFile = TextFile_CreateFromFile(pSourceFilename);
-        pThis->pSourceFilename = pSourceFilename;
+        filename = SizedString_InitFromString(pSourceFilename);
+        pThis->pTextFile = TextFile_CreateFromFile(&filename);
     }
     __catch
     {
@@ -411,7 +411,7 @@ static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine)
         __throw(outOfMemoryException);
         
     memset(pLineInfo, 0, sizeof(*pLineInfo));
-    pLineInfo->lineNumber = pThis->pLineInfo->lineNumber + 1;
+    pLineInfo->lineNumber = TextFile_GetLineNumber(pThis->pTextFile);
     pLineInfo->pLineText = pLine;
     pLineInfo->address = pThis->programCounter;
     pLineInfo->instructionSet = pThis->instructionSet;

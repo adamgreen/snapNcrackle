@@ -14,39 +14,31 @@
 #include <stdio.h>
 #include "TextFile.h"
 #include "TextFileTest.h"
+#include "util.h"
 
 struct TextFile
 {
-    char* pFileBuffer;
-    char* pText;
-    char* pCurr;
+    char*        pFileBuffer;
+    char*        pText;
+    char*        pCurr;
+    SizedString  filename;
+    unsigned int lineNumber;
 };
 
 
-__throws static TextFile* allocateObject(void);
 __throws static void initObject(TextFile* pThis, char* pText);
 __throws TextFile* TextFile_CreateFromString(char* pText)
 {
-    TextFile* pThis = NULL;
+    static const char defaultFilename[] = "filename";
+    TextFile*         pThis = NULL;
     
     __try
-        pThis = allocateObject();
+        pThis = allocateAndZero(sizeof(*pThis));
     __catch
         __rethrow;
 
     initObject(pThis, pText);
-    
-    return pThis;
-}
-
-__throws static TextFile* allocateObject(void)
-{
-    TextFile* pThis = NULL;
-    
-    pThis = malloc(sizeof(*pThis));
-    if (!pThis)
-        __throw(outOfMemoryException);
-    memset(pThis, 0, sizeof(*pThis));
+    pThis->filename = SizedString_InitFromString(defaultFilename);
     
     return pThis;
 }
@@ -58,28 +50,27 @@ __throws static void initObject(TextFile* pThis, char* pText)
 }
 
 
+static FILE* openFile(const SizedString* pFilename);
 static long getTextLength(FILE* pFile);
 static long adjustFileSizeToAllowForTrailingNull(long actualFileSize);
 static char* allocateTextBuffer(long textLength);
 static void readFileContentIntoTextBufferAndNullTerminate(char* pTextBuffer, long textBufferSize, FILE* pFile);
-__throws TextFile* TextFile_CreateFromFile(const char* pFilename)
+__throws TextFile* TextFile_CreateFromFile(const SizedString* pFilename)
 {
     FILE*     pFile = NULL;
     long      textLength = -1;
     char*     pTextBuffer = NULL;
     TextFile* pThis = NULL;
     
-    pFile = fopen(pFilename, "r");
-    if (!pFile)
-        __throw(fileNotFoundException);
-
     __try
     {
+        pFile = openFile(pFilename);
         textLength = getTextLength(pFile);
         pTextBuffer = allocateTextBuffer(textLength);
         readFileContentIntoTextBufferAndNullTerminate(pTextBuffer, textLength, pFile);
         pThis = TextFile_CreateFromString(pTextBuffer);
         pThis->pFileBuffer = pTextBuffer;
+        pThis->filename = *pFilename;
     }
     __catch
     {
@@ -90,6 +81,26 @@ __throws TextFile* TextFile_CreateFromFile(const char* pFilename)
     
     fclose(pFile);
     return pThis;
+}
+
+static FILE* openFile(const SizedString* pFilename)
+{
+    FILE* pFile = NULL;
+    
+    __try
+    {
+        char* pNullTerminatedFilename = SizedString_strdup(pFilename);
+        pFile = fopen(pNullTerminatedFilename, "r");
+        free(pNullTerminatedFilename);
+        if (!pFile)
+            __throw(fileNotFoundException);
+    }
+    __catch
+    {
+        __rethrow;
+    }
+    
+    return pFile;
 }
 
 static long getTextLength(FILE* pFile)
@@ -163,6 +174,7 @@ char* TextFile_GetNextLine(TextFile* pThis)
         return NULL;
     
     nullTerminateLineAndAdvanceToNextLine(pThis);
+    pThis->lineNumber++;
     
     return pStartOfLine;
 }
@@ -211,3 +223,12 @@ static char* findStartOfNextLine(char* pEndOfCurrentLine)
     return pEndOfCurrentLine + 1;
 }
 
+unsigned int TextFile_GetLineNumber(TextFile* pThis)
+{
+    return pThis->lineNumber;
+}
+
+SizedString* TextFile_GetFilename(TextFile* pThis)
+{
+    return &pThis->filename;
+}

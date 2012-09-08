@@ -14,14 +14,17 @@
 #define _TEXT_FILE_H_
 
 #include "try_catch.h"
+#include "SizedString.h"
 
 typedef struct TextFile TextFile;
 
 
-__throws TextFile* TextFile_CreateFromString(char* pText);
-__throws TextFile* TextFile_CreateFromFile(const char* pFilename);
-         void      TextFile_Free(TextFile* pThis);
+__throws TextFile*    TextFile_CreateFromString(char* pText);
+__throws TextFile*    TextFile_CreateFromFile(const SizedString* pFilename);
+         void         TextFile_Free(TextFile* pThis);
 
-         char*     TextFile_GetNextLine(TextFile* pThis);
+         char*        TextFile_GetNextLine(TextFile* pThis);
+         unsigned int TextFile_GetLineNumber(TextFile* pThis);
+         SizedString* TextFile_GetFilename(TextFile* pThis);
 
 #endif /* _TEXT_FILE_H_ */

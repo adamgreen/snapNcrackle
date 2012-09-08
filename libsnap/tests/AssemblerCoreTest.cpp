@@ -61,7 +61,7 @@ TEST(AssemblerCore, InitFromNonExistantFile)
 
 TEST(AssemblerCore, FailAllAllocationsDuringFileInit)
 {
-    static const int allocationsToFail = 13;
+    static const int allocationsToFail = 14;
     createSourceFile(" ORG $800\r\n");
 
     for (int i = 1 ; i <= allocationsToFail ; i++)

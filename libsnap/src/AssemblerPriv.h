@@ -52,7 +52,6 @@ typedef struct OpCodeEntry
 
 struct Assembler
 {
-    const char*             pSourceFilename;
     TextFile*               pTextFile;
     SymbolTable*            pSymbols;
     ListFile*               pListFile;
@@ -74,8 +73,9 @@ struct Assembler
 
 
 #define LOG_ERROR(pASSEMBLER, FORMAT, ...) fprintf(stderr, \
-                                       "%s:%d: error: " FORMAT LINE_ENDING, \
-                                       pASSEMBLER->pSourceFilename, \
+                                       "%.*s:%d: error: " FORMAT LINE_ENDING, \
+                                       TextFile_GetFilename(pASSEMBLER->pTextFile)->stringLength, \
+                                       TextFile_GetFilename(pASSEMBLER->pTextFile)->pString, \
                                        pASSEMBLER->pLineInfo->lineNumber, \
                                        __VA_ARGS__), pASSEMBLER->errorCount++
 
