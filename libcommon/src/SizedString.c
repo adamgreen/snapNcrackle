@@ -13,6 +13,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "SizedString.h"
+#include "SizedStringTest.h"
 
 
 SizedString SizedString_Init(const char* pString, size_t stringLength)
@@ -119,6 +120,19 @@ int SizedString_Compare(const SizedString* pString1, const SizedString* pString2
 size_t SizedString_strlen(const SizedString* pString)
 {
     return pString->stringLength;
+}
+
+
+__throws char* SizedString_strdup(const SizedString* pStringToCopy)
+{
+    char* pCopiedString;
+    
+    pCopiedString = malloc(pStringToCopy->stringLength + 1);
+    if (!pCopiedString)
+        __throw(outOfMemoryException);
+    memcpy(pCopiedString, pStringToCopy->pString, pStringToCopy->stringLength + 1);
+    
+    return pCopiedString;
 }
 
 

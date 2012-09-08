@@ -16,6 +16,7 @@ extern "C"
 {
     #include "SizedString.h"
     #include "try_catch.h"
+    #include "MallocFailureInject.h"
 }
 
 // Include C++ headers for test harness.
@@ -26,6 +27,7 @@ TEST_GROUP(SizedString)
 {
     const char* m_pExpectedString;
     const char* m_pExpectedContent;
+    char*       m_pDupeString;
     size_t      m_expectedStringLength;
     SizedString m_sizedString;
     SizedString m_bufferString;
@@ -35,10 +37,13 @@ TEST_GROUP(SizedString)
     {
         clearExceptionCode();
         memset(&m_sizedString, 0xff, sizeof(m_sizedString));
+        m_pDupeString = NULL;
     }
 
     void teardown()
     {
+        MallocFailureInject_Restore();
+        free(m_pDupeString);
         POINTERS_EQUAL(m_pExpectedString, m_sizedString.pString);
         LONGS_EQUAL(m_expectedStringLength, m_sizedString.stringLength);
         LONGS_EQUAL(noException, getExceptionCode());
@@ -229,6 +234,31 @@ TEST(SizedString, CompareFailMatchDueToSizedStringBeingTooShort)
 {
     testSizedStringInit("Test string", 4);
     LONGS_EQUAL(strcmp("Test", "Test string"), SizedString_Compare(&m_sizedString, toSizedString("Test string")));
+}
+
+TEST(SizedString, strdupEmptyString)
+{
+    testSizedStringInit("");
+    m_pDupeString = SizedString_strdup(&m_sizedString);
+    STRCMP_EQUAL(m_pDupeString, "");
+}
+
+TEST(SizedString, strdupShortString)
+{
+    testSizedStringInit("Test string");
+    m_pDupeString = SizedString_strdup(&m_sizedString);
+    STRCMP_EQUAL(m_pDupeString, "Test string");
+}
+
+TEST(SizedString, FailAllocationDuringStrdup)
+{
+    testSizedStringInit("");
+    MallocFailureInject_FailAllocation(1);
+        __try_and_catch( m_pDupeString = SizedString_strdup(&m_sizedString) );
+    MallocFailureInject_Restore();
+    POINTERS_EQUAL(NULL, m_pDupeString);
+    LONGS_EQUAL(outOfMemoryException, getExceptionCode());
+    clearExceptionCode();
 }
 
 TEST(SizedString, splitStringAroundComma)

@@ -13,6 +13,9 @@
 #ifndef _SIZED_STRING_H_
 #define _SIZED_STRING_H_
 
+#include "try_catch.h"
+
+
 typedef struct SizedString
 {
     const char* pString;
@@ -23,12 +26,13 @@ typedef struct SizedString
 SizedString SizedString_Init(const char* pString, size_t stringLength);
 SizedString SizedString_InitFromString(const char* pString);
 
-const char* SizedString_strchr(const SizedString* pString, char searchChar);
-int         SizedString_strcmp(const SizedString* pString, const char* pSearchString);
-int         SizedString_strcasecmp(const SizedString* pString, const char* pSearchString);
-int         SizedString_Compare(const SizedString* pString1, const SizedString* pString2);
-void        SizedString_SplitString(const SizedString* pInput, char splitAtChar, SizedString* pBefore, SizedString* pAfter);
-size_t      SizedString_strlen(const SizedString* pString);
+const char*    SizedString_strchr(const SizedString* pString, char searchChar);
+int            SizedString_strcmp(const SizedString* pString, const char* pSearchString);
+int            SizedString_strcasecmp(const SizedString* pString, const char* pSearchString);
+int            SizedString_Compare(const SizedString* pString1, const SizedString* pString2);
+void           SizedString_SplitString(const SizedString* pInput, char splitAtChar, SizedString* pBefore, SizedString* pAfter);
+size_t         SizedString_strlen(const SizedString* pString);
+__throws char* SizedString_strdup(const SizedString* pString);
 
 void        SizedString_EnumStart(const SizedString* pString, const char** ppEnumerator);
 char        SizedString_EnumCurr(const SizedString* pString, const char* pEnumerator);
