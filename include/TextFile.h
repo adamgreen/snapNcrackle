@@ -20,11 +20,11 @@ typedef struct TextFile TextFile;
 
 
 __throws TextFile*    TextFile_CreateFromString(char* pText);
-__throws TextFile*    TextFile_CreateFromFile(const SizedString* pFilename);
+__throws TextFile*    TextFile_CreateFromFile(const char* pFilename, const char* pFilenameSuffix);
          void         TextFile_Free(TextFile* pThis);
 
          char*        TextFile_GetNextLine(TextFile* pThis);
          unsigned int TextFile_GetLineNumber(TextFile* pThis);
-         SizedString* TextFile_GetFilename(TextFile* pThis);
+         const char*  TextFile_GetFilename(TextFile* pThis);
 
 #endif /* _TEXT_FILE_H_ */

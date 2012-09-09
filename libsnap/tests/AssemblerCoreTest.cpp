@@ -23,7 +23,7 @@ TEST_GROUP_BASE(AssemblerCore, AssemblerBase)
 
 TEST(AssemblerCore, FailAllInitAllocations)
 {
-    static const int allocationsToFail = 12;
+    static const int allocationsToFail = 13;
     AssemblerInitParams params;
     params.pListFilename = g_listFilename;
     for (int i = 1 ; i <= allocationsToFail ; i++)

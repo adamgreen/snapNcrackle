@@ -222,14 +222,12 @@ static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned s
 __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, AssemblerInitParams* pParams)
 {
     Assembler*  pThis = NULL;
-    SizedString filename;
     
     __try
     {
         pThis = allocateAndZero(sizeof(*pThis));
         commonObjectInit(pThis, pParams);
-        filename = SizedString_InitFromString(pSourceFilename);
-        pThis->pTextFile = TextFile_CreateFromFile(&filename);
+        pThis->pTextFile = TextFile_CreateFromFile(pSourceFilename, NULL);
     }
     __catch
     {

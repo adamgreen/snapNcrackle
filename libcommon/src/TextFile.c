@@ -21,24 +21,29 @@ struct TextFile
     char*        pFileBuffer;
     char*        pText;
     char*        pCurr;
-    SizedString  filename;
+    char*        pFilename;
     unsigned int lineNumber;
 };
 
 
 __throws static void initObject(TextFile* pThis, char* pText);
+__throws static char* allocateStringAndCopyMergedFilename(const char* pFilename, const char* pFilenameSuffix);
 __throws TextFile* TextFile_CreateFromString(char* pText)
 {
     static const char defaultFilename[] = "filename";
     TextFile*         pThis = NULL;
     
     __try
+    {
         pThis = allocateAndZero(sizeof(*pThis));
+        initObject(pThis, pText);
+        pThis->pFilename = allocateStringAndCopyMergedFilename(defaultFilename, NULL);
+    }
     __catch
+    {
+        TextFile_Free(pThis);
         __rethrow;
-
-    initObject(pThis, pText);
-    pThis->filename = SizedString_InitFromString(defaultFilename);
+    }
     
     return pThis;
 }
@@ -49,32 +54,47 @@ __throws static void initObject(TextFile* pThis, char* pText)
     pThis->pCurr = pText;
 }
 
+__throws static char* allocateStringAndCopyMergedFilename(const char* pFilename, const char* pFilenameSuffix)
+{
+    size_t filenameLength = strlen(pFilename);
+    size_t suffixLength = pFilenameSuffix ? strlen(pFilenameSuffix) : 0;
+    size_t fullFilenameLength = filenameLength + suffixLength + 1;
+    char*  pFullFilename = malloc(fullFilenameLength);
+    if (!pFullFilename)
+        __throw(outOfMemoryException);
 
-static FILE* openFile(const SizedString* pFilename);
+    memcpy(pFullFilename, pFilename, filenameLength);
+    memcpy(pFullFilename + filenameLength, pFilenameSuffix, suffixLength);
+    pFullFilename[fullFilenameLength - 1] = '\0';
+    
+    return pFullFilename;
+}
+
+
+static FILE* openFile(const char* pFilename);
 static long getTextLength(FILE* pFile);
 static long adjustFileSizeToAllowForTrailingNull(long actualFileSize);
 static char* allocateTextBuffer(long textLength);
 static void readFileContentIntoTextBufferAndNullTerminate(char* pTextBuffer, long textBufferSize, FILE* pFile);
-__throws TextFile* TextFile_CreateFromFile(const SizedString* pFilename)
+__throws TextFile* TextFile_CreateFromFile(const char* pFilename, const char* pFilenameSuffix)
 {
     FILE*     pFile = NULL;
     long      textLength = -1;
-    char*     pTextBuffer = NULL;
     TextFile* pThis = NULL;
     
     __try
     {
-        pFile = openFile(pFilename);
+        pThis = allocateAndZero(sizeof(*pThis));
+        pThis->pFilename = allocateStringAndCopyMergedFilename(pFilename, pFilenameSuffix);
+        pFile = openFile(pThis->pFilename);
         textLength = getTextLength(pFile);
-        pTextBuffer = allocateTextBuffer(textLength);
-        readFileContentIntoTextBufferAndNullTerminate(pTextBuffer, textLength, pFile);
-        pThis = TextFile_CreateFromString(pTextBuffer);
-        pThis->pFileBuffer = pTextBuffer;
-        pThis->filename = *pFilename;
+        pThis->pFileBuffer = allocateTextBuffer(textLength);
+        readFileContentIntoTextBufferAndNullTerminate(pThis->pFileBuffer, textLength, pFile);
+        initObject(pThis, pThis->pFileBuffer);
     }
     __catch
     {
-        free(pTextBuffer);
+        TextFile_Free(pThis);
         fclose(pFile);
         __rethrow;
     }
@@ -83,23 +103,13 @@ __throws TextFile* TextFile_CreateFromFile(const SizedString* pFilename)
     return pThis;
 }
 
-static FILE* openFile(const SizedString* pFilename)
+static FILE* openFile(const char* pFilename)
 {
     FILE* pFile = NULL;
     
-    __try
-    {
-        char* pNullTerminatedFilename = SizedString_strdup(pFilename);
-        pFile = fopen(pNullTerminatedFilename, "r");
-        free(pNullTerminatedFilename);
-        if (!pFile)
-            __throw(fileNotFoundException);
-    }
-    __catch
-    {
-        __rethrow;
-    }
-    
+    pFile = fopen(pFilename, "r");
+    if (!pFile)
+        __throw(fileNotFoundException);
     return pFile;
 }
 
@@ -158,6 +168,7 @@ void TextFile_Free(TextFile* pThis)
         return;
     
     free(pThis->pFileBuffer);
+    free(pThis->pFilename);
     free(pThis);
 }
 
@@ -228,7 +239,7 @@ unsigned int TextFile_GetLineNumber(TextFile* pThis)
     return pThis->lineNumber;
 }
 
-SizedString* TextFile_GetFilename(TextFile* pThis)
+const char* TextFile_GetFilename(TextFile* pThis)
 {
-    return &pThis->filename;
+    return pThis->pFilename;
 }

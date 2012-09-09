@@ -73,9 +73,8 @@ struct Assembler
 
 
 #define LOG_ERROR(pASSEMBLER, FORMAT, ...) fprintf(stderr, \
-                                       "%.*s:%d: error: " FORMAT LINE_ENDING, \
-                                       TextFile_GetFilename(pASSEMBLER->pTextFile)->stringLength, \
-                                       TextFile_GetFilename(pASSEMBLER->pTextFile)->pString, \
+                                       "%s:%d: error: " FORMAT LINE_ENDING, \
+                                       TextFile_GetFilename(pASSEMBLER->pTextFile), \
                                        pASSEMBLER->pLineInfo->lineNumber, \
                                        __VA_ARGS__), pASSEMBLER->errorCount++
 

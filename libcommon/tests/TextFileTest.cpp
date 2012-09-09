@@ -28,7 +28,6 @@ static const char* tempFilename = "TestFileTestCppBogusContent.S";
 TEST_GROUP(TextFile)
 {
     TextFile*   m_pTextFile;
-    SizedString m_tempFilename;
     char        m_buffer[128];
     
     void setup()
@@ -36,7 +35,6 @@ TEST_GROUP(TextFile)
         clearExceptionCode();
         m_pTextFile = NULL;
         m_buffer[0] = '\0';
-        m_tempFilename = SizedString_InitFromString(tempFilename);
     }
 
     void teardown()
@@ -86,7 +84,7 @@ TEST_GROUP(TextFile)
 
 TEST(TextFile, FailAllInitAllocation)
 {
-    static const int allocationsToFail = 1;
+    static const int allocationsToFail = 2;
 
     for (int i = 1 ; i <= allocationsToFail ; i++)
     {
@@ -164,7 +162,16 @@ TEST(TextFile, GetLine2LinesWithCarriageReturnAndNewLineButEOFAtEndOfSecondLine)
 TEST(TextFile, CreateFromFile)
 {
     createTestFile(" \n\r \n");
-    m_pTextFile = TextFile_CreateFromFile(&m_tempFilename);
+    m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL);
+    fetchAndValidateLineWithSingleSpace();
+    fetchAndValidateLineWithSingleSpace();
+    validateEndOfFileForNextLine();
+}
+
+TEST(TextFile, CreateFromFileWithSuffix)
+{
+    createTestFile(" \n\r \n");
+    m_pTextFile = TextFile_CreateFromFile("TestFileTestCppBogusContent", ".S");
     fetchAndValidateLineWithSingleSpace();
     fetchAndValidateLineWithSingleSpace();
     validateEndOfFileForNextLine();
@@ -178,13 +185,13 @@ TEST(TextFile, FailAllCreateFromFileAllocations)
     for (int i = 1 ; i <= allocationsToFail ; i++)
     {
         MallocFailureInject_FailAllocation(i);
-            __try_and_catch( m_pTextFile = TextFile_CreateFromFile(&m_tempFilename) );
+            __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL) );
         POINTERS_EQUAL(NULL, m_pTextFile);
         validateExceptionThrown(outOfMemoryException);
     }
 
     MallocFailureInject_FailAllocation(allocationsToFail + 1);
-    m_pTextFile = TextFile_CreateFromFile(&m_tempFilename);
+    m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL);
     CHECK_TRUE(m_pTextFile != NULL);
 }
 
@@ -192,7 +199,7 @@ TEST(TextFile, FailFOpen)
 {
     createTestFile("\n\r");
     fopenFail(NULL);
-    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(&m_tempFilename) );
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL) );
     fopenRestore();
 
     POINTERS_EQUAL(NULL, m_pTextFile);
@@ -205,7 +212,7 @@ TEST(TextFile, FailFSeekToEOF)
     createTestFile("\n\r");
     fseekSetFailureCode(-1);
     fseekSetCallsBeforeFailure(0);
-    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(&m_tempFilename) );
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL) );
     fseekRestore();
     validateExceptionThrown(fileException);
 }
@@ -215,7 +222,7 @@ TEST(TextFile, FailFSeekBackToStart)
     createTestFile("\n\r");
     fseekSetFailureCode(-1);
     fseekSetCallsBeforeFailure(1);
-    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(&m_tempFilename) );
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL) );
     fseekRestore();
     validateExceptionThrown(fileException);
 }
@@ -224,7 +231,7 @@ TEST(TextFile, FailFTell)
 {
     createTestFile("\n\r");
     ftellFail(-1);
-    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(&m_tempFilename) );
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL) );
     ftellRestore();
     validateExceptionThrown(fileException);
 }
@@ -233,7 +240,7 @@ TEST(TextFile, FailFRead)
 {
     createTestFile("\n\r");
     freadFail(0);
-    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(&m_tempFilename) );
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL) );
     freadRestore();
     validateExceptionThrown(fileException);
 }
@@ -268,12 +275,12 @@ TEST(TextFile, GetLineNumberForFirstTwoLines)
 TEST(TextFile, GetFilenameOnStringBasedTextFileShouldBeFilename)
 {
     m_pTextFile = TextFile_CreateFromString(dupe(""));
-    LONGS_EQUAL(0, SizedString_strcmp(TextFile_GetFilename(m_pTextFile), "filename"));
+    STRCMP_EQUAL(TextFile_GetFilename(m_pTextFile), "filename");
 }
 
 TEST(TextFile, GetFilenameOnFileBasedTextFile)
 {
     createTestFile(" \n\r \n");
-    m_pTextFile = TextFile_CreateFromFile(&m_tempFilename);
-    LONGS_EQUAL(0, SizedString_Compare(TextFile_GetFilename(m_pTextFile), &m_tempFilename));
+    m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL);
+    STRCMP_EQUAL(TextFile_GetFilename(m_pTextFile), tempFilename);
 }
