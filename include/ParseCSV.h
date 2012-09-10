@@ -20,6 +20,7 @@ typedef struct ParseCSV ParseCSV;
 
 
 __throws ParseCSV*    ParseCSV_Create(void);
+__throws ParseCSV*    ParseCSV_CreateWithCustomSeparator(char separator);
          void         ParseCSV_Free(ParseCSV* pThis);
          
 __throws void         ParseCSV_Parse(ParseCSV* pThis, char* pLine);

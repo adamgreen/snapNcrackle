@@ -129,3 +129,10 @@ TEST(ParseCSV, FailAllocationOnParse)
     __try_and_catch( ParseCSV_Parse(m_pParser, copy("a")) );
     validateOutOfMemoryExceptionThrown();
 }
+
+TEST(ParseCSV, ParseTwoTokensWithCustomSeparator)
+{
+    m_pParser = ParseCSV_CreateWithCustomSeparator(';');
+    static const char* ppExpectedFields[] = { "foo", "bar", NULL };
+    parseAndValidate("foo;bar", ARRAYSIZE(ppExpectedFields), ppExpectedFields);
+}

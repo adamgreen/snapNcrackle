@@ -21,12 +21,29 @@ struct ParseCSV
     char**  ppFields;
     size_t  allocatedFieldCount;
     size_t  fieldCount;
+    char    separator;
 };
 
 
 __throws ParseCSV* ParseCSV_Create(void)
 {
-    return allocateAndZero(sizeof(ParseCSV));
+    return ParseCSV_CreateWithCustomSeparator(',');
+}
+
+
+__throws ParseCSV* ParseCSV_CreateWithCustomSeparator(char separator)
+{
+    ParseCSV* pThis = NULL;
+    __try
+    {
+        pThis = allocateAndZero(sizeof(ParseCSV));
+        pThis->separator = separator;
+    }
+    __catch
+    {
+        __rethrow;
+    }
+    return pThis;
 }
 
 
@@ -40,15 +57,15 @@ void ParseCSV_Free(ParseCSV* pThis)
 }
 
 
-static size_t getFieldCount(char* pLine);
-static size_t getCommaCount(char* pLine);
+static size_t getFieldCount(ParseCSV* pThis, char* pLine);
+static size_t getCharCount(char* pLine, char separator);
 static void growFieldArrayIfNecessary(ParseCSV* pThis, size_t fieldCount);
 static size_t fieldArraySizeForFieldsAndNullTerminator(size_t fieldCount);
 static void setupFieldPointers(ParseCSV* pThis);
-static char* findComma(char* pCurr);
+static char* findChar(char* pCurr, char separator);
 __throws void ParseCSV_Parse(ParseCSV* pThis, char* pLine)
 {
-    size_t fieldCount = getFieldCount(pLine);
+    size_t fieldCount = getFieldCount(pThis, pLine);
     __try
         growFieldArrayIfNecessary(pThis, fieldCount);
     __catch
@@ -59,27 +76,27 @@ __throws void ParseCSV_Parse(ParseCSV* pThis, char* pLine)
     setupFieldPointers(pThis);
 }
 
-static size_t getFieldCount(char* pLine)
+static size_t getFieldCount(ParseCSV* pThis, char* pLine)
 {
     if (!pLine)
         return 0;
     if (pLine[0] == '\0')
         return 0;
-    return getCommaCount(pLine) + 1;
+    return getCharCount(pLine, pThis->separator) + 1;
 }
 
-static size_t getCommaCount(char* pLine)
+static size_t getCharCount(char* pLine, char charToCount)
 {
-    size_t commaCount = 0;
+    size_t count = 0;
     
     while (*pLine)
     {
-        if (*pLine == ',')
-            commaCount++;
+        if (*pLine == charToCount)
+            count++;
         pLine++;
     }
     
-    return commaCount;
+    return count;
 }
 
 static void growFieldArrayIfNecessary(ParseCSV* pThis, size_t fieldCount)
@@ -104,7 +121,7 @@ static void setupFieldPointers(ParseCSV* pThis)
 {
     char** ppField = pThis->ppFields;
     char*  pCurr = pThis->pLine;
-    char*  pComma;
+    char*  pSeparator;
     
     if (pThis->pLine == NULL || *pThis->pLine == '\0')
     {
@@ -115,21 +132,21 @@ static void setupFieldPointers(ParseCSV* pThis)
     for (;;)
     {
         *ppField++ = pCurr;
-        pComma = findComma(pCurr);
-        if (*pComma == '\0')
+        pSeparator = findChar(pCurr, pThis->separator);
+        if (*pSeparator == '\0')
             break;
-        *pComma = '\0';
-        pCurr = pComma + 1;
+        *pSeparator = '\0';
+        pCurr = pSeparator + 1;
     }
     
     *ppField = NULL;
 }
 
-static char* findComma(char* pCurr)
+static char* findChar(char* pCurr, char separator)
 {
     while (*pCurr)
     {
-        if (*pCurr == ',')
+        if (*pCurr == separator)
             return pCurr;
         pCurr++;
     }
