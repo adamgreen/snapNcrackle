@@ -22,7 +22,8 @@
 #define TRUE  1
 #define FALSE 0
 
-#define LINE_ENDING "\n"
+#define LINE_ENDING    "\n"
+#define PATH_SEPARATOR '/'
 
 #define LO_BYTE(X) ((X) & 0xFF)
 #define HI_BYTE(X) (((X) >> 8) &0xFF)
@@ -33,6 +34,20 @@ static inline void* allocateAndZero(size_t size)
     if (!pAlloc)
         __throw(outOfMemoryException);
     memset(pAlloc, 0, size);
+    
+    return pAlloc;
+}
+
+static inline void* copyOfString(const char* pString)
+{
+    size_t lengthWithNull;
+    void*  pAlloc;
+
+    lengthWithNull = strlen(pString) + 1;
+    pAlloc = malloc(lengthWithNull);
+    if (!pAlloc)
+        __throw(outOfMemoryException);
+    memcpy(pAlloc, pString, lengthWithNull);
     
     return pAlloc;
 }

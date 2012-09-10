@@ -23,19 +23,19 @@ TEST_GROUP_BASE(AssemblerCore, AssemblerBase)
 
 TEST(AssemblerCore, FailAllInitAllocations)
 {
-    static const int allocationsToFail = 13;
-    AssemblerInitParams params;
-    params.pListFilename = g_listFilename;
+    static const int allocationsToFail = 16;
+    m_initParams.pListFilename = g_listFilename;
+    m_initParams.pPutDirectories = ".";
     for (int i = 1 ; i <= allocationsToFail ; i++)
     {
         MallocFailureInject_FailAllocation(i);
-        __try_and_catch( m_pAssembler = Assembler_CreateFromString(dupe(""), &params) );
+        __try_and_catch( m_pAssembler = Assembler_CreateFromString(dupe(""), &m_initParams) );
         POINTERS_EQUAL(NULL, m_pAssembler);
         validateOutOfMemoryExceptionThrown();
     }
 
     MallocFailureInject_FailAllocation(allocationsToFail + 1);
-    m_pAssembler = Assembler_CreateFromString(dupe(""), &params);
+    m_pAssembler = Assembler_CreateFromString(dupe(""), &m_initParams);
     CHECK_TRUE(m_pAssembler != NULL);
 }
 
@@ -61,19 +61,21 @@ TEST(AssemblerCore, InitFromNonExistantFile)
 
 TEST(AssemblerCore, FailAllAllocationsDuringFileInit)
 {
-    static const int allocationsToFail = 14;
+    static const int allocationsToFail = 17;
     createSourceFile(" ORG $800\r\n");
+    m_initParams.pListFilename = g_listFilename;
+    m_initParams.pPutDirectories = ".";
 
     for (int i = 1 ; i <= allocationsToFail ; i++)
     {
         MallocFailureInject_FailAllocation(i);
-        __try_and_catch( m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, NULL) );
+        __try_and_catch( m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, &m_initParams) );
         POINTERS_EQUAL(NULL, m_pAssembler);
         validateOutOfMemoryExceptionThrown();
     }
 
     MallocFailureInject_FailAllocation(allocationsToFail + 1);
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, NULL);
+    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, &m_initParams);
     CHECK_TRUE(m_pAssembler != NULL);
 }
 
@@ -91,11 +93,10 @@ TEST(AssemblerCore, InitAndCreateActualListFileNotSentToStdOut)
 {
     static const char expectedListOutput[] = "    :    =0001     1 SYM1 EQU $1\n";
     createSourceFile("SYM1 EQU $1\n");
-    AssemblerInitParams params;
-    params.pListFilename = g_listFilename;
+    m_initParams.pListFilename = g_listFilename;
 
     printfSpy_Unhook();
-    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, &params);
+    m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, &m_initParams);
     Assembler_Run(m_pAssembler);
     Assembler_Free(m_pAssembler);
     m_pAssembler = NULL;
@@ -105,10 +106,9 @@ TEST(AssemblerCore, InitAndCreateActualListFileNotSentToStdOut)
 
 TEST(AssemblerCore, FailAttemptToOpenListFile)
 {
-    AssemblerInitParams params;
-    params.pListFilename = g_listFilename;
+    m_initParams.pListFilename = g_listFilename;
     fopenFail(NULL);
-        __try_and_catch( m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, &params) );
+        __try_and_catch( m_pAssembler = Assembler_CreateFromString(dupe("* Comment line."), &m_initParams) );
     fopenRestore();
     LONGS_EQUAL(NULL, m_pAssembler);
     validateFileNotFoundExceptionThrown();

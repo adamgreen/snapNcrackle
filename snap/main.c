@@ -21,13 +21,11 @@ int main(int argc, const char** argv)
     int                 returnValue = 0;
     Assembler*          pAssembler = NULL;
     SnapCommandLine     commandLine;
-    AssemblerInitParams params;
 
     __try
     {
         SnapCommandLine_Init(&commandLine, argc-1, argv+1);
-        params.pListFilename = commandLine.pListFilename;
-        pAssembler = Assembler_CreateFromFile(commandLine.pSourceFilename, &params);
+        pAssembler = Assembler_CreateFromFile(commandLine.pSourceFilename, &commandLine.assemblerInitParams);
         Assembler_Run(pAssembler);
         displayErrorCountIfAnyWereEncountered(pAssembler);
     }

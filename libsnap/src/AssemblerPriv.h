@@ -22,6 +22,7 @@
 #include "ListFile.h"
 #include "SizedString.h"
 #include "BinaryBuffer.h"
+#include "ParseCSV.h"
 #include "util.h"
 
 
@@ -59,25 +60,28 @@ typedef struct TextFileNode
 
 struct Assembler
 {
-    TextFile*               pTextFile;
-    TextFile*               pMainFile;
-    TextFileNode*           pIncludedFiles;
-    SymbolTable*            pSymbols;
-    ListFile*               pListFile;
-    FILE*                   pFileForListing;
-    LineInfo*               pLineInfo;
-    SizedString             globalLabel;
-    BinaryBuffer*           pObjectBuffer;
-    BinaryBuffer*           pDummyBuffer;
-    BinaryBuffer*           pCurrentBuffer;
-    OpCodeEntry*            instructionSets[INSTRUCTION_SET_INVALID];
-    size_t                  instructionSetSizes[INSTRUCTION_SET_INVALID];
-    ParsedLine              parsedLine;
-    LineInfo                linesHead;
-    InstructionSetSupported instructionSet;
-    unsigned int            errorCount;
-    unsigned short          programCounter;
-    unsigned short          programCounterBeforeDUM;
+    TextFile*                  pTextFile;
+    TextFile*                  pMainFile;
+    TextFileNode*              pIncludedFiles;
+    SymbolTable*               pSymbols;
+    const AssemblerInitParams* pInitParams;
+    ListFile*                  pListFile;
+    FILE*                      pFileForListing;
+    char*                      pPutDirectories;
+    ParseCSV*                  pPutSearchPath;
+    LineInfo*                  pLineInfo;
+    SizedString                globalLabel;
+    BinaryBuffer*              pObjectBuffer;
+    BinaryBuffer*              pDummyBuffer;
+    BinaryBuffer*              pCurrentBuffer;
+    OpCodeEntry*               instructionSets[INSTRUCTION_SET_INVALID];
+    size_t                     instructionSetSizes[INSTRUCTION_SET_INVALID];
+    ParsedLine                 parsedLine;
+    LineInfo                   linesHead;
+    InstructionSetSupported    instructionSet;
+    unsigned int               errorCount;
+    unsigned short             programCounter;
+    unsigned short             programCounterBeforeDUM;
 };
 
 

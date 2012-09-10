@@ -162,7 +162,7 @@ TEST(TextFile, GetLine2LinesWithCarriageReturnAndNewLineButEOFAtEndOfSecondLine)
 TEST(TextFile, CreateFromFile)
 {
     createTestFile(" \n\r \n");
-    m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL);
+    m_pTextFile = TextFile_CreateFromFile(NULL, tempFilename, NULL);
     fetchAndValidateLineWithSingleSpace();
     fetchAndValidateLineWithSingleSpace();
     validateEndOfFileForNextLine();
@@ -171,7 +171,25 @@ TEST(TextFile, CreateFromFile)
 TEST(TextFile, CreateFromFileWithSuffix)
 {
     createTestFile(" \n\r \n");
-    m_pTextFile = TextFile_CreateFromFile("TestFileTestCppBogusContent", ".S");
+    m_pTextFile = TextFile_CreateFromFile(NULL, "TestFileTestCppBogusContent", ".S");
+    fetchAndValidateLineWithSingleSpace();
+    fetchAndValidateLineWithSingleSpace();
+    validateEndOfFileForNextLine();
+}
+
+TEST(TextFile, CreateFromFileWithSuffixAndDirectoryNoSlash)
+{
+    createTestFile(" \n\r \n");
+    m_pTextFile = TextFile_CreateFromFile(".", "TestFileTestCppBogusContent", ".S");
+    fetchAndValidateLineWithSingleSpace();
+    fetchAndValidateLineWithSingleSpace();
+    validateEndOfFileForNextLine();
+}
+
+TEST(TextFile, CreateFromFileWithSuffixAndDirectorySlash)
+{
+    createTestFile(" \n\r \n");
+    m_pTextFile = TextFile_CreateFromFile("./", "TestFileTestCppBogusContent", ".S");
     fetchAndValidateLineWithSingleSpace();
     fetchAndValidateLineWithSingleSpace();
     validateEndOfFileForNextLine();
@@ -185,21 +203,31 @@ TEST(TextFile, FailAllCreateFromFileAllocations)
     for (int i = 1 ; i <= allocationsToFail ; i++)
     {
         MallocFailureInject_FailAllocation(i);
-            __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL) );
+            __try_and_catch( m_pTextFile = TextFile_CreateFromFile(NULL, tempFilename, NULL) );
         POINTERS_EQUAL(NULL, m_pTextFile);
         validateExceptionThrown(outOfMemoryException);
     }
 
     MallocFailureInject_FailAllocation(allocationsToFail + 1);
-    m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL);
+    m_pTextFile = TextFile_CreateFromFile(NULL, tempFilename, NULL);
     CHECK_TRUE(m_pTextFile != NULL);
+}
+
+TEST(TextFile, FailWithBadDirectory)
+{
+    createTestFile("\n\r");
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile("foo.bar", tempFilename, NULL) );
+
+    POINTERS_EQUAL(NULL, m_pTextFile);
+    LONGS_EQUAL(fileNotFoundException, getExceptionCode());
+    clearExceptionCode();
 }
 
 TEST(TextFile, FailFOpen)
 {
     createTestFile("\n\r");
     fopenFail(NULL);
-    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL) );
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(NULL, tempFilename, NULL) );
     fopenRestore();
 
     POINTERS_EQUAL(NULL, m_pTextFile);
@@ -212,7 +240,7 @@ TEST(TextFile, FailFSeekToEOF)
     createTestFile("\n\r");
     fseekSetFailureCode(-1);
     fseekSetCallsBeforeFailure(0);
-    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL) );
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(NULL, tempFilename, NULL) );
     fseekRestore();
     validateExceptionThrown(fileException);
 }
@@ -222,7 +250,7 @@ TEST(TextFile, FailFSeekBackToStart)
     createTestFile("\n\r");
     fseekSetFailureCode(-1);
     fseekSetCallsBeforeFailure(1);
-    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL) );
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(NULL, tempFilename, NULL) );
     fseekRestore();
     validateExceptionThrown(fileException);
 }
@@ -231,7 +259,7 @@ TEST(TextFile, FailFTell)
 {
     createTestFile("\n\r");
     ftellFail(-1);
-    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL) );
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(NULL, tempFilename, NULL) );
     ftellRestore();
     validateExceptionThrown(fileException);
 }
@@ -240,7 +268,7 @@ TEST(TextFile, FailFRead)
 {
     createTestFile("\n\r");
     freadFail(0);
-    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL) );
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(NULL, tempFilename, NULL) );
     freadRestore();
     validateExceptionThrown(fileException);
 }
@@ -281,6 +309,6 @@ TEST(TextFile, GetFilenameOnStringBasedTextFileShouldBeFilename)
 TEST(TextFile, GetFilenameOnFileBasedTextFile)
 {
     createTestFile(" \n\r \n");
-    m_pTextFile = TextFile_CreateFromFile(tempFilename, NULL);
+    m_pTextFile = TextFile_CreateFromFile(NULL, tempFilename, NULL);
     STRCMP_EQUAL(TextFile_GetFilename(m_pTextFile), tempFilename);
 }

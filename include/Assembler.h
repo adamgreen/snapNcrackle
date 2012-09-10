@@ -19,13 +19,15 @@
 typedef struct AssemblerInitParams
 {
     const char* pListFilename;
+    const char* pPutDirectories;
+    const char* pOutputDirectory;
 } AssemblerInitParams;
 
 typedef struct Assembler Assembler;
 
 
-__throws Assembler* Assembler_CreateFromString(char* pText, AssemblerInitParams* pParams);
-__throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, AssemblerInitParams* pParams);
+__throws Assembler* Assembler_CreateFromString(char* pText, const AssemblerInitParams* pParams);
+__throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, const AssemblerInitParams* pParams);
          void       Assembler_Free(Assembler* pThis);
 
          void       Assembler_Run(Assembler* pThis);

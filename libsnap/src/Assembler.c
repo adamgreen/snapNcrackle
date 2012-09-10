@@ -19,9 +19,10 @@
 #include "InstructionSets.h"
 
 
-static void commonObjectInit(Assembler* pThis, AssemblerInitParams* pParams);
-static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, AssemblerInitParams* pParams);
-static void createFullInstructionSetTables(Assembler* pThis);
+static void commonObjectInit(Assembler* pThis, const AssemblerInitParams* pParams);
+static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, const AssemblerInitParams* pParams);
+static void createParseObjectForPutSearchPath(Assembler* ptThis, const AssemblerInitParams* pParams);
+static void createFullInstructionSetTables(Assembler* pThis); 
 static void create6502InstructionSetTable(Assembler* pThis);
 static int compareInstructionSetEntries(const void* pv1, const void* pv2);
 static void create65c02InstructionSetTable(Assembler* pThis);
@@ -32,17 +33,15 @@ static void updateExistingInstructions(OpCodeEntry* pBaseSet, size_t baseSetLeng
                                        const OpCodeEntry* pAddSet,  size_t addSetLength);
 static void updateInstructionEntry(OpCodeEntry* pEntryToUpdate, const OpCodeEntry* pAdditionalEntry);
 static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned short orgAddress);
-__throws Assembler* Assembler_CreateFromString(char* pText, AssemblerInitParams* pParams)
+__throws Assembler* Assembler_CreateFromString(char* pText, const AssemblerInitParams* pParams)
 {
     Assembler* pThis = NULL;
     
     __try
     {
         pThis = allocateAndZero(sizeof(*pThis));
+        pThis->pMainFile = TextFile_CreateFromString(pText);
         commonObjectInit(pThis, pParams);
-        pThis->pTextFile = TextFile_CreateFromString(pText);
-        pThis->pMainFile = pThis->pTextFile;
-        pThis->linesHead.pTextFile = pThis->pTextFile;
     }
     __catch
     {
@@ -53,9 +52,8 @@ __throws Assembler* Assembler_CreateFromString(char* pText, AssemblerInitParams*
     return pThis;
 }
 
-static void commonObjectInit(Assembler* pThis, AssemblerInitParams* pParams)
+static void commonObjectInit(Assembler* pThis, const AssemblerInitParams* pParams)
 {
-    memset(pThis, 0, sizeof(*pThis));
     __try
     {
         FILE* pListFile = createListFileOrRedirectToStdOut(pThis, pParams);
@@ -63,7 +61,11 @@ static void commonObjectInit(Assembler* pThis, AssemblerInitParams* pParams)
         pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
         pThis->pObjectBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
         pThis->pDummyBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
+        createParseObjectForPutSearchPath(pThis, pParams);
         createFullInstructionSetTables(pThis);
+        pThis->pInitParams = pParams;
+        pThis->pTextFile = pThis->pMainFile;
+        pThis->linesHead.pTextFile = pThis->pMainFile;
         pThis->pLineInfo = &pThis->linesHead;
         pThis->pCurrentBuffer = pThis->pObjectBuffer;
         setOrgInAssemblerAndBinaryBufferModules(pThis, 0x8000);
@@ -74,7 +76,7 @@ static void commonObjectInit(Assembler* pThis, AssemblerInitParams* pParams)
     }
 }
 
-static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, AssemblerInitParams* pParams)
+static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, const AssemblerInitParams* pParams)
 {
     if (!pParams || !pParams->pListFilename)
         return stdout;
@@ -83,6 +85,31 @@ static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, AssemblerInitPar
     if (!pThis->pFileForListing)
         __throw(fileNotFoundException);
     return pThis->pFileForListing;
+}
+
+static void createParseObjectForPutSearchPath(Assembler* pThis, const AssemblerInitParams* pParams)
+{
+    ParseCSV* pParser = NULL;
+    char*     pPutDirectories = NULL;
+    
+    if (!pParams || !pParams->pPutDirectories)
+        return;
+    
+    __try
+    {
+        pPutDirectories = copyOfString(pParams->pPutDirectories);
+        pParser = ParseCSV_CreateWithCustomSeparator(';');
+        ParseCSV_Parse(pParser, pPutDirectories);
+    }
+    __catch
+    {
+        free(pPutDirectories);
+        ParseCSV_Free(pParser);
+        __rethrow;
+    }
+    
+    pThis->pPutDirectories = pPutDirectories;
+    pThis->pPutSearchPath = pParser;
 }
 
 static void createFullInstructionSetTables(Assembler* pThis)
@@ -221,17 +248,15 @@ static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned s
 }
 
 
-__throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, AssemblerInitParams* pParams)
+__throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, const AssemblerInitParams* pParams)
 {
     Assembler*  pThis = NULL;
     
     __try
     {
         pThis = allocateAndZero(sizeof(*pThis));
+        pThis->pMainFile = TextFile_CreateFromFile(NULL, pSourceFilename, NULL);
         commonObjectInit(pThis, pParams);
-        pThis->pTextFile = TextFile_CreateFromFile(pSourceFilename, NULL);
-        pThis->pMainFile = pThis->pTextFile;
-        pThis->linesHead.pTextFile = pThis->pTextFile;
     }
     __catch
     {
@@ -254,6 +279,8 @@ void Assembler_Free(Assembler* pThis)
     freeLines(pThis);
     freeInstructionSets(pThis);
     freeIncludedTextFiles(pThis);
+    ParseCSV_Free(pThis->pPutSearchPath);
+    free(pThis->pPutDirectories);
     ListFile_Free(pThis->pListFile);
     BinaryBuffer_Free(pThis->pDummyBuffer);
     BinaryBuffer_Free(pThis->pObjectBuffer);
@@ -375,6 +402,7 @@ static unsigned char getNextHexByte(SizedString* pString, const char** ppCurr);
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
 static void rememberIncludedTextFile(Assembler* pThis, TextFile* pTextFile);
+static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const char* pFilename);
 static void checkForUndefinedSymbols(Assembler* pThis);
 static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol* pSymbol);
 static void secondPass(Assembler* pThis);
@@ -1358,7 +1386,7 @@ static void handlePUT(Assembler* pThis)
     {
         validateOperandWasProvided(pThis);
         pFilename = fullOperandStringWithSpaces(pThis);
-        pIncludedFile = TextFile_CreateFromFile(pFilename, ".S");
+        pIncludedFile = openPutFileUsingSearchPath(pThis, pFilename);
         rememberIncludedTextFile(pThis, pIncludedFile);
         pThis->pTextFile = pIncludedFile;
         pIncludedFile = NULL;
@@ -1369,6 +1397,34 @@ static void handlePUT(Assembler* pThis)
         LOG_ERROR(pThis, "Failed to PUT '%s.S' source file.", pFilename);
         __nothrow;
     }
+}
+
+static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const char* pFilename)
+{
+    size_t       fieldCount;
+    const char** ppFields;
+    size_t       i;
+    
+    if (!pThis->pPutSearchPath)
+        return TextFile_CreateFromFile(NULL, pFilename, ".S");
+        
+    fieldCount = ParseCSV_FieldCount(pThis->pPutSearchPath);
+    ppFields = ParseCSV_FieldPointers(pThis->pPutSearchPath);
+    for (i = 0 ; i < fieldCount ; i++)
+    {
+        __try
+        {
+            TextFile* pTextFile = TextFile_CreateFromFile(ppFields[i], pFilename, ".S");
+            return pTextFile;
+        }
+        __catch
+        {
+            // Failed to open in this directory so clear exception and try again.
+            clearExceptionCode();
+        }
+    }
+    
+    __throw(fileNotFoundException);
 }
 
 static void rememberIncludedTextFile(Assembler* pThis, TextFile* pTextFile)

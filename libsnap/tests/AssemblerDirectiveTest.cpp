@@ -600,6 +600,51 @@ TEST(AssemblerDirectives, PUT_DirectiveTwice)
     LONGS_EQUAL(0, memcmp(pFourthLine->pMachineCode, "\x85\x02", 2));
 }
 
+TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToCurrentDirectory)
+{
+    createThisSourceFile(g_putFilename, " sta $ff\n");
+    m_initParams.pPutDirectories = ".";
+    m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), &m_initParams);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              1  put AssemblerTestPut\n",
+                                                   "8000: 85 FF        1  sta $ff\n");
+}
+
+TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToCurrentDirectoryWithTrailingSlash)
+{
+    createThisSourceFile(g_putFilename, " sta $ff\n");
+    m_initParams.pPutDirectories = "./";
+    m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), &m_initParams);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              1  put AssemblerTestPut\n",
+                                                   "8000: 85 FF        1  sta $ff\n");
+}
+
+TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToInvalidDirectory)
+{
+    createThisSourceFile(g_putFilename, " sta $ff\n");
+    m_initParams.pPutDirectories = "foo";
+    m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), &m_initParams);
+    runAssemblerAndValidateFailure("filename:1: error: Failed to PUT 'AssemblerTestPut.S' source file.\n", 
+                                   "    :              1  put AssemblerTestPut\n");
+}
+
+TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToTwoComponentsFirstValidSecondInvalid)
+{
+    createThisSourceFile(g_putFilename, " sta $ff\n");
+    m_initParams.pPutDirectories = ".;foo";
+    m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), &m_initParams);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              1  put AssemblerTestPut\n",
+                                                   "8000: 85 FF        1  sta $ff\n");
+}
+
+TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToTwoComponentsFirstInvalidSecondValid)
+{
+    createThisSourceFile(g_putFilename, " sta $ff\n");
+    m_initParams.pPutDirectories = "foo;.";
+    m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), &m_initParams);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              1  put AssemblerTestPut\n",
+                                                   "8000: 85 FF        1  sta $ff\n");
+}
+
 TEST(AssemblerDirectives, PUT_DirectiveWithErrorInPutFile)
 {
     createThisSourceFile(g_putFilename, " foo\n");

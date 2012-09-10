@@ -56,17 +56,36 @@ TEST_GROUP(SnapCommandLine)
         m_argv[m_argc++] = pArg;
     }
     
-    void validateParamsAndNoErrorMessage(const char* pSourceFilename, const char* pListFilename)
+    void validateParamsAndNoErrorMessage(const char* pSourceFilename, 
+                                         const char* pListFilename,
+                                         const char* pPutDirectories = NULL,
+                                         const char* pOutputDirectory = NULL)
     {
         STRCMP_EQUAL("", printfSpy_GetLastOutput());
         STRCMP_EQUAL(pSourceFilename, m_commandLine.pSourceFilename);
         if (!pListFilename)
         {
-            POINTERS_EQUAL(NULL, m_commandLine.pListFilename);
+            POINTERS_EQUAL(NULL, m_commandLine.assemblerInitParams.pListFilename);
         }
         else
         {
-            STRCMP_EQUAL(pListFilename, m_commandLine.pListFilename);
+            STRCMP_EQUAL(pListFilename, m_commandLine.assemblerInitParams.pListFilename);
+        }
+        if (!pPutDirectories)
+        {
+            POINTERS_EQUAL(NULL, m_commandLine.assemblerInitParams.pPutDirectories);
+        }
+        else
+        {
+            STRCMP_EQUAL(pPutDirectories, m_commandLine.assemblerInitParams.pPutDirectories);
+        }
+        if (!pOutputDirectory)
+        {
+            POINTERS_EQUAL(NULL, m_commandLine.assemblerInitParams.pOutputDirectory);
+        }
+        else
+        {
+            STRCMP_EQUAL(pOutputDirectory, m_commandLine.assemblerInitParams.pOutputDirectory);
         }
     }
     
@@ -102,6 +121,40 @@ TEST(SnapCommandLine, OneSourceFilenameAndListFilename)
     
     SnapCommandLine_Init(&m_commandLine, m_argc, m_argv);
     validateParamsAndNoErrorMessage("SOURCE1.S", "SOURCE1.LST");
+}
+
+TEST(SnapCommandLine, OneSourceFilenameAndPutDirectories)
+{
+    addArg("--putdirs");
+    addArg("foo;bar");
+    addArg("SOURCE1.S");
+    
+    SnapCommandLine_Init(&m_commandLine, m_argc, m_argv);
+    validateParamsAndNoErrorMessage("SOURCE1.S", NULL, "foo;bar");
+}
+
+TEST(SnapCommandLine, OneSourceFilenameAndOutputDirectory)
+{
+    addArg("--outdir");
+    addArg("foobar");
+    addArg("SOURCE1.S");
+    
+    SnapCommandLine_Init(&m_commandLine, m_argc, m_argv);
+    validateParamsAndNoErrorMessage("SOURCE1.S", NULL, NULL, "foobar");
+}
+
+TEST(SnapCommandLine, AllValidCommandLineParameters)
+{
+    addArg("--list");
+    addArg("SOURCE1.LST");
+    addArg("--putdirs");
+    addArg("foo;bar");
+    addArg("--outdir");
+    addArg("foobar");
+    addArg("SOURCE1.S");
+    
+    SnapCommandLine_Init(&m_commandLine, m_argc, m_argv);
+    validateParamsAndNoErrorMessage("SOURCE1.S", "SOURCE1.LST", "foo;bar", "foobar");
 }
 
 TEST(SnapCommandLine, FailOnTwoSourceFilenames)

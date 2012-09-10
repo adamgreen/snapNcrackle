@@ -14,11 +14,13 @@
 #define _SNAP_COMMANDLINE_H_
 
 #include "try_catch.h"
+#include "Assembler.h"
+
 
 typedef struct SnapCommandLine
 {
-    const char* pSourceFilename;
-    const char* pListFilename;
+    const char*         pSourceFilename;
+    AssemblerInitParams assemblerInitParams;
 } SnapCommandLine;
 
 

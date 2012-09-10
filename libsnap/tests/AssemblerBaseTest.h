@@ -39,18 +39,20 @@ static const char* g_listFilename = "AssemblerTest.lst";
 
 TEST_BASE(AssemblerBase)
 {
-    Assembler*      m_pAssembler;
-    const char*     m_argv[10];
-    FILE*           m_pFile;
-    char*           m_pReadBuffer;
-    SnapCommandLine m_commandLine;
-    int             m_argc;
-    char            m_buffer[128];
+    Assembler*          m_pAssembler;
+    const char*         m_argv[10];
+    FILE*               m_pFile;
+    char*               m_pReadBuffer;
+    SnapCommandLine     m_commandLine;
+    AssemblerInitParams m_initParams;
+    int                 m_argc;
+    char                m_buffer[128];
     
     void setup()
     {
         clearExceptionCode();
         printfSpy_Hook(512);
+        memset(&m_initParams, 0, sizeof(m_initParams));
         m_pAssembler = NULL;
         m_pFile = NULL;
         m_pReadBuffer = NULL;

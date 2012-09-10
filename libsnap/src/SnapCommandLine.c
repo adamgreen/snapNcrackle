@@ -14,13 +14,19 @@
 #include <stdio.h>
 #include "SnapCommandLine.h"
 #include "SnapCommandLineTest.h"
+#include "util.h"
 
 static void displayUsage(void)
 {
-    printf("Usage: snap [--list listFilename] sourceFilename\n\n"
+    printf("Usage: snap [--list listFilename] [--putdirs includeDir1;includeDir2...]\n"
+           "            [--outdir outputDirector]sourceFilename\n\n"
            "Where: --list listFilename allows the list file for the assembly\n"
-           "         process to be output to the specified file.  By defaul it\n"
+           "         process to be output to the specified file.  By default it\n"
            "         will be sent to stdout.\n"
+           "       --putdirs sets the directories in which files will be searched\n"
+           "         when including files with PUT directive.\n"
+           "       --outdir sets the directory where output files from directives\n"
+           "         like USR and SAV should be stored.\n"
            "       sourceFilename is the required name of an input assembly\n"
            "         language file.\n");
 }
@@ -29,7 +35,7 @@ static void displayUsage(void)
 static int parseArgument(SnapCommandLine* pThis, int argc, const char** ppArgs);
 static int hasDoubleDashPrefix(const char* pArgument);
 static int parseFlagArgument(SnapCommandLine* pThis, int argc, const char** ppArgs);
-static void parseListFilename(SnapCommandLine* pThis, int argc, const char* pFormat);
+static void parseStringParamter(const char** ppDestField, int argc, const char* pSourceArgument);
 static int parseFilenameArgument(SnapCommandLine* pThis, int argc, const char* pArgument);
 static void throwIfRequiredArgumentNotSpecified(SnapCommandLine* pThis);
 
@@ -72,30 +78,44 @@ static int hasDoubleDashPrefix(const char* pArgument)
 
 static int parseFlagArgument(SnapCommandLine* pThis, int argc, const char** ppArgs)
 {
-    if (0 == strcasecmp(*ppArgs, "--list"))
+    struct
     {
-        __try
-            parseListFilename(pThis, argc - 1, ppArgs[1]);
-        __catch
-            __rethrow;
+        const char* pFlag;
+        int         destStringOffsetInThis;
+    } static const flagArguments[] =
+    {
+        { "--list",    offsetof(SnapCommandLine, assemblerInitParams) + offsetof(AssemblerInitParams, pListFilename) },
+        { "--putdirs", offsetof(SnapCommandLine, assemblerInitParams) + offsetof(AssemblerInitParams, pPutDirectories) },
+        { "--outdir",  offsetof(SnapCommandLine, assemblerInitParams) + offsetof(AssemblerInitParams, pOutputDirectory) }
+    };
+    size_t i;
+    
+    for (i = 0 ; i < ARRAYSIZE(flagArguments) ; i++)
+    {
+        if (0 == strcasecmp(*ppArgs, flagArguments[i].pFlag))
+        {
+            const char** ppDestField = (const char**)((char*)pThis + flagArguments[i].destStringOffsetInThis);
+            __try
+                parseStringParamter(ppDestField, argc - 1, ppArgs[1]);
+            __catch
+                __rethrow;
 
-        return 2;
+            return 2;
+        }
     }
-    else
-    {
-        displayUsage();
-        __throw(invalidArgumentException);
-    }
+
+    displayUsage();
+    __throw(invalidArgumentException);
 }
 
-static void parseListFilename(SnapCommandLine* pThis, int argc, const char* pListFilename)
+static void parseStringParamter(const char** ppDestField, int argc, const char* pSourceArgument)
 {
     if (argc < 1)
     {
         displayUsage();
         __throw(invalidArgumentException);
     }
-    pThis->pListFilename = pListFilename;
+    *ppDestField = pSourceArgument;
 }
 
 static int parseFilenameArgument(SnapCommandLine* pThis, int argc, const char* pArgument)
