@@ -50,9 +50,18 @@ typedef struct OpCodeEntry
 } OpCodeEntry;
 
 
+typedef struct TextFileNode
+{
+    TextFile*            pTextFile;
+    struct TextFileNode* pNext;
+} TextFileNode;
+
+
 struct Assembler
 {
     TextFile*               pTextFile;
+    TextFile*               pMainFile;
+    TextFileNode*           pIncludedFiles;
     SymbolTable*            pSymbols;
     ListFile*               pListFile;
     FILE*                   pFileForListing;
@@ -74,7 +83,7 @@ struct Assembler
 
 #define LOG_ERROR(pASSEMBLER, FORMAT, ...) fprintf(stderr, \
                                        "%s:%d: error: " FORMAT LINE_ENDING, \
-                                       TextFile_GetFilename(pASSEMBLER->pTextFile), \
+                                       TextFile_GetFilename(pASSEMBLER->pLineInfo->pTextFile), \
                                        pASSEMBLER->pLineInfo->lineNumber, \
                                        __VA_ARGS__), pASSEMBLER->errorCount++
 

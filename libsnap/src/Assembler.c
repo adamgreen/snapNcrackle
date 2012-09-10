@@ -41,6 +41,8 @@ __throws Assembler* Assembler_CreateFromString(char* pText, AssemblerInitParams*
         pThis = allocateAndZero(sizeof(*pThis));
         commonObjectInit(pThis, pParams);
         pThis->pTextFile = TextFile_CreateFromString(pText);
+        pThis->pMainFile = pThis->pTextFile;
+        pThis->linesHead.pTextFile = pThis->pTextFile;
     }
     __catch
     {
@@ -228,6 +230,8 @@ __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, Assemb
         pThis = allocateAndZero(sizeof(*pThis));
         commonObjectInit(pThis, pParams);
         pThis->pTextFile = TextFile_CreateFromFile(pSourceFilename, NULL);
+        pThis->pMainFile = pThis->pTextFile;
+        pThis->linesHead.pTextFile = pThis->pTextFile;
     }
     __catch
     {
@@ -241,6 +245,7 @@ __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, Assemb
 
 static void freeLines(Assembler* pThis);
 static void freeInstructionSets(Assembler* pThis);
+static void freeIncludedTextFiles(Assembler* pThis);
 void Assembler_Free(Assembler* pThis)
 {
     if (!pThis)
@@ -248,11 +253,12 @@ void Assembler_Free(Assembler* pThis)
     
     freeLines(pThis);
     freeInstructionSets(pThis);
+    freeIncludedTextFiles(pThis);
     ListFile_Free(pThis->pListFile);
     BinaryBuffer_Free(pThis->pDummyBuffer);
     BinaryBuffer_Free(pThis->pObjectBuffer);
     SymbolTable_Free(pThis->pSymbols);
-    TextFile_Free(pThis->pTextFile);
+    TextFile_Free(pThis->pMainFile);
     if (pThis->pFileForListing)
         fclose(pThis->pFileForListing);
     free(pThis);
@@ -280,7 +286,21 @@ static void freeInstructionSets(Assembler* pThis)
     }
 }
 
+static void freeIncludedTextFiles(Assembler* pThis)
+{
+    TextFileNode* pCurr = pThis->pIncludedFiles;
+    
+    while (pCurr)
+    {
+        TextFileNode* pNext = pCurr->pNext;
+        TextFile_Free(pCurr->pTextFile);
+        free(pCurr);
+        pCurr = pNext;
+    }
+}
+
 static void firstPass(Assembler* pThis);
+static char* getNextSourceLine(Assembler* pThis);
 static void parseLine(Assembler* pThis, char* pLine);
 static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine);
 static void rememberLabel(Assembler* pThis);
@@ -354,6 +374,7 @@ static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount, u
 static unsigned char getNextHexByte(SizedString* pString, const char** ppCurr);
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
+static void rememberIncludedTextFile(Assembler* pThis, TextFile* pTextFile);
 static void checkForUndefinedSymbols(Assembler* pThis);
 static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol* pSymbol);
 static void secondPass(Assembler* pThis);
@@ -376,13 +397,26 @@ static void firstPass(Assembler* pThis)
 {
     char*      pLine = NULL;
     
-    while (NULL != (pLine = TextFile_GetNextLine(pThis->pTextFile)))
+    while (NULL != (pLine = getNextSourceLine(pThis)))
     {
         __try
             parseLine(pThis, pLine);
         __catch
             __rethrow;
     }
+}
+
+static char* getNextSourceLine(Assembler* pThis)
+{
+    char* pLine = TextFile_GetNextLine(pThis->pTextFile);
+    
+    if (!pLine && pThis->pTextFile != pThis->pMainFile)
+    {
+        pThis->pTextFile = pThis->pMainFile;
+        return TextFile_GetNextLine(pThis->pTextFile);
+    }
+
+    return pLine;
 }
 
 static void parseLine(Assembler* pThis, char* pLine)
@@ -409,6 +443,7 @@ static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine)
         __throw(outOfMemoryException);
         
     memset(pLineInfo, 0, sizeof(*pLineInfo));
+    pLineInfo->pTextFile = pThis->pTextFile;
     pLineInfo->lineNumber = TextFile_GetLineNumber(pThis->pTextFile);
     pLineInfo->pLineText = pLine;
     pLineInfo->address = pThis->programCounter;
@@ -1311,6 +1346,43 @@ static void handleXC(Assembler* pThis)
     {
         LOG_ERROR(pThis, "Can't have more than 2 %s directives.", "XC");
         pThis->instructionSet--;
+    }
+}
+
+static void handlePUT(Assembler* pThis)
+{
+    TextFile*   pIncludedFile = NULL;
+    const char* pFilename;
+    
+    __try
+    {
+        validateOperandWasProvided(pThis);
+        pFilename = fullOperandStringWithSpaces(pThis);
+        pIncludedFile = TextFile_CreateFromFile(pFilename, ".S");
+        rememberIncludedTextFile(pThis, pIncludedFile);
+        pThis->pTextFile = pIncludedFile;
+        pIncludedFile = NULL;
+    }
+    __catch
+    {
+        TextFile_Free(pIncludedFile);
+        LOG_ERROR(pThis, "Failed to PUT '%s.S' source file.", pFilename);
+        __nothrow;
+    }
+}
+
+static void rememberIncludedTextFile(Assembler* pThis, TextFile* pTextFile)
+{
+    __try
+    {
+        TextFileNode* pNode = allocateAndZero(sizeof(*pNode));
+        pNode->pNext = pThis->pIncludedFiles;
+        pNode->pTextFile = pTextFile;
+        pThis->pIncludedFiles = pNode;
+    }
+    __catch
+    {
+        __rethrow;
     }
 }
 

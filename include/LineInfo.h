@@ -14,6 +14,7 @@
 #define _LINE_INFO_H_
 
 #include "Symbol.h"
+#include "TextFile.h"
 
 #define LINEINFO_FLAG_WAS_EQU 1
 
@@ -33,6 +34,7 @@ struct LineInfo
 {
     const char*             pLineText;
     Symbol*                 pSymbol;
+    TextFile*               pTextFile;
     struct LineInfo*        pNext;
     unsigned char*          pMachineCode;
     size_t                  machineCodeSize;

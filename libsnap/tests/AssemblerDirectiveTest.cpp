@@ -16,8 +16,19 @@
 #include "AssemblerBaseTest.h"
 
 
+static const char* g_putFilename = "AssemblerTestPut.S";
+static const char* g_putFilename2 = "AssemblerTestPut2.S";
+
+
 TEST_GROUP_BASE(AssemblerDirectives, AssemblerBase)
 {
+    void teardown()
+    {
+        fopenRestore();
+        remove(g_putFilename);
+        remove(g_putFilename2);
+        AssemblerBase::teardown();
+    }
 };
 
 
@@ -349,6 +360,14 @@ TEST(AssemblerDirectives, ASC_DirectiveMissingOperand)
                                    "    :              1  asc\n", 2);
 }
 
+TEST(AssemblerDirectives, FailBinaryBufferAllocationInASCDirective)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst'\n"), NULL);
+    BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
+    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
+                                   "    :              1  asc 'Tst'\n");
+}
+
 TEST(AssemblerDirectives, SAV_DirectiveOnEmptyObjectFile)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" sav AssemblerTest.sav\n"), NULL);
@@ -546,26 +565,87 @@ TEST(AssemblerDirectives, XC_DirectiveForwardReferenceFrom6502To65816)
     runAssemblerAndValidateLastLineIs("8002: 60           4 ForwardLabel lda #20\n", 4);
 }
 
-TEST(AssemblerDirectives, FailBinaryBufferAllocationInASCDirective)
+TEST(AssemblerDirectives, PUT_DirectiveOnly)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst'\n"), NULL);
-    BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
-    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
-                                   "    :              1  asc 'Tst'\n");
+    createThisSourceFile(g_putFilename, " sta $ff\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              1  put AssemblerTestPut\n",
+                                                   "8000: 85 FF        1  sta $ff\n");
 }
 
-TEST(AssemblerDirectives, STAAbsoluteViaLabel)
+TEST(AssemblerDirectives, PUT_DirectiveAndContinueAsm)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
-                                                   "entry lda #$60\n"
-                                                   " sta entry\n"), NULL);
-    runAssemblerAndValidateLastLineIs("0802: 8D 00 08     3  sta entry\n", 3);
+    createThisSourceFile(g_putFilename, " sta $ff\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta $7f\n"
+                                                   " put AssemblerTestPut\n"
+                                                   " sta $00\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8002: 85 FF        1  sta $ff\n",
+                                                   "8004: 85 00        3  sta $00\n", 4);
 }
 
-TEST(AssemblerDirectives, STAZeroPageAbsoluteViaLabel)
+TEST(AssemblerDirectives, PUT_DirectiveTwice)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
-                                                   "entry lda #$60\n"
-                                                   " sta entry\n"), NULL);
-    runAssemblerAndValidateLastLineIs("0002: 85 00        3  sta entry\n", 3);
+    createThisSourceFile(g_putFilename, " sta $01\n");
+    createThisSourceFile(g_putFilename2, " sta $02\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"
+                                                   " put AssemblerTestPut2\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              2  put AssemblerTestPut2\n",
+                                                   "8002: 85 02        1  sta $02\n", 4);
+
+    LineInfo* pSecondLine = m_pAssembler->linesHead.pNext->pNext;
+    LineInfo* pFourthLine = pSecondLine->pNext->pNext;
+    LONGS_EQUAL(2, pSecondLine->machineCodeSize);
+    LONGS_EQUAL(0, memcmp(pSecondLine->pMachineCode, "\x85\x01", 2));
+    LONGS_EQUAL(2, pFourthLine->machineCodeSize);
+    LONGS_EQUAL(0, memcmp(pFourthLine->pMachineCode, "\x85\x02", 2));
+}
+
+TEST(AssemblerDirectives, PUT_DirectiveWithErrorInPutFile)
+{
+    createThisSourceFile(g_putFilename, " foo\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), NULL);
+    runAssemblerAndValidateFailure("AssemblerTestPut.S:1: error: 'foo' is not a recognized mnemonic or macro.\n", 
+                                   "    :              1  foo\n", 3);
+}
+
+TEST(AssemblerDirectives, PUT_DirectiveInvalidForwardReferenceInPutFile)
+{
+    createThisSourceFile(g_putFilename, " sta Label\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"
+                                                   "Label EQU $00\n"), NULL);
+    runAssemblerAndValidateFailure("AssemblerTestPut.S:1: error: Couldn't properly infer size of a forward reference in 'Label' operand.\n", 
+                                   "    :    =0000     2 Label EQU $00\n", 4);
+}
+
+TEST(AssemblerDirectives, PUT_DirectiveFailFileOpen)
+{
+    createThisSourceFile(g_putFilename, " sta $ff\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), NULL);
+    fopenFail(NULL);
+        runAssemblerAndValidateFailure("filename:1: error: Failed to PUT 'AssemblerTestPut.S' source file.\n", 
+                                       "    :              1  put AssemblerTestPut\n");
+}
+
+TEST(AssemblerDirectives, PUT_DirectiveFailAllAllocations)
+{
+    static const int allocationsToFail = 5;
+    createThisSourceFile(g_putFilename, " sta $ff\n");
+    for (int i = 3 ; i <= allocationsToFail ; i++)
+    {
+        m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), NULL);
+        MallocFailureInject_FailAllocation(i);
+        runAssemblerAndValidateFailure("filename:1: error: Failed to PUT 'AssemblerTestPut.S' source file.\n", 
+                                       "    :              1  put AssemblerTestPut\n");
+        MallocFailureInject_Restore();
+        Assembler_Free(m_pAssembler);
+        m_pAssembler = NULL;
+        printfSpy_Unhook();
+        printfSpy_Hook(128);
+    }
+
+    m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), NULL);
+    MallocFailureInject_FailAllocation(allocationsToFail + 1);
+    __try_and_catch( Assembler_Run(m_pAssembler) );
+    LONGS_EQUAL(outOfMemoryException, getExceptionCode());
+    clearExceptionCode();
 }

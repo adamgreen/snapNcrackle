@@ -305,3 +305,19 @@ TEST(AssemblerLabel, VerifyObjectFileWithForwardReferenceLabel)
     Assembler_Run(m_pAssembler);
     validateObjectFileContains(0x800, "\x8d\x03\x08\x85\x2b", 5);
 }
+
+TEST(AssemblerLabel, STAAbsoluteViaLabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   "entry lda #$60\n"
+                                                   " sta entry\n"), NULL);
+    runAssemblerAndValidateLastLineIs("0802: 8D 00 08     3  sta entry\n", 3);
+}
+
+TEST(AssemblerLabel, STAZeroPageAbsoluteViaLabel)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
+                                                   "entry lda #$60\n"
+                                                   " sta entry\n"), NULL);
+    runAssemblerAndValidateLastLineIs("0002: 85 00        3  sta entry\n", 3);
+}
