@@ -442,6 +442,7 @@ static char* getNextSourceLine(Assembler* pThis)
     if (!pLine && pThis->pTextFile != pThis->pMainFile)
     {
         pThis->pTextFile = pThis->pMainFile;
+        pThis->indentation = 0;
         return TextFile_GetNextLine(pThis->pTextFile);
     }
 
@@ -477,6 +478,7 @@ static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine)
     pLineInfo->pLineText = pLine;
     pLineInfo->address = pThis->programCounter;
     pLineInfo->instructionSet = pThis->instructionSet;
+    pLineInfo->indentation = pThis->indentation;
     pThis->pLineInfo->pNext = pLineInfo;
     pThis->pLineInfo = pLineInfo;
 }
@@ -1392,6 +1394,7 @@ static void handlePUT(Assembler* pThis)
         rememberIncludedTextFile(pThis, pIncludedFile);
         pThis->pTextFile = pIncludedFile;
         pIncludedFile = NULL;
+        pThis->indentation = 4;
     }
     __catch
     {

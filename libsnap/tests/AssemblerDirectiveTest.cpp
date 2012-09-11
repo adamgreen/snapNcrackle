@@ -607,7 +607,7 @@ TEST(AssemblerDirectives, PUT_DirectiveOnly)
     createThisSourceFile(g_putFilename, " sta $ff\n");
     m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), NULL);
     runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              1  put AssemblerTestPut\n",
-                                                   "8000: 85 FF        1  sta $ff\n");
+                                                   "8000: 85 FF            1  sta $ff\n");
 }
 
 TEST(AssemblerDirectives, PUT_DirectiveAndContinueAsm)
@@ -616,7 +616,7 @@ TEST(AssemblerDirectives, PUT_DirectiveAndContinueAsm)
     m_pAssembler = Assembler_CreateFromString(dupe(" sta $7f\n"
                                                    " put AssemblerTestPut\n"
                                                    " sta $00\n"), NULL);
-    runAssemblerAndValidateLastTwoLinesOfOutputAre("8002: 85 FF        1  sta $ff\n",
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8002: 85 FF            1  sta $ff\n",
                                                    "8004: 85 00        3  sta $00\n", 4);
 }
 
@@ -627,7 +627,7 @@ TEST(AssemblerDirectives, PUT_DirectiveTwice)
     m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"
                                                    " put AssemblerTestPut2\n"), NULL);
     runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              2  put AssemblerTestPut2\n",
-                                                   "8002: 85 02        1  sta $02\n", 4);
+                                                   "8002: 85 02            1  sta $02\n", 4);
 
     LineInfo* pSecondLine = m_pAssembler->linesHead.pNext->pNext;
     LineInfo* pFourthLine = pSecondLine->pNext->pNext;
@@ -643,7 +643,7 @@ TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToCurrentDirectory)
     m_initParams.pPutDirectories = ".";
     m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), &m_initParams);
     runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              1  put AssemblerTestPut\n",
-                                                   "8000: 85 FF        1  sta $ff\n");
+                                                   "8000: 85 FF            1  sta $ff\n");
 }
 
 TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToCurrentDirectoryWithTrailingSlash)
@@ -652,7 +652,7 @@ TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToCurrentDirectoryWithTrail
     m_initParams.pPutDirectories = "./";
     m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), &m_initParams);
     runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              1  put AssemblerTestPut\n",
-                                                   "8000: 85 FF        1  sta $ff\n");
+                                                   "8000: 85 FF            1  sta $ff\n");
 }
 
 TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToInvalidDirectory)
@@ -670,7 +670,7 @@ TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToTwoComponentsFirstValidSe
     m_initParams.pPutDirectories = ".;foo";
     m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), &m_initParams);
     runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              1  put AssemblerTestPut\n",
-                                                   "8000: 85 FF        1  sta $ff\n");
+                                                   "8000: 85 FF            1  sta $ff\n");
 }
 
 TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToTwoComponentsFirstInvalidSecondValid)
@@ -679,7 +679,7 @@ TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToTwoComponentsFirstInvalid
     m_initParams.pPutDirectories = "foo;.";
     m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), &m_initParams);
     runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              1  put AssemblerTestPut\n",
-                                                   "8000: 85 FF        1  sta $ff\n");
+                                                   "8000: 85 FF            1  sta $ff\n");
 }
 
 TEST(AssemblerDirectives, PUT_DirectiveWithErrorInPutFile)
@@ -687,7 +687,7 @@ TEST(AssemblerDirectives, PUT_DirectiveWithErrorInPutFile)
     createThisSourceFile(g_putFilename, " foo\n");
     m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), NULL);
     runAssemblerAndValidateFailure("AssemblerTestPut.S:1: error: 'foo' is not a recognized mnemonic or macro.\n", 
-                                   "    :              1  foo\n", 3);
+                                   "    :                  1  foo\n", 3);
 }
 
 TEST(AssemblerDirectives, PUT_DirectiveInvalidForwardReferenceInPutFile)

@@ -153,3 +153,16 @@ TEST(ListFile, OutputLineWithAddressAndFourMachineCodeBytes)
     STRCMP_EQUAL("0800: 00 00 00     1  DS 4\n", printfSpy_GetPreviousOutput());
     STRCMP_EQUAL("0803: 00      \n", printfSpy_GetLastOutput());
 }
+
+TEST(ListFile, OutputLineWithIndentation)
+{
+    m_lineInfo.pLineText = " DEX";
+    m_lineInfo.lineNumber = 3;
+    m_lineInfo.indentation = 4;
+    m_lineInfo.address = 0x0800;
+    m_lineInfo.machineCodeSize = 1;
+    m_lineInfo.pMachineCode[0] = 0xCA;
+    ListFile_OutputLine(m_pListFile, &m_lineInfo);
+
+    STRCMP_EQUAL("0800: CA               3  DEX\n", printfSpy_GetLastOutput());
+}

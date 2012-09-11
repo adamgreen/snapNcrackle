@@ -39,6 +39,7 @@ struct LineInfo
     unsigned char*          pMachineCode;
     size_t                  machineCodeSize;
     InstructionSetSupported instructionSet;
+    int                     indentation;
     unsigned int            lineNumber;
     unsigned int            flags;
     unsigned short          address;

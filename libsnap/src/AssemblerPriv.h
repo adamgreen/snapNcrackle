@@ -80,6 +80,7 @@ struct Assembler
     LineInfo                   linesHead;
     InstructionSetSupported    instructionSet;
     unsigned int               errorCount;
+    int                        indentation;
     unsigned short             programCounter;
     unsigned short             programCounterBeforeDUM;
 };

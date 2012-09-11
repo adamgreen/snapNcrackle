@@ -78,9 +78,10 @@ void ListFile_OutputLine(ListFile* pThis, LineInfo* pLineInfo)
     initMachineCodeFields(pThis, pLineInfo);
     fillAddressBuffer(pLineInfo, addressString);
     fillMachineCodeOrSymbolBuffer(pThis, pLineInfo, machineCodeOrSymbol);
-    fprintf(pThis->pFile, "%4s: %8s % 5d %s" LINE_ENDING, 
+    fprintf(pThis->pFile, "%4s: %8s %*s% 5d %s" LINE_ENDING, 
             addressString,
             machineCodeOrSymbol,
+            pLineInfo->indentation, "",
             pLineInfo->lineNumber, 
             pLineInfo->pLineText);
             
