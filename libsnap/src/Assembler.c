@@ -254,8 +254,9 @@ __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, const 
     
     __try
     {
+        SizedString sourceFilename = SizedString_InitFromString(pSourceFilename);
         pThis = allocateAndZero(sizeof(*pThis));
-        pThis->pMainFile = TextFile_CreateFromFile(NULL, pSourceFilename, NULL);
+        pThis->pMainFile = TextFile_CreateFromFile(NULL, &sourceFilename, NULL);
         commonObjectInit(pThis, pParams);
     }
     __catch
@@ -402,7 +403,7 @@ static unsigned char getNextHexByte(SizedString* pString, const char** ppCurr);
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
 static void rememberIncludedTextFile(Assembler* pThis, TextFile* pTextFile);
-static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const char* pFilename);
+static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString* pFilename);
 static void checkForUndefinedSymbols(Assembler* pThis);
 static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol* pSymbol);
 static void secondPass(Assembler* pThis);
@@ -1381,14 +1382,13 @@ static void handleXC(Assembler* pThis)
 
 static void handlePUT(Assembler* pThis)
 {
-    TextFile*   pIncludedFile = NULL;
-    const char* pFilename;
+    TextFile*    pIncludedFile = NULL;
+    SizedString* pOperands = &pThis->parsedLine.operands;
     
     __try
     {
         validateOperandWasProvided(pThis);
-        pFilename = fullOperandStringWithSpaces(pThis);
-        pIncludedFile = openPutFileUsingSearchPath(pThis, pFilename);
+        pIncludedFile = openPutFileUsingSearchPath(pThis, pOperands);
         rememberIncludedTextFile(pThis, pIncludedFile);
         pThis->pTextFile = pIncludedFile;
         pIncludedFile = NULL;
@@ -1396,12 +1396,12 @@ static void handlePUT(Assembler* pThis)
     __catch
     {
         TextFile_Free(pIncludedFile);
-        LOG_ERROR(pThis, "Failed to PUT '%s.S' source file.", pFilename);
+        LOG_ERROR(pThis, "Failed to PUT '%.*s.S' source file.", pOperands->stringLength, pOperands->pString);
         __nothrow;
     }
 }
 
-static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const char* pFilename)
+static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString* pFilename)
 {
     size_t       fieldCount;
     const char** ppFields;

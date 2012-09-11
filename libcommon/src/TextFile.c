@@ -27,19 +27,20 @@ struct TextFile
 
 
 __throws static void initObject(TextFile* pThis, char* pText);
-__throws static char* allocateStringAndCopyMergedFilename(const char* pDirectory, 
-                                                          const char* pFilename, 
-                                                          const char* pFilenameSuffix);
+__throws static char* allocateStringAndCopyMergedFilename(const char*        pDirectory, 
+                                                          const SizedString* pFilename, 
+                                                          const char*        pFilenameSuffix);
 __throws TextFile* TextFile_CreateFromString(char* pText)
 {
-    static const char defaultFilename[] = "filename";
-    TextFile*         pThis = NULL;
+    static const char        defaultFilename[] = "filename";
+    static const SizedString filenameString = { defaultFilename, sizeof(defaultFilename) - 1 };
+    TextFile*                pThis = NULL;
     
     __try
     {
         pThis = allocateAndZero(sizeof(*pThis));
         initObject(pThis, pText);
-        pThis->pFilename = allocateStringAndCopyMergedFilename(NULL, defaultFilename, NULL);
+        pThis->pFilename = allocateStringAndCopyMergedFilename(NULL, &filenameString, NULL);
     }
     __catch
     {
@@ -56,12 +57,12 @@ __throws static void initObject(TextFile* pThis, char* pText)
     pThis->pCurr = pText;
 }
 
-__throws static char* allocateStringAndCopyMergedFilename(const char* pDirectory, 
-                                                          const char* pFilename, 
-                                                          const char* pFilenameSuffix)
+__throws static char* allocateStringAndCopyMergedFilename(const char*        pDirectory, 
+                                                          const SizedString* pFilename, 
+                                                          const char*        pFilenameSuffix)
 {
     static const char pathSeparator = PATH_SEPARATOR;
-    size_t filenameLength = strlen(pFilename);
+    size_t filenameLength = SizedString_strlen(pFilename);
     size_t directoryLength = pDirectory ? strlen(pDirectory) : 0;
     size_t roomForSlash = !pDirectory ? 0 : (pDirectory[directoryLength-1] == PATH_SEPARATOR ? 0 : 1);
     size_t suffixLength = pFilenameSuffix ? strlen(pFilenameSuffix) : 0;
@@ -72,7 +73,7 @@ __throws static char* allocateStringAndCopyMergedFilename(const char* pDirectory
 
     memcpy(pFullFilename, pDirectory, directoryLength);
     memcpy(pFullFilename + directoryLength, &pathSeparator, roomForSlash);
-    memcpy(pFullFilename + directoryLength + roomForSlash, pFilename, filenameLength);
+    memcpy(pFullFilename + directoryLength + roomForSlash, pFilename->pString, filenameLength);
     memcpy(pFullFilename + directoryLength + roomForSlash + filenameLength, pFilenameSuffix, suffixLength);
     pFullFilename[fullFilenameLength - 1] = '\0';
     
@@ -85,7 +86,9 @@ static long getTextLength(FILE* pFile);
 static long adjustFileSizeToAllowForTrailingNull(long actualFileSize);
 static char* allocateTextBuffer(long textLength);
 static void readFileContentIntoTextBufferAndNullTerminate(char* pTextBuffer, long textBufferSize, FILE* pFile);
-__throws TextFile* TextFile_CreateFromFile(const char* pDirectory, const char* pFilename, const char* pFilenameSuffix)
+__throws TextFile* TextFile_CreateFromFile(const char*        pDirectory, 
+                                           const SizedString* pFilename, 
+                                           const char*        pFilenameSuffix)
 {
     FILE*     pFile = NULL;
     long      textLength = -1;

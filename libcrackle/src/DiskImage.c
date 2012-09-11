@@ -96,9 +96,10 @@ static void DiskImageScriptEngine_ProcessScriptFile(DiskImageScriptEngine* pThis
 {
     __try
     {
+        SizedString scriptFilename = SizedString_InitFromString(pScriptFilename);
         pThis->pScriptFilename = pScriptFilename;
         pThis->pDiskImage = pDiskImage;
-        pThis->pTextFile = TextFile_CreateFromFile(NULL, pScriptFilename, NULL);
+        pThis->pTextFile = TextFile_CreateFromFile(NULL, &scriptFilename, NULL);
     }
     __catch
     {

@@ -20,9 +20,9 @@ typedef struct TextFile TextFile;
 
 
 __throws TextFile*    TextFile_CreateFromString(char* pText);
-__throws TextFile*    TextFile_CreateFromFile(const char* pDirectory, 
-                                              const char* pFilename, 
-                                              const char* pFilenameSuffix);
+__throws TextFile*    TextFile_CreateFromFile(const char*        pDirectoryName, 
+                                              const SizedString* pFilename, 
+                                              const char*        pFilenameSuffix);
          void         TextFile_Free(TextFile* pThis);
 
          char*        TextFile_GetNextLine(TextFile* pThis);
