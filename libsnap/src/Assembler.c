@@ -1283,7 +1283,9 @@ static void handleSAV(Assembler* pThis)
     __try
     {
         validateOperandWasProvided(pThis);
-        BinaryBuffer_QueueWriteToFile(pThis->pObjectBuffer, &pThis->parsedLine.operands);
+        BinaryBuffer_QueueWriteToFile(pThis->pObjectBuffer, 
+                                      pThis->pInitParams ? pThis->pInitParams->pOutputDirectory : NULL, 
+                                      &pThis->parsedLine.operands);
     }
     __catch
     {
@@ -1473,7 +1475,15 @@ static void secondPass(Assembler* pThis)
     outputListFile(pThis);
     if (pThis->errorCount > 0)
         return;
-    BinaryBuffer_ProcessWriteFileQueue(pThis->pObjectBuffer);
+    __try
+    {
+        BinaryBuffer_ProcessWriteFileQueue(pThis->pObjectBuffer);
+    }
+    __catch
+    {
+        LOG_ERROR(pThis, "Failed to save %s.", "output");
+        __rethrow;
+    }
 }
 
 static void outputListFile(Assembler* pThis)

@@ -371,8 +371,7 @@ TEST(AssemblerDirectives, FailBinaryBufferAllocationInASCDirective)
 TEST(AssemblerDirectives, SAV_DirectiveOnEmptyObjectFile)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" sav AssemblerTest.sav\n"), NULL);
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler));
+    runAssemblerAndValidateOutputIs("    :              1  sav AssemblerTest.sav\n");
     validateObjectFileContains(0x8000, "", 0);
 }
 
@@ -381,9 +380,39 @@ TEST(AssemblerDirectives, SAV_DirectiveOnSmallObjectFile)
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
                                                    " hex 00,ff\n"
                                                    " sav AssemblerTest.sav\n"), NULL);
-    Assembler_Run(m_pAssembler);
-    LONGS_EQUAL(0, Assembler_GetErrorCount(m_pAssembler));
+    runAssemblerAndValidateLastLineIs("    :              3  sav AssemblerTest.sav\n", 3);
     validateObjectFileContains(0x800, "\x00\xff", 2);
+}
+
+TEST(AssemblerDirectives, SAV_DirectiveOnSmallObjectFileOverridingOutputDirectoryWithoutSlash)
+{
+    m_initParams.pOutputDirectory = ".";
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " hex 00,ff\n"
+                                                   " sav AssemblerTest.sav\n"), &m_initParams);
+    runAssemblerAndValidateLastLineIs("    :              3  sav AssemblerTest.sav\n", 3);
+    validateObjectFileContains(0x800, "\x00\xff", 2);
+}
+
+TEST(AssemblerDirectives, SAV_DirectiveOnSmallObjectFileOverridingOutputDirectoryWithSlash)
+{
+    m_initParams.pOutputDirectory = "./";
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " hex 00,ff\n"
+                                                   " sav AssemblerTest.sav\n"), &m_initParams);
+    runAssemblerAndValidateLastLineIs("    :              3  sav AssemblerTest.sav\n", 3);
+    validateObjectFileContains(0x800, "\x00\xff", 2);
+}
+
+TEST(AssemblerDirectives, SAV_DirectiveOnSmallObjectFileOverridingToInvalidOutputDirectory)
+{
+    m_initParams.pOutputDirectory = "foobar/";
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " hex 00,ff\n"
+                                                   " sav AssemblerTest.sav\n"), &m_initParams);
+    __try_and_catch( Assembler_Run(m_pAssembler) );
+    STRCMP_EQUAL("filename:3: error: Failed to save output.\n", printfSpy_GetLastOutput());
+    validateExceptionThrown(fileException);
 }
 
 TEST(AssemblerDirectives, SAV_DirectiveShouldBeIgnoredOnErrors)
@@ -403,6 +432,14 @@ TEST(AssemblerDirectives, SAV_DirectiveMissingOperand)
     m_pAssembler = Assembler_CreateFromString(dupe(" sav\n"), NULL);
     runAssemblerAndValidateFailure("filename:1: error: sav directive requires operand.\n",
                                    "    :              1  sav\n", 2);
+}
+
+TEST(AssemblerDirectives, SAV_DirectiveFailWriteFileQueue)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sav AssemblerTest.sav\n"), NULL);
+    MallocFailureInject_FailAllocation(2);
+    runAssemblerAndValidateFailure("filename:1: error: Failed to queue up save to 'AssemblerTest.sav'.\n",
+                                   "    :              1  sav AssemblerTest.sav\n");
 }
 
 TEST(AssemblerDirectives, DB_DirectiveWithSingleExpression)

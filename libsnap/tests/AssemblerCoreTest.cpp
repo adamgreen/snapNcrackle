@@ -210,11 +210,3 @@ TEST(AssemblerCore, FailBinaryBufferAllocationOnEmitThreeByteInstruction)
     runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
                                    "    :              1  lda $800\n");
 }
-
-TEST(AssemblerCore, FailWriteFileQueueDuringSAVDirective)
-{
-    m_pAssembler = Assembler_CreateFromString(dupe(" sav AssemblerTest.sav\n"), NULL);
-    MallocFailureInject_FailAllocation(2);
-    runAssemblerAndValidateFailure("filename:1: error: Failed to queue up save to 'AssemblerTest.sav'.\n",
-                                   "    :              1  sav AssemblerTest.sav\n");
-}

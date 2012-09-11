@@ -145,16 +145,19 @@ unsigned short BinaryBuffer_GetOrigin(BinaryBuffer* pThis)
 }
 
 
-static void initializeFileWriteEntry(BinaryBuffer* pThis, FileWriteEntry* pEntry, SizedString* pFilename);
+static void initializeFileWriteEntry(BinaryBuffer*   pThis, 
+                                     FileWriteEntry* pEntry, 
+                                     const char*     pDirectoryName,
+                                     SizedString*    pFilename);
 static void addFileWriteEntryToList(BinaryBuffer* pThis, FileWriteEntry* pEntry);
-__throws void BinaryBuffer_QueueWriteToFile(BinaryBuffer* pThis, SizedString* pFilename)
+__throws void BinaryBuffer_QueueWriteToFile(BinaryBuffer* pThis, const char* pDirectoryName, SizedString* pFilename)
 {
     FileWriteEntry* pEntry = NULL;
     
     __try
     {
         pEntry = allocateAndZero(sizeof(*pEntry));
-        initializeFileWriteEntry(pThis, pEntry, pFilename);
+        initializeFileWriteEntry(pThis, pEntry, pDirectoryName, pFilename);
         addFileWriteEntryToList(pThis, pEntry);
     }
     __catch
@@ -164,14 +167,24 @@ __throws void BinaryBuffer_QueueWriteToFile(BinaryBuffer* pThis, SizedString* pF
     }
 }
 
-static void initializeFileWriteEntry(BinaryBuffer* pThis, FileWriteEntry* pEntry, SizedString* pFilename)
+static void initializeFileWriteEntry(BinaryBuffer*   pThis, 
+                                     FileWriteEntry* pEntry, 
+                                     const char*     pDirectoryName,
+                                     SizedString*    pFilename)
 {
-    size_t length = SizedString_strlen(pFilename);
-    if (length > sizeof(pEntry->filename)-1)
+    static const char pathSeparator = PATH_SEPARATOR;
+    size_t filenameLength = SizedString_strlen(pFilename);
+    size_t directoryLength = pDirectoryName ? strlen(pDirectoryName) : 0;
+    size_t slashSpace = !pDirectoryName ? 0 : (pDirectoryName[directoryLength-1] == PATH_SEPARATOR ? 0 : 1);
+    size_t fullLength = directoryLength + slashSpace + filenameLength;
+    
+    if (fullLength > sizeof(pEntry->filename)-1)
         __throw(invalidArgumentException);
 
-    memcpy(pEntry->filename, pFilename->pString, length);
-    pEntry->filename[length] = '\0';
+    memcpy(pEntry->filename, pDirectoryName, directoryLength);
+    memcpy(pEntry->filename + directoryLength, &pathSeparator, slashSpace);
+    memcpy(pEntry->filename + directoryLength + slashSpace, pFilename->pString, filenameLength);
+    pEntry->filename[fullLength] = '\0';
     pEntry->baseAddress = pThis->baseAddress;
     pEntry->pBase = pThis->pBase;
     pEntry->length = pThis->pCurrent - pThis->pBase;

@@ -40,7 +40,9 @@ __throws unsigned char* BinaryBuffer_Realloc(BinaryBuffer* pThis, unsigned char*
          
          void           BinaryBuffer_SetOrigin(BinaryBuffer* pThis, unsigned short origin);
          unsigned short BinaryBuffer_GetOrigin(BinaryBuffer* pThis);
-__throws void           BinaryBuffer_QueueWriteToFile(BinaryBuffer* pThis, SizedString* pFilename);
+__throws void           BinaryBuffer_QueueWriteToFile(BinaryBuffer* pThis, 
+                                                      const char*   pDirectory, 
+                                                      SizedString*  pFilename);
 __throws void           BinaryBuffer_ProcessWriteFileQueue(BinaryBuffer* pThis);
 
 #endif /* _BINARY_BUFFER_H_ */
