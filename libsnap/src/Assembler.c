@@ -1288,7 +1288,8 @@ static void handleSAV(Assembler* pThis)
         validateOperandWasProvided(pThis);
         BinaryBuffer_QueueWriteToFile(pThis->pObjectBuffer, 
                                       pThis->pInitParams ? pThis->pInitParams->pOutputDirectory : NULL, 
-                                      &pThis->parsedLine.operands);
+                                      &pThis->parsedLine.operands,
+                                      NULL);
     }
     __catch
     {

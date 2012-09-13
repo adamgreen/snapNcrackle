@@ -23,6 +23,11 @@ extern "C"
 #include "CppUTest/TestHarness.h"
 
 
+#define RW18_SIDE_0   0xa9
+#define RW18_TRACK_1  1
+#define RW18_OFFSET_0 0
+
+
 static const char*         g_filename = "BinaryBufferTest.test";
 static const char*         g_filename2 = "BinaryBufferTest2.test";
 static const unsigned char g_testData[2] = { 0x00, 0xff };
@@ -92,6 +97,36 @@ TEST_GROUP(BinaryBuffer)
         LONGS_EQUAL(sizeof(header), fread(&header, 1, sizeof(header), m_pFile));
         CHECK(0 == memcmp(header.signature, BINARY_BUFFER_SAV_SIGNATURE, sizeof(header.signature)));
         LONGS_EQUAL(expectedAddress, header.address);
+        LONGS_EQUAL(expectedContentSize, header.length);
+        
+        m_pReadBuffer = (char*)malloc(expectedContentSize);
+        CHECK(m_pReadBuffer != NULL);
+        LONGS_EQUAL(expectedContentSize, fread(m_pReadBuffer, 1, expectedContentSize, m_pFile));
+        CHECK(0 == memcmp(pExpectedContent, m_pReadBuffer, expectedContentSize));
+        free(m_pReadBuffer);
+        m_pReadBuffer = NULL;
+        fclose(m_pFile);
+        m_pFile = NULL;
+    }
+    
+    void validateRW18ObjectFileContains(const char*          pFilename, 
+                                        unsigned short       expectedSide,
+                                        unsigned short       expectedTrack,
+                                        unsigned short       expectedOffset,
+                                        const unsigned char* pExpectedContent, 
+                                        long                 expectedContentSize)
+    {
+        RW18SavFileHeader header;
+        
+        m_pFile = fopen(pFilename, "r");
+        CHECK(m_pFile != NULL);
+        LONGS_EQUAL(expectedContentSize + sizeof(header), getFileSize(m_pFile));
+        
+        LONGS_EQUAL(sizeof(header), fread(&header, 1, sizeof(header), m_pFile));
+        CHECK(0 == memcmp(header.signature, BINARY_BUFFER_RW18SAV_SIGNATURE, sizeof(header.signature)));
+        LONGS_EQUAL(expectedSide, header.side);
+        LONGS_EQUAL(expectedTrack, header.track);
+        LONGS_EQUAL(expectedOffset, header.offset);
         LONGS_EQUAL(expectedContentSize, header.length);
         
         m_pReadBuffer = (char*)malloc(expectedContentSize);
@@ -200,7 +235,7 @@ TEST(BinaryBuffer, ForceSecondAllocToFail)
 TEST(BinaryBuffer, QueueWriteToFile)
 {
     placeDataInBuffer(g_testData, sizeof(g_testData));
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, NULL, toSizedString(g_filename));
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, NULL, toSizedString(g_filename), NULL);
     BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
     validateObjectFileContains(g_filename, 0x0000, g_testData, sizeof(g_testData));
 }
@@ -208,7 +243,7 @@ TEST(BinaryBuffer, QueueWriteToFile)
 TEST(BinaryBuffer, QueueWriteToFileWithDirectoryNoSlash)
 {
     placeDataInBuffer(g_testData, sizeof(g_testData));
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, ".", toSizedString(g_filename));
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, ".", toSizedString(g_filename), NULL);
     BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
     validateObjectFileContains(g_filename, 0x0000, g_testData, sizeof(g_testData));
 }
@@ -216,7 +251,15 @@ TEST(BinaryBuffer, QueueWriteToFileWithDirectoryNoSlash)
 TEST(BinaryBuffer, QueueWriteToFileWithDirectorySlash)
 {
     placeDataInBuffer(g_testData, sizeof(g_testData));
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, "./", toSizedString(g_filename));
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, "./", toSizedString(g_filename), NULL);
+    BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
+    validateObjectFileContains(g_filename, 0x0000, g_testData, sizeof(g_testData));
+}
+
+TEST(BinaryBuffer, QueueWriteToFileWithDirectoryAndSuffix)
+{
+    placeDataInBuffer(g_testData, sizeof(g_testData));
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, ".", toSizedString("BinaryBufferTest"), ".test");
     BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
     validateObjectFileContains(g_filename, 0x0000, g_testData, sizeof(g_testData));
 }
@@ -224,7 +267,7 @@ TEST(BinaryBuffer, QueueWriteToFileWithDirectorySlash)
 TEST(BinaryBuffer, QueueWriteToInvalidDirectory)
 {
     placeDataInBuffer(g_testData, sizeof(g_testData));
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, "invalidDirectory/", toSizedString(g_filename));
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, "invalidDirectory/", toSizedString(g_filename), NULL);
     __try_and_catch( BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer) );
     validateExceptionThrown(fileException);
 }
@@ -234,7 +277,7 @@ TEST(BinaryBuffer, FailFOpenDuringWriteToFile)
     placeDataInBuffer(g_testData, sizeof(g_testData));
     
     fopenFail(NULL);
-        BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, NULL, toSizedString(g_filename));
+        BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, NULL, toSizedString(g_filename), NULL);
         __try_and_catch( BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer) );
     validateExceptionThrown(fileException);
 }
@@ -244,7 +287,7 @@ TEST(BinaryBuffer, FailFWriteDuringWriteToFile)
     placeDataInBuffer(g_testData, sizeof(g_testData));
     
     fwriteFail(0);
-        BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, NULL, toSizedString(g_filename));
+        BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, NULL, toSizedString(g_filename), NULL);
         __try_and_catch( BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer) );
     validateExceptionThrown(fileException);
 }
@@ -253,7 +296,7 @@ TEST(BinaryBuffer, FailMemoryAllocationDuringWriteQueue)
 {
     placeDataInBuffer(g_testData, sizeof(g_testData));
     MallocFailureInject_FailAllocation(1);
-        __try_and_catch( BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, NULL, toSizedString(g_filename)) );
+        __try_and_catch( BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, NULL, toSizedString(g_filename), NULL) );
     validateExceptionThrown(outOfMemoryException);
 }
 
@@ -264,8 +307,27 @@ TEST(BinaryBuffer, FailToQueueALongFilename)
     longFilename[sizeof(longFilename)-1] = '\0';
     
     placeDataInBuffer(g_testData, sizeof(g_testData));
-    __try_and_catch( BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, NULL, toSizedString(longFilename)) );
+    __try_and_catch( BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, NULL, toSizedString(longFilename), NULL) );
     validateExceptionThrown(invalidArgumentException);
+}
+
+TEST(BinaryBuffer, QueueRW18WriteToFile)
+{
+    placeDataInBuffer(g_testData, sizeof(g_testData));
+    BinaryBuffer_QueueRW18WriteToFile(m_pBinaryBuffer, NULL, toSizedString(g_filename), NULL,
+                                      RW18_SIDE_0, RW18_TRACK_1, RW18_OFFSET_0);
+    BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
+    validateRW18ObjectFileContains(g_filename, RW18_SIDE_0, RW18_TRACK_1, RW18_OFFSET_0, 
+                                   g_testData, sizeof(g_testData));
+}
+
+TEST(BinaryBuffer, FailMemoryAllocationDuringRW18WriteQueue)
+{
+    placeDataInBuffer(g_testData, sizeof(g_testData));
+    MallocFailureInject_FailAllocation(1);
+        __try_and_catch( BinaryBuffer_QueueRW18WriteToFile(m_pBinaryBuffer, NULL, toSizedString(g_filename), NULL,
+                                                           RW18_SIDE_0, RW18_TRACK_1, RW18_OFFSET_0 ));
+    validateExceptionThrown(outOfMemoryException);
 }
 
 TEST(BinaryBuffer, SetOriginBeforeAnyAllocations)
@@ -284,11 +346,11 @@ TEST(BinaryBuffer, QueueUPTwoWritesFromBuffer)
     m_pBinaryBuffer = BinaryBuffer_Create(4);
     BinaryBuffer_SetOrigin(m_pBinaryBuffer, 0x800);
     placeDataInBuffer(testData1, sizeof(testData1));
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, NULL, toSizedString(g_filename));
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, NULL, toSizedString(g_filename), NULL);
     
     BinaryBuffer_SetOrigin(m_pBinaryBuffer, 0x900);
     placeDataInBuffer(testData2, sizeof(testData2));
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, NULL, toSizedString(g_filename2));
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, NULL, toSizedString(g_filename2), NULL);
 
 
     BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);

@@ -20,9 +20,15 @@ typedef struct FileWriteEntry
 {
     struct FileWriteEntry* pNext;
     unsigned char*         pBase;
-    size_t                 length;
+    size_t                 contentLength;
+    size_t                 headerLength;
+    union
+    {
+        SavFileHeader     savFileHeader;
+        RW18SavFileHeader rw18FileHeader;
+    };
     unsigned short         baseAddress;
-    char                   filename[256];
+    char                   filename[PATH_LENGTH];
 } FileWriteEntry;
 
 
@@ -145,19 +151,49 @@ unsigned short BinaryBuffer_GetOrigin(BinaryBuffer* pThis)
 }
 
 
-static void initializeFileWriteEntry(BinaryBuffer*   pThis, 
-                                     FileWriteEntry* pEntry, 
-                                     const char*     pDirectoryName,
-                                     SizedString*    pFilename);
+static FileWriteEntry* queueWriteToFile(BinaryBuffer* pThis, 
+                                        const char*   pDirectoryName, 
+                                        SizedString*  pFilename,
+                                        const char*   pFilenameSuffix);
+static void initializeBaseFileWriteEntry(BinaryBuffer*   pThis, 
+                                         FileWriteEntry* pEntry, 
+                                         const char*     pDirectoryName,
+                                         SizedString*    pFilename,
+                                         const char*     pFilenameSuffix);
 static void addFileWriteEntryToList(BinaryBuffer* pThis, FileWriteEntry* pEntry);
-__throws void BinaryBuffer_QueueWriteToFile(BinaryBuffer* pThis, const char* pDirectoryName, SizedString* pFilename)
+__throws void BinaryBuffer_QueueWriteToFile(BinaryBuffer* pThis, 
+                                            const char*   pDirectoryName, 
+                                            SizedString*  pFilename, 
+                                            const char*   pFilenameSuffix)
+{
+    static const unsigned char signature[4] = BINARY_BUFFER_SAV_SIGNATURE;
+    FileWriteEntry*            pEntry = NULL;
+    
+    __try
+    {
+        pEntry = queueWriteToFile(pThis, pDirectoryName, pFilename, pFilenameSuffix);
+        memcpy(pEntry->savFileHeader.signature, signature, sizeof(pEntry->savFileHeader.signature));
+        pEntry->savFileHeader.address = pThis->baseAddress;
+        pEntry->savFileHeader.length = pEntry->contentLength;
+        pEntry->headerLength = sizeof(pEntry->savFileHeader);
+    }
+    __catch
+    {
+        __rethrow;
+    }
+}
+
+static FileWriteEntry* queueWriteToFile(BinaryBuffer* pThis, 
+                                        const char*   pDirectoryName, 
+                                        SizedString*  pFilename,
+                                        const char*   pFilenameSuffix)
 {
     FileWriteEntry* pEntry = NULL;
     
     __try
     {
         pEntry = allocateAndZero(sizeof(*pEntry));
-        initializeFileWriteEntry(pThis, pEntry, pDirectoryName, pFilename);
+        initializeBaseFileWriteEntry(pThis, pEntry, pDirectoryName, pFilename, pFilenameSuffix);
         addFileWriteEntryToList(pThis, pEntry);
     }
     __catch
@@ -165,18 +201,22 @@ __throws void BinaryBuffer_QueueWriteToFile(BinaryBuffer* pThis, const char* pDi
         free(pEntry);
         __rethrow;
     }
+    
+    return pEntry;
 }
 
-static void initializeFileWriteEntry(BinaryBuffer*   pThis, 
-                                     FileWriteEntry* pEntry, 
-                                     const char*     pDirectoryName,
-                                     SizedString*    pFilename)
+static void initializeBaseFileWriteEntry(BinaryBuffer*   pThis, 
+                                         FileWriteEntry* pEntry, 
+                                         const char*     pDirectoryName,
+                                         SizedString*    pFilename,
+                                         const char*     pFilenameSuffix)
 {
     static const char pathSeparator = PATH_SEPARATOR;
     size_t filenameLength = SizedString_strlen(pFilename);
     size_t directoryLength = pDirectoryName ? strlen(pDirectoryName) : 0;
     size_t slashSpace = !pDirectoryName ? 0 : (pDirectoryName[directoryLength-1] == PATH_SEPARATOR ? 0 : 1);
-    size_t fullLength = directoryLength + slashSpace + filenameLength;
+    size_t suffixLength = pFilenameSuffix ? strlen(pFilenameSuffix) : 0;
+    size_t fullLength = directoryLength + slashSpace + filenameLength + suffixLength;
     
     if (fullLength > sizeof(pEntry->filename)-1)
         __throw(invalidArgumentException);
@@ -184,10 +224,11 @@ static void initializeFileWriteEntry(BinaryBuffer*   pThis,
     memcpy(pEntry->filename, pDirectoryName, directoryLength);
     memcpy(pEntry->filename + directoryLength, &pathSeparator, slashSpace);
     memcpy(pEntry->filename + directoryLength + slashSpace, pFilename->pString, filenameLength);
+    memcpy(pEntry->filename + directoryLength + slashSpace + filenameLength, pFilenameSuffix, suffixLength);
     pEntry->filename[fullLength] = '\0';
     pEntry->baseAddress = pThis->baseAddress;
     pEntry->pBase = pThis->pBase;
-    pEntry->length = pThis->pCurrent - pThis->pBase;
+    pEntry->contentLength = pThis->pCurrent - pThis->pBase;
 }
 
 static void addFileWriteEntryToList(BinaryBuffer* pThis, FileWriteEntry* pEntry)
@@ -201,6 +242,34 @@ static void addFileWriteEntryToList(BinaryBuffer* pThis, FileWriteEntry* pEntry)
     {
         pThis->pFileWriteTail->pNext = pEntry;
         pThis->pFileWriteTail = pEntry;
+    }
+}
+
+
+__throws void BinaryBuffer_QueueRW18WriteToFile(BinaryBuffer*  pThis, 
+                                                const char*    pDirectoryName, 
+                                                SizedString*   pFilename,
+                                                const char*    pFilenameSuffix,
+                                                unsigned short side,
+                                                unsigned short track,
+                                                unsigned short offset)
+{
+    static const unsigned char signature[4] = BINARY_BUFFER_RW18SAV_SIGNATURE;
+    FileWriteEntry*            pEntry = NULL;
+    
+    __try
+    {
+        pEntry = queueWriteToFile(pThis, pDirectoryName, pFilename, pFilenameSuffix);
+        memcpy(pEntry->rw18FileHeader.signature, signature, sizeof(pEntry->rw18FileHeader.signature));
+        pEntry->rw18FileHeader.side = side;
+        pEntry->rw18FileHeader.track = track;
+        pEntry->rw18FileHeader.offset = offset;
+        pEntry->rw18FileHeader.length = pEntry->contentLength;
+        pEntry->headerLength = sizeof(pEntry->rw18FileHeader);
+    }
+    __catch
+    {
+        __rethrow;
     }
 }
 
@@ -226,22 +295,16 @@ __throws void BinaryBuffer_ProcessWriteFileQueue(BinaryBuffer* pThis)
 
 static void writeEntryToDisk(FileWriteEntry* pEntry)
 {
-    static const unsigned char signature[4] = BINARY_BUFFER_SAV_SIGNATURE;
-    SavFileHeader              header;
     size_t                     bytesWritten;
     FILE*                      pFile;
     
-    memcpy(header.signature, signature, sizeof(header.signature));
-    header.address = pEntry->baseAddress;
-    header.length = pEntry->length;
-
     pFile = fopen(pEntry->filename, "w");
     if (!pFile)
         __throw(fileException);
     
-    bytesWritten = fwrite(&header, 1, sizeof(header), pFile);
-    bytesWritten += fwrite(pEntry->pBase, 1, pEntry->length, pFile);
+    bytesWritten = fwrite(&pEntry->savFileHeader, 1, pEntry->headerLength, pFile);
+    bytesWritten += fwrite(pEntry->pBase, 1, pEntry->contentLength, pFile);
     fclose(pFile);
-    if (bytesWritten != pEntry->length + sizeof(header))
+    if (bytesWritten != pEntry->contentLength + pEntry->headerLength)
         __throw(fileException);
 }

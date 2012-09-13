@@ -17,7 +17,8 @@
 #include "SizedString.h"
 
 
-#define BINARY_BUFFER_SAV_SIGNATURE "SAV\x1a"
+#define BINARY_BUFFER_SAV_SIGNATURE     "SAV\x1a"
+#define BINARY_BUFFER_RW18SAV_SIGNATURE "USR\x1a"
 
 
 typedef struct SavFileHeader
@@ -26,6 +27,15 @@ typedef struct SavFileHeader
     unsigned short address;
     unsigned short length;
 } SavFileHeader;
+
+typedef struct RW18SavFileHeader
+{
+    char           signature[4];
+    unsigned short side;
+    unsigned short track;
+    unsigned short offset;
+    unsigned short length;
+} RW18SavFileHeader;
 
 
 typedef struct BinaryBuffer BinaryBuffer;
@@ -41,8 +51,16 @@ __throws unsigned char* BinaryBuffer_Realloc(BinaryBuffer* pThis, unsigned char*
          void           BinaryBuffer_SetOrigin(BinaryBuffer* pThis, unsigned short origin);
          unsigned short BinaryBuffer_GetOrigin(BinaryBuffer* pThis);
 __throws void           BinaryBuffer_QueueWriteToFile(BinaryBuffer* pThis, 
-                                                      const char*   pDirectory, 
-                                                      SizedString*  pFilename);
+                                                      const char*   pDirectoryName, 
+                                                      SizedString*  pFilename,
+                                                      const char*   pFilenameSuffix);
+__throws void           BinaryBuffer_QueueRW18WriteToFile(BinaryBuffer*  pThis, 
+                                                          const char*    pDirectoryName, 
+                                                          SizedString*   pFilename,
+                                                          const char*    pFilenameSuffix,
+                                                          unsigned short side,
+                                                          unsigned short track,
+                                                          unsigned short offset);
 __throws void           BinaryBuffer_ProcessWriteFileQueue(BinaryBuffer* pThis);
 
 #endif /* _BINARY_BUFFER_H_ */

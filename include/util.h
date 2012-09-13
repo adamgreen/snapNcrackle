@@ -22,6 +22,7 @@
 #define TRUE  1
 #define FALSE 0
 
+#define PATH_LENGTH    257
 #define LINE_ENDING    "\n"
 #define PATH_SEPARATOR '/'
 
