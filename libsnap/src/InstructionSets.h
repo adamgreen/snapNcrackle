@@ -32,6 +32,7 @@ static void handleHEX(Assembler* pThis);
 static void handleORG(Assembler* pThis);
 static void handlePUT(Assembler* pThis);
 static void handleSAV(Assembler* pThis);
+static void handleUSR(Assembler* pThis);
 static void handleXC(Assembler* pThis);
 static void ignoreOperator(Assembler* pThis);
 
@@ -55,6 +56,7 @@ static const OpCodeEntry g_6502InstructionSet[] =
     {"PUT",  handlePUT, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     {"SAV",  handleSAV,  _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     {"TR",  ignoreOperator, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+    {"USR",  handleUSR, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     {"XC",  handleXC, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     
     /* 6502 Instructions */

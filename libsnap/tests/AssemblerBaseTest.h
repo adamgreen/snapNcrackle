@@ -187,6 +187,36 @@ TEST_BASE(AssemblerBase)
         m_pFile = NULL;
     }
     
+    void validateRW18ObjectFileContains(const char*    pFilename,
+                                        unsigned short expectedSide,
+                                        unsigned short expectedTrack,
+                                        unsigned short expectedOffset,
+                                        const char*    pExpectedContent, 
+                                        long           expectedContentSize)
+    {
+        RW18SavFileHeader header;
+        
+        m_pFile = fopen(pFilename, "r");
+        CHECK(m_pFile != NULL);
+        LONGS_EQUAL(expectedContentSize + sizeof(header), getFileSize(m_pFile));
+        
+        LONGS_EQUAL(sizeof(header), fread(&header, 1, sizeof(header), m_pFile));
+        CHECK(0 == memcmp(header.signature, BINARY_BUFFER_RW18SAV_SIGNATURE, sizeof(header.signature)));
+        LONGS_EQUAL(expectedSide, header.side);
+        LONGS_EQUAL(expectedTrack, header.track);
+        LONGS_EQUAL(expectedOffset, header.offset);
+        LONGS_EQUAL(expectedContentSize, header.length);
+        
+        m_pReadBuffer = (char*)malloc(expectedContentSize);
+        CHECK(m_pReadBuffer != NULL);
+        LONGS_EQUAL(expectedContentSize, fread(m_pReadBuffer, 1, expectedContentSize, m_pFile));
+        CHECK(0 == memcmp(pExpectedContent, m_pReadBuffer, expectedContentSize));
+        free(m_pReadBuffer);
+        m_pReadBuffer = NULL;
+        fclose(m_pFile);
+        m_pFile = NULL;
+    }
+    
     void validateListFileContains(const char* pExpectedContent, long expectedContentSize)
     {
         m_pFile = fopen(g_listFilename, "r");

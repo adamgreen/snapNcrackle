@@ -33,6 +33,7 @@
 #define blockExceedsImageBoundsException    14
 #define invalidInsertionTypeException       15
 #define missingOperandException             16
+#define invalidArgumentCountException       17
 
 
 #ifndef __debugbreak

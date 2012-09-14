@@ -329,6 +329,7 @@ static void freeIncludedTextFiles(Assembler* pThis)
 
 static void firstPass(Assembler* pThis);
 static char* getNextSourceLine(Assembler* pThis);
+static int isProcessingTextFromPutFile(Assembler* pThis);
 static void parseLine(Assembler* pThis, char* pLine);
 static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine);
 static void rememberLabel(Assembler* pThis);
@@ -404,6 +405,8 @@ static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
 static void rememberIncludedTextFile(Assembler* pThis, TextFile* pTextFile);
 static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString* pFilename);
+static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments);
+static SizedString removeDirectoryAndSuffixFromFullFilename(SizedString* pFullFilename);
 static void checkForUndefinedSymbols(Assembler* pThis);
 static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol* pSymbol);
 static void secondPass(Assembler* pThis);
@@ -439,7 +442,7 @@ static char* getNextSourceLine(Assembler* pThis)
 {
     char* pLine = TextFile_GetNextLine(pThis->pTextFile);
     
-    if (!pLine && pThis->pTextFile != pThis->pMainFile)
+    if (!pLine && isProcessingTextFromPutFile(pThis))
     {
         pThis->pTextFile = pThis->pMainFile;
         pThis->indentation = 0;
@@ -447,6 +450,11 @@ static char* getNextSourceLine(Assembler* pThis)
     }
 
     return pLine;
+}
+
+static int isProcessingTextFromPutFile(Assembler* pThis)
+{
+    return pThis->pTextFile != pThis->pMainFile;
 }
 
 static void parseLine(Assembler* pThis, char* pLine)
@@ -1207,7 +1215,7 @@ static void handleHEX(Assembler* pThis)
         }
         assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
     
-        if (*pCurr)
+        if (SizedString_EnumCurr(pOperands, pCurr) != '\0')
         {
             LOG_ERROR(pThis, "'%.*s' contains more than 32 values.", 
                       pThis->parsedLine.operands.stringLength, pThis->parsedLine.operands.pString);
@@ -1388,6 +1396,12 @@ static void handlePUT(Assembler* pThis)
     TextFile*    pIncludedFile = NULL;
     SizedString* pOperands = &pThis->parsedLine.operands;
     
+    if (isProcessingTextFromPutFile(pThis))
+    {
+        LOG_ERROR(pThis, "Can't nest PUT directive within another %s file.", "PUT");
+        return;
+    }
+    
     __try
     {
         validateOperandWasProvided(pThis);
@@ -1446,6 +1460,82 @@ static void rememberIncludedTextFile(Assembler* pThis, TextFile* pTextFile)
     {
         __rethrow;
     }
+}
+
+static void handleUSR(Assembler* pThis)
+{
+    SizedString fullFilename = SizedString_InitFromString(TextFile_GetFilename(pThis->pMainFile));
+    SizedString filename = removeDirectoryAndSuffixFromFullFilename(&fullFilename);
+
+    __try
+    {
+        SizedString remainingArguments = pThis->parsedLine.operands;
+        unsigned short side;
+        unsigned short track;
+        unsigned short offset;
+        unsigned short length;
+        
+        validateOperandWasProvided(pThis);
+        
+        /* NOTE: &remaningArguments is an in/out parameter in the following calls to getNextCommaSeparatedArgument()
+                 so that it points after the next comma in the argument list after parsing out the previous argument. */
+        side = getNextCommaSeparatedArgument(pThis, &remainingArguments);
+        track = getNextCommaSeparatedArgument(pThis, &remainingArguments);
+        offset = getNextCommaSeparatedArgument(pThis, &remainingArguments);
+        length = getNextCommaSeparatedArgument(pThis, &remainingArguments);
+        if (SizedString_strlen(&remainingArguments) != 0)
+            __throw(invalidArgumentCountException);
+
+        BinaryBuffer_QueueRW18WriteToFile(pThis->pObjectBuffer, 
+                                          pThis->pInitParams ? pThis->pInitParams->pOutputDirectory : NULL, 
+                                          &filename,
+                                          ".usr",
+                                          side, track, offset);
+    }
+    __catch
+    {
+        if (getExceptionCode() == invalidArgumentCountException)
+            LOG_ERROR(pThis, "'%.*s' doesn't contain the 4 arguments required for USR directive.",
+                      pThis->parsedLine.operands.stringLength, pThis->parsedLine.operands.pString);
+        else if (getExceptionCode() != missingOperandException)
+            LOG_ERROR(pThis, "Failed to queue up USR save to '%.*s.usr'.", 
+                      filename.stringLength, filename.pString);
+        __nothrow;
+    }
+}
+
+static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments)
+{
+    SizedString beforeComma;
+    SizedString afterComma;
+    Expression  expression;
+    
+    __try
+    {
+        SizedString_SplitString(pRemainingArguments, ',', &beforeComma, &afterComma);
+        if (SizedString_strlen(&beforeComma) == 0)
+            __throw(invalidArgumentCountException);
+        expression = ExpressionEval(pThis, &beforeComma);
+    }
+    __catch
+    {
+        __rethrow;
+    }
+    
+    *pRemainingArguments = afterComma;
+    return expression.value;
+}
+
+static SizedString removeDirectoryAndSuffixFromFullFilename(SizedString* pFullFilename)
+{
+    const char* pLastDot = SizedString_strrchr(pFullFilename, '.');
+    const char* pLastSlash = SizedString_strrchr(pFullFilename, PATH_SEPARATOR);
+    const char* pFullFilenameEnd = pFullFilename->pString + pFullFilename->stringLength;
+    const char* pStart = pLastSlash ? pLastSlash + 1 : pFullFilename->pString;
+    int         length = pLastDot > pLastSlash ? pLastDot - pStart : pFullFilenameEnd - pStart;
+    SizedString result = SizedString_Init(pStart, length);
+    
+    return result;
 }
 
 static void checkForUndefinedSymbols(Assembler* pThis)

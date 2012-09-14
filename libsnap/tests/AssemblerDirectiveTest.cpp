@@ -18,6 +18,7 @@
 
 static const char* g_putFilename = "AssemblerTestPut.S";
 static const char* g_putFilename2 = "AssemblerTestPut2.S";
+static const char* g_usrFilename = "AssemblerTest.usr";
 
 
 TEST_GROUP_BASE(AssemblerDirectives, AssemblerBase)
@@ -27,6 +28,8 @@ TEST_GROUP_BASE(AssemblerDirectives, AssemblerBase)
         fopenRestore();
         remove(g_putFilename);
         remove(g_putFilename2);
+        remove(g_usrFilename);
+        remove("AssemblerTest");
         AssemblerBase::teardown();
     }
 };
@@ -48,6 +51,12 @@ TEST(AssemblerDirectives, HEXDirectiveWithMixedCase)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex cD,Cd\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: CD CD        1  hex cD,Cd\n");
+}
+
+TEST(AssemblerDirectives, HEXDirectiveWithSingleValueAndFollowedByComment)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" hex 01 ; Comment\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: 01           1  hex 01 ; Comment\n");
 }
 
 TEST(AssemblerDirectives, HEXDirectiveWithThreeValuesAndCommas)
@@ -334,6 +343,12 @@ TEST(AssemblerDirectives, ASC_DirectiveInDoubleQuotes)
     runAssemblerAndValidateOutputIs("8000: D4 F3 F4     1  asc \"Tst\"\n");
 }
 
+TEST(AssemblerDirectives, ASC_DirectiveInDoubleQuotesAndFollowedByComment)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc \"Tst\" ;Comment\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: D4 F3 F4     1  asc \"Tst\" ;Comment\n");
+}
+
 TEST(AssemblerDirectives, ASC_DirectiveInSingleQuotes)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst'\n"), NULL);
@@ -449,6 +464,13 @@ TEST(AssemblerDirectives, DB_DirectiveWithSingleExpression)
     runAssemblerAndValidateLastLineIs("8000: FF           2  db Value+1\n", 2);
 }
 
+TEST(AssemblerDirectives, DB_DirectiveWithSingleExpressionAndComment)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("Value EQU $fe\n"
+                                                   " db Value+1 ;Comment\n"), NULL);
+    runAssemblerAndValidateLastLineIs("8000: FF           2  db Value+1 ;Comment\n", 2);
+}
+
 TEST(AssemblerDirectives, DB_DirectiveWithThreeExpressions)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" db 2,0,1\n"), NULL);
@@ -506,6 +528,12 @@ TEST(AssemblerDirectives, DA_DirectiveWithOneExpression)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" da $ff+1\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: 00 01        1  da $ff+1\n");
+}
+
+TEST(AssemblerDirectives, DA_DirectiveWithOneExpressionAndComment)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" da $ff+1 ;Comment\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: 00 01        1  da $ff+1 ;Comment\n");
 }
 
 TEST(AssemblerDirectives, DA_DirectiveWithThreeExpressions)
@@ -682,6 +710,15 @@ TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToTwoComponentsFirstInvalid
                                                    "8000: 85 FF            1  sta $ff\n");
 }
 
+TEST(AssemblerDirectives, PUT_DirectiveInvalidNesting)
+{
+    createThisSourceFile(g_putFilename, " put AssemblerTestPut2\n");
+    createThisSourceFile(g_putFilename2, " sta $02\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" put AssemblerTestPut\n"), NULL);
+    runAssemblerAndValidateFailure("AssemblerTestPut.S:1: error: Can't nest PUT directive within another PUT file.\n", 
+                                   "    :                  1  put AssemblerTestPut2\n", 3);
+}
+
 TEST(AssemblerDirectives, PUT_DirectiveWithErrorInPutFile)
 {
     createThisSourceFile(g_putFilename, " foo\n");
@@ -730,4 +767,74 @@ TEST(AssemblerDirectives, PUT_DirectiveFailAllAllocations)
     __try_and_catch( Assembler_Run(m_pAssembler) );
     LONGS_EQUAL(outOfMemoryException, getExceptionCode());
     clearExceptionCode();
+}
+
+TEST(AssemblerDirectives, USR_DirectiveWithDirectorAndSuffixToRemoveFromSourceFilename)
+{
+    createSourceFile(" org $800\n"
+                     " hex 00,ff\n"
+                     " usr $a9,1,$a80,*-$800\n");
+    m_pAssembler = Assembler_CreateFromFile("./AssemblerTest.S", NULL);
+    runAssemblerAndValidateLastLineIs("    :              3  usr $a9,1,$a80,*-$800\n", 3);
+    validateRW18ObjectFileContains(g_usrFilename, 0xa9, 1, 0xa80, "\x00\xff", 2);
+}
+
+TEST(AssemblerDirectives, USR_DirectiveWithSuffixToRemoveFromSourceFilename)
+{
+    createSourceFile(" org $800\n"
+                     " hex 00,ff\n"
+                     " usr $a9,1,$a80,*-$800\n");
+    m_pAssembler = Assembler_CreateFromFile("AssemblerTest.S", NULL);
+    runAssemblerAndValidateLastLineIs("    :              3  usr $a9,1,$a80,*-$800\n", 3);
+    validateRW18ObjectFileContains(g_usrFilename, 0xa9, 1, 0xa80, "\x00\xff", 2);
+}
+
+TEST(AssemblerDirectives, USR_DirectiveWithNothingToRemoveFromSourceFilename)
+{
+    createThisSourceFile("AssemblerTest",
+                         " org $800\n"
+                         " hex 00,ff\n"
+                         " usr $a9,1,$a80,*-$800\n");
+    m_pAssembler = Assembler_CreateFromFile("AssemblerTest", NULL);
+    runAssemblerAndValidateLastLineIs("    :              3  usr $a9,1,$a80,*-$800\n", 3);
+    validateRW18ObjectFileContains(g_usrFilename, 0xa9, 1, 0xa80, "\x00\xff", 2);
+}
+
+TEST(AssemblerDirectives, USR_DirectiveWithDirectoryAndNoSuffixInSourceFilename)
+{
+    createThisSourceFile("AssemblerTest",
+                         " org $800\n"
+                         " hex 00,ff\n"
+                         " usr $a9,1,$a80,*-$800\n");
+    m_pAssembler = Assembler_CreateFromFile("./AssemblerTest", NULL);
+    runAssemblerAndValidateLastLineIs("    :              3  usr $a9,1,$a80,*-$800\n", 3);
+    validateRW18ObjectFileContains(g_usrFilename, 0xa9, 1, 0xa80, "\x00\xff", 2);
+}
+
+TEST(AssemblerDirectives, USR_DirectiveFailsWhenLessThan4ArgumentsInOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " hex 00,ff\n"
+                                                   " usr $a9,1,$a80\n"), NULL);
+    runAssemblerAndValidateFailure("filename:3: error: '$a9,1,$a80' doesn't contain the 4 arguments required for USR directive.\n", 
+                                   "    :              3  usr $a9,1,$a80\n", 4);
+}
+
+TEST(AssemblerDirectives, USR_DirectiveFailsWhenMoreThan4ArgumentsInOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " hex 00,ff\n"
+                                                   " usr $a9,1,$a80,*-$800,5\n"), NULL);
+    runAssemblerAndValidateFailure("filename:3: error: '$a9,1,$a80,*-$800,5' doesn't contain the 4 arguments required for USR directive.\n", 
+                                   "    :              3  usr $a9,1,$a80,*-$800,5\n", 4);
+}
+
+TEST(AssemblerDirectives, USR_DirectiveFailsBinaryBufferWriteQueueingOperation)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $800\n"
+                                                   " hex 00,ff\n"
+                                                   " usr $a9,1,$a80,*-$800\n"), NULL);
+    MallocFailureInject_FailAllocation(4);
+    __try_and_catch( runAssemblerAndValidateFailure("filename:3: error: Failed to queue up USR save to 'filename.usr'.\n", 
+                                                  "    :              3  usr $a9,1,$a80,*-$800\n", 4) );
 }
