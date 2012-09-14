@@ -126,6 +126,15 @@ TEST(SizedString, strchrOnlyCharInString)
     CHECK_TRUE(*pResult == 'A');
 }
 
+TEST(SizedString, strchrFindsFirstOccurance)
+{
+    testSizedStringInit("aAa");
+    const char* pResult = SizedString_strchr(&m_sizedString, 'a');
+    CHECK_TRUE(pResult != NULL);
+    POINTERS_EQUAL(m_sizedString.pString, pResult);
+    CHECK_TRUE(*pResult == 'a');
+}
+
 TEST(SizedString, strchrCaseSensitive)
 {
     testSizedStringInit("A");
@@ -144,6 +153,48 @@ TEST(SizedString, strchrPastLastCharInTruncatedString)
 {
     testSizedStringInit("123456789", 8);
     POINTERS_EQUAL(NULL, SizedString_strchr(&m_sizedString, '9'));
+}
+TEST(SizedString, strrchrInEmptyString)
+{
+    testSizedStringInit("");
+    CHECK_TRUE(NULL == SizedString_strrchr(&m_sizedString, ' '));
+}
+
+TEST(SizedString, strrchrOnlyCharInString)
+{
+    testSizedStringInit("A");
+    const char* pResult = SizedString_strrchr(&m_sizedString, 'A');
+    CHECK_TRUE(pResult != NULL);
+    CHECK_TRUE(*pResult == 'A');
+}
+
+TEST(SizedString, strrchrFindsLastOccurance)
+{
+    testSizedStringInit("aAa");
+    const char* pResult = SizedString_strrchr(&m_sizedString, 'a');
+    CHECK_TRUE(pResult != NULL);
+    POINTERS_EQUAL(m_sizedString.pString + 2, pResult);
+    CHECK_TRUE(*pResult == 'a');
+}
+
+TEST(SizedString, strrchrCaseSensitive)
+{
+    testSizedStringInit("A");
+    POINTERS_EQUAL(NULL, SizedString_strrchr(&m_sizedString, 'a'));
+}
+
+TEST(SizedString, strrchrLastCharInTruncatedString)
+{
+    testSizedStringInit("123456789", 8);
+    const char* pResult = SizedString_strrchr(&m_sizedString, '8');
+    CHECK_TRUE(pResult != NULL);
+    CHECK_TRUE(*pResult == '8');
+}
+
+TEST(SizedString, strrchrPastLastCharInTruncatedString)
+{
+    testSizedStringInit("123456789", 8);
+    POINTERS_EQUAL(NULL, SizedString_strrchr(&m_sizedString, '9'));
 }
 
 TEST(SizedString, strcmpMatchWholeString)

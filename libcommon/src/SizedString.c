@@ -49,6 +49,22 @@ const char* SizedString_strchr(const SizedString* pString, char searchChar)
 }
 
 
+const char* SizedString_strrchr(const SizedString* pString, char searchChar)
+{
+    const char* pStartOfString = pString->pString;
+    const char* pCurr = pStartOfString + pString->stringLength - 1;
+
+    while (pCurr >= pStartOfString)
+    {
+        if (*pCurr == searchChar)
+            return pCurr;
+        pCurr--;
+    }
+
+    return NULL;
+}
+
+
 int SizedString_strcmp(const SizedString* pString, const char* pSearchString)
 {
     static const char  terminator = '\0';
