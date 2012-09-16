@@ -46,6 +46,7 @@ struct DiskImage
     ByteBuffer            image;
     ByteBuffer            object;
     DiskImageScriptEngine script;
+    DiskImageInsert       insert;
     unsigned int          objectFileLength;
 };
 

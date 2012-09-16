@@ -27,13 +27,15 @@
 #define invalidArgumentException            8
 #define invalidSourceOffsetException        9
 #define invalidLengthException              10
-#define invalidTrackException               11
-#define invalidSectorException              12
-#define invalidIntraBlockOffsetException    13
-#define blockExceedsImageBoundsException    14
-#define invalidInsertionTypeException       15
-#define missingOperandException             16
-#define invalidArgumentCountException       17
+#define invalidSideException                11
+#define invalidTrackException               12
+#define invalidSectorException              13
+#define invalidIntraBlockOffsetException    14
+#define invalidIntraSectorOffsetException   15
+#define blockExceedsImageBoundsException    16
+#define invalidInsertionTypeException       17
+#define missingOperandException             18
+#define invalidArgumentCountException       19
 
 
 #ifndef __debugbreak

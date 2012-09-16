@@ -10,6 +10,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
+#include <assert.h>
 // Include headers from C modules under test.
 extern "C"
 {
@@ -26,6 +27,7 @@ extern "C"
 static const char* g_imageFilename = "BlockDiskImageTest.2mg";
 static const char* g_savFilenameAllZeroes = "BlockDiskImageTestZeroes.sav";
 static const char* g_savFilenameAllOnes = "BlockDiskImageTestOnes.sav";
+static const char* g_usrFilenameAllOnes = "BlockDiskImageTestOnes.usr";
 static const char* g_scriptFilename = "BlockDiskImageTest.script";
 
 
@@ -57,6 +59,7 @@ TEST_GROUP(BlockDiskImage)
         remove(g_imageFilename);
         remove(g_savFilenameAllOnes);
         remove(g_savFilenameAllZeroes);
+        remove(g_usrFilenameAllOnes);
         remove(g_scriptFilename);
     }
     
@@ -108,6 +111,84 @@ TEST_GROUP(BlockDiskImage)
         }
     }
     
+    void validateRW18SectorsAreZeroes(const unsigned char* pImage, 
+                                      unsigned short startSide, unsigned short startTrack, unsigned short startSector,
+                                      unsigned short endSide, unsigned short endTrack, unsigned short endSector)
+    {
+        unsigned char expectedSector[DISK_IMAGE_BYTES_PER_SECTOR];
+        memset(expectedSector, 0x00, sizeof(expectedSector));
+        validateRW18Sectors(pImage, startSide, startTrack, startSector, endSide, endTrack, endSector, expectedSector);
+    }
+    
+    void validateRW18SectorsAreOnes(const unsigned char* pImage, 
+                                    unsigned short startSide, unsigned short startTrack, unsigned short startSector,
+                                    unsigned short endSide, unsigned short endTrack, unsigned short endSector)
+    {
+        unsigned char expectedSector[DISK_IMAGE_BYTES_PER_SECTOR];
+        memset(expectedSector, 0xff, sizeof(expectedSector));
+        validateRW18Sectors(pImage, startSide, startTrack, startSector, endSide, endTrack, endSector, expectedSector);
+    }
+    
+    void validateRW18Sectors(const unsigned char* pImage, 
+                             unsigned short       startSide, unsigned short startTrack, unsigned short startSector,
+                             unsigned short       endSide, unsigned short endTrack, unsigned short endSector,
+                             unsigned char*       pExpectedSectorContent)
+    {
+        startSide = rw18SideToIndex(startSide);
+        endSide = rw18SideToIndex(endSide);
+        
+        for (unsigned short side = startSide ; side <= endSide ; side++)
+        {
+            const unsigned char* pStartOfSide = pImage + startOffsetForSide(side);
+            unsigned short firstTrackForSide = (side == startSide) ? startTrack : 0;
+            unsigned short lastTrackForSide = (side == endSide) ? endTrack : DISK_IMAGE_TRACKS_PER_SIDE - 1;
+            
+            for (unsigned short track = firstTrackForSide ; track <= lastTrackForSide ; track++)
+            {
+                const unsigned char* pStartOfTrack = pStartOfSide + track * DISK_IMAGE_RW18_BYTES_PER_TRACK;
+                unsigned short startSectorForTrack = (side == startSide && track == firstTrackForSide) ? startSector : 0;
+                unsigned short endSectorForTrack = (side == endSide && track == lastTrackForSide) ? endSector : 17;
+                
+                for (unsigned short sector = startSectorForTrack ; sector <= endSectorForTrack ; sector++)
+                {
+                    CHECK( 0 == memcmp(pStartOfTrack + sector * DISK_IMAGE_BYTES_PER_SECTOR, 
+                                       pExpectedSectorContent, 
+                                       DISK_IMAGE_BYTES_PER_SECTOR) );
+                }
+            }
+        }
+    }
+    
+    unsigned short rw18SideToIndex(unsigned short side)
+    {
+        switch (side)
+        {
+        case 0xa9:
+            return 0;
+        case 0xad:
+            return 1;
+        case 0x79:
+            return 2;
+        }
+        assert ( 0 );
+        return 0xFFFF;
+    }
+    
+    size_t startOffsetForSide(unsigned short side)
+    {
+        switch (side)
+        {
+        case 0:
+            return 16 * DISK_IMAGE_BLOCK_SIZE;
+        case 1:
+            return (16 + 315 + 1) * DISK_IMAGE_BLOCK_SIZE;
+        case 2:
+            return (16 + 315 + 1 + 315) * DISK_IMAGE_BLOCK_SIZE;
+        default:
+            return 0;
+        }
+    }
+    
     void writeOnesBlocks(unsigned int startBlock, unsigned int blockCount)
     {
         unsigned int   totalSize = blockCount * DISK_IMAGE_BLOCK_SIZE;
@@ -121,6 +202,25 @@ TEST_GROUP(BlockDiskImage)
         insert.type = DISK_IMAGE_INSERTION_BLOCK;
         insert.block = startBlock;
         insert.intraBlockOffset = 0;
+
+        __try_and_catch( BlockDiskImage_InsertData(m_pDiskImage, pBlockData, &insert) );
+        free(pBlockData);
+    }
+    
+    void writeOnesRW18Sectors(unsigned short side, unsigned short startTrack, unsigned short startSector, unsigned short sectorCount)
+    {
+        unsigned int   totalSize = sectorCount * DISK_IMAGE_BYTES_PER_SECTOR;
+        unsigned char* pBlockData = (unsigned char*)malloc(totalSize);
+        memset(pBlockData, 0xff, totalSize);
+        
+        DiskImageInsert insert;
+        insert.sourceOffset = 0;
+        insert.length = totalSize;
+        insert.type = DISK_IMAGE_INSERTION_RWTS18;
+        insert.side = side;
+        insert.track = startTrack;
+        insert.sector = startSector;
+        insert.intraSectorOffset = 0;
 
         __try_and_catch( BlockDiskImage_InsertData(m_pDiskImage, pBlockData, &insert) );
         free(pBlockData);
@@ -196,6 +296,39 @@ TEST_GROUP(BlockDiskImage)
         FILE* pFile = fopen(pFilename, "w");
         fwrite(&header, 1, sizeof(header), pFile);
         fwrite(pBlockData, 1, blockDataSize, pFile);
+        fclose(pFile);
+    }
+    
+    void createOnesSectorUSRObjectFile(unsigned short side, 
+                                       unsigned short track, 
+                                       unsigned short sector, 
+                                       unsigned short offset)
+    {
+        unsigned char sectorData[DISK_IMAGE_BYTES_PER_SECTOR];
+        memset(sectorData, 0xff, sizeof(sectorData));
+        createSectorUSRObjectFile(g_usrFilenameAllOnes, sectorData, sizeof(sectorData),
+                                  side, track, sector, offset);
+    }
+    
+    void createSectorUSRObjectFile(const char*    pFilename, 
+                                   unsigned char* pSectorData, 
+                                   size_t         sectorDataSize,
+                                   unsigned short side,
+                                   unsigned short track,
+                                   unsigned short sector,
+                                   unsigned short offset)
+    {
+        RW18SavFileHeader header;
+    
+        memcpy(header.signature, BINARY_BUFFER_RW18SAV_SIGNATURE, sizeof(header.signature));
+        header.side = side;
+        header.track = track;
+        header.offset = DISK_IMAGE_BYTES_PER_SECTOR * sector + offset;
+        header.length = sectorDataSize;
+    
+        FILE* pFile = fopen(pFilename, "w");
+        fwrite(&header, 1, sizeof(header), pFile);
+        fwrite(pSectorData, 1, sectorDataSize, pFile);
         fclose(pFile);
     }
     
@@ -282,6 +415,62 @@ TEST(BlockDiskImage, FailToInsertBlocksWhichExtendPastEndOfImage)
     validateExceptionThrown(blockExceedsImageBoundsException);
 }
 
+TEST(BlockDiskImage, InsertOnesSectorInFirstRW18Sector)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    writeOnesRW18Sectors(DISK_IMAGE_RW18_SIDE_0, 0, 0, 1);
+
+    const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
+    validateRW18SectorsAreZeroes(pImage, DISK_IMAGE_RW18_SIDE_0, 0, 1, 
+                                         DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17);
+    validateRW18SectorsAreOnes(pImage, DISK_IMAGE_RW18_SIDE_0, 0, 0, DISK_IMAGE_RW18_SIDE_0, 0, 0);
+}
+
+TEST(BlockDiskImage, InsertOnesSectorInFirstRW18SectorOfSide1)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    writeOnesRW18Sectors(DISK_IMAGE_RW18_SIDE_1, 0, 0, 1);
+
+    const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
+    validateRW18SectorsAreZeroes(pImage, DISK_IMAGE_RW18_SIDE_0, 0, 0, 
+                                         DISK_IMAGE_RW18_SIDE_0, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17);
+    validateRW18SectorsAreOnes(pImage, DISK_IMAGE_RW18_SIDE_1, 0, 0, DISK_IMAGE_RW18_SIDE_1, 0, 0);
+    validateRW18SectorsAreZeroes(pImage, DISK_IMAGE_RW18_SIDE_1, 0, 1, 
+                                         DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17);
+}
+
+TEST(BlockDiskImage, InsertOnesSectorInLastRW18Sector)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    writeOnesRW18Sectors(DISK_IMAGE_RW18_SIDE_2, 34, 17, 1);
+
+    const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
+    validateRW18SectorsAreZeroes(pImage, DISK_IMAGE_RW18_SIDE_0, 0, 0, 
+                                         DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 16);
+    validateRW18SectorsAreOnes(pImage, DISK_IMAGE_RW18_SIDE_2, 34, 17, DISK_IMAGE_RW18_SIDE_2, 34, 17);
+}
+
+TEST(BlockDiskImage, FailToInsertRW18SectorToInvalidSide)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    writeOnesRW18Sectors(0xff, 0, 0, 1);
+    validateExceptionThrown(invalidSideException);
+}
+
+TEST(BlockDiskImage, FailToInsertRW18SectorToInvalidTrack)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    writeOnesRW18Sectors(DISK_IMAGE_RW18_SIDE_0, 35, 0, 1);
+    validateExceptionThrown(invalidTrackException);
+}
+
+TEST(BlockDiskImage, FailToInsertRW18SectorToInvalidSector)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    writeOnesRW18Sectors(DISK_IMAGE_RW18_SIDE_0, 0, 18, 1);
+    validateExceptionThrown(invalidSectorException);
+}
+
 TEST(BlockDiskImage, WriteImage)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
@@ -325,6 +514,25 @@ TEST(BlockDiskImage, ReadRawObjectFile)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockRawObjectFile();
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_savFilenameAllOnes);
+}
+
+TEST(BlockDiskImage, ReadUSRObjectFile)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_0, 0, 0, 0);
+    BlockDiskImage_ReadObjectFile(m_pDiskImage, g_usrFilenameAllOnes);
+}
+
+TEST(BlockDiskImage, FailSecondHeaderReadInReadUSRObjectFile)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_0, 0, 0, 0);
+    
+    freadFail(0);
+    freadToFail(2);
+        __try_and_catch( BlockDiskImage_ReadObjectFile(m_pDiskImage, g_usrFilenameAllOnes) );
+    freadRestore();
+    validateFileExceptionThrown();
 }
 
 TEST(BlockDiskImage, FailFOpenForNoExistingFileInReadObjectFile)
@@ -619,6 +827,33 @@ TEST(BlockDiskImage, ProcessTwoLineTextScriptUsingAsteriskToStartFromLastInserti
     validateBlocksAreOnes(pImage, 0, 0);
 }
 
+TEST(BlockDiskImage, ProcessOneRW18LineTextScriptWithAsteriskForAllFieldsSoThatFileHeaderFieldsAreUsed)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
+
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,*,*,*,*\n"));
+
+    const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
+    validateRW18SectorsAreZeroes(pImage, DISK_IMAGE_RW18_SIDE_0, 0, 0, 
+                                         DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 16);
+    validateRW18SectorsAreOnes(pImage, DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 
+                                       DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17);
+}
+
+TEST(BlockDiskImage, ProcessOneRW18LineTextScriptWithOverridesForAllFileHeaderFields)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
+
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,0\n"));
+
+    const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
+    validateRW18SectorsAreOnes(pImage, DISK_IMAGE_RW18_SIDE_0, 0, 0, DISK_IMAGE_RW18_SIDE_0, 0, 0);
+    validateRW18SectorsAreZeroes(pImage, DISK_IMAGE_RW18_SIDE_0, 0, 1, 
+                                         DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17);
+}
+
 TEST(BlockDiskImage, FailTextFileCreateInProcessScript)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
@@ -706,6 +941,46 @@ TEST(BlockDiskImage, PassInvalidInsertionTypeToProcessScript)
 
     BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS16,BlockDiskImageTestOnes.sav,0,512,0,0\n"));
     STRCMP_EQUAL("<null>:1: error: RWTS16 insertion type isn't supported for this output image type.\n",
+                 printfSpy_GetLastErrorOutput());
+}
+
+TEST(BlockDiskImage, PassTooFewRWTS18TokensToProcessScript)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
+
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0\n"));
+    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset\n",
+                 printfSpy_GetLastErrorOutput());
+}
+
+TEST(BlockDiskImage, PassTooManyRWTS18TokensToProcessScript)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
+
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,0,0\n"));
+    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset\n",
+                 printfSpy_GetLastErrorOutput());
+}
+
+TEST(BlockDiskImage, PassInvalidRWTS18FilenameToProcessScript)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
+
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,InvalidFilename.usr,0,*,0xa9,0,0,0\n"));
+    STRCMP_EQUAL("<null>:1: error: Failed to read 'InvalidFilename.usr' object file.\n",
+                 printfSpy_GetLastErrorOutput());
+}
+
+TEST(BlockDiskImage, PassInvalidRWTS18SectorOffsetToProcessScript)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
+
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,256\n"));
+    STRCMP_EQUAL("<null>:1: error: 256 specifies an invalid intra sector offset.  Must be 0 - 255.\n",
                  printfSpy_GetLastErrorOutput());
 }
 

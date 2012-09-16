@@ -206,7 +206,7 @@ static void validateTrackAndSector(NibbleDiskImage* pThis)
 {
     if (pThis->sector >= NIBBLE_DISK_IMAGE_RWTS16_SECTORS_PER_TRACK)
         __throw(invalidSectorException);
-    if (pThis->track >= NIBBLE_DISK_IMAGE_TRACKS_PER_DISK)
+    if (pThis->track >= DISK_IMAGE_TRACKS_PER_SIDE)
         __throw(invalidTrackException);
 }
 

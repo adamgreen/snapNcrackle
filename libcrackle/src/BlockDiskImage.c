@@ -89,10 +89,85 @@ static void insertData(void* pThis, const unsigned char* pData, DiskImageInsert*
 }
 
 
+static void insertRW18Data(BlockDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert);
+static void validateRW18InsertionProperties(DiskImageInsert* pInsert);
+static DiskImageInsert convertRW18SideTrackSectorToBlockAndOffset(DiskImageInsert* pInsert);
+static unsigned int startBlockForSide(unsigned short side);
+static void insertBlockData(BlockDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert);
 static void validateOffsetTypeIsBlock(DiskImageInsert* pInsert);
 static void validateImageOffsets(BlockDiskImage* pThis, DiskImageInsert* pInsert);
 static unsigned int calculateSourceOffset(DiskImageInsert* pInsert);
 __throws void BlockDiskImage_InsertData(BlockDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert)
+{
+    if (pInsert->type == DISK_IMAGE_INSERTION_RWTS18)
+        insertRW18Data(pThis, pData, pInsert);
+    else
+        insertBlockData(pThis, pData, pInsert);
+}
+
+static void insertRW18Data(BlockDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert)
+{
+    DiskImageInsert insert = *pInsert;
+    
+    __try
+    {
+        validateRW18InsertionProperties(pInsert);
+        insert = convertRW18SideTrackSectorToBlockAndOffset(pInsert);
+        insertBlockData(pThis, pData, &insert);
+    }
+    __catch
+    {
+        __rethrow;
+    }
+}
+
+static void validateRW18InsertionProperties(DiskImageInsert* pInsert)
+{
+    if (pInsert->track >= DISK_IMAGE_TRACKS_PER_SIDE)
+        __throw(invalidTrackException);
+    if (pInsert->sector >= 18)
+        __throw(invalidSectorException);
+    if (pInsert->intraSectorOffset >= DISK_IMAGE_BYTES_PER_SECTOR)
+        __throw(invalidIntraSectorOffsetException);
+}
+
+static DiskImageInsert convertRW18SideTrackSectorToBlockAndOffset(DiskImageInsert* pInsert)
+{
+    DiskImageInsert insert = *pInsert;
+    
+    __try
+    {
+        unsigned int sectorWithinSide = pInsert->track * DISK_IMAGE_RW18_SECTORS_PER_TRACK + pInsert->sector;
+        unsigned int blockWithinSide = sectorWithinSide / DISK_IMAGE_SECTORS_PER_BLOCK;
+        insert.type = DISK_IMAGE_INSERTION_BLOCK;
+        insert.block = startBlockForSide(pInsert->side) + blockWithinSide;
+        insert.intraBlockOffset = (sectorWithinSide % DISK_IMAGE_SECTORS_PER_BLOCK) * DISK_IMAGE_BYTES_PER_SECTOR;
+        insert.intraBlockOffset += pInsert->intraSectorOffset;
+    }
+    __catch
+    {
+        __rethrow;
+    }
+    
+    return insert;
+}
+
+static unsigned int startBlockForSide(unsigned short side)
+{
+    switch (side)
+    {
+    case 0xa9:
+        return 16;
+    case 0xad:
+        return 16+315+1;
+    case 0x79:
+        return 16+315+1+315;
+    default:
+        __throw(invalidSideException);
+    }
+}
+
+static void insertBlockData(BlockDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert)
 {
     unsigned char* pImage = DiskImage_GetImagePointer(&pThis->super);
     __try
