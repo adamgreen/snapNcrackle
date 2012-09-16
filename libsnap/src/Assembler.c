@@ -339,6 +339,7 @@ static int isGlobalLabelName(SizedString* pLabelName);
 static int isLocalLabelName(SizedString* pLabelName);
 static int seenGlobalLabel(Assembler* pThis);
 static Symbol* attemptToAddSymbol(Assembler* pThis, SizedString* pLabelName, Expression* pExpression);
+static SizedString initGlobalLabelString(Assembler* pThis, SizedString* pLabelName);
 static SizedString initLocalLabelString(SizedString* pLabelName);
 static int isSymbolAlreadyDefined(Symbol* pSymbol, LineInfo* pThisLine);
 static int isVariableLabelName(SizedString* pLabelName);
@@ -566,9 +567,10 @@ static int seenGlobalLabel(Assembler* pThis)
 
 static Symbol* attemptToAddSymbol(Assembler* pThis, SizedString* pLabelName, Expression* pExpression)
 {
+    SizedString globalLabel = initGlobalLabelString(pThis, pLabelName);
     SizedString localLabel = initLocalLabelString(pLabelName);
     
-    Symbol* pSymbol = SymbolTable_Find(pThis->pSymbols, &pThis->globalLabel, &localLabel);
+    Symbol* pSymbol = SymbolTable_Find(pThis->pSymbols, &globalLabel, &localLabel);
     if (pSymbol && (isSymbolAlreadyDefined(pSymbol, pThis->pLineInfo) && !isVariableLabelName(pLabelName)))
     {
         LOG_ERROR(pThis, "'%.*s%.*s' symbol has already been defined.", 
@@ -580,7 +582,7 @@ static Symbol* attemptToAddSymbol(Assembler* pThis, SizedString* pLabelName, Exp
     {
         __try
         {
-            pSymbol = SymbolTable_Add(pThis->pSymbols, &pThis->globalLabel, &localLabel);
+            pSymbol = SymbolTable_Add(pThis->pSymbols, &globalLabel, &localLabel);
         }
         __catch
         {
@@ -594,6 +596,14 @@ static Symbol* attemptToAddSymbol(Assembler* pThis, SizedString* pLabelName, Exp
     pSymbol->expression = *pExpression;
 
     return pSymbol;
+}
+
+static SizedString initGlobalLabelString(Assembler* pThis, SizedString* pLabelName)
+{
+    if (isLocalLabelName(pLabelName))
+        return pThis->globalLabel;
+
+    return *pLabelName;
 }
 
 static SizedString initLocalLabelString(SizedString* pLabelName)
@@ -1598,7 +1608,6 @@ unsigned int Assembler_GetErrorCount(Assembler* pThis)
 }
 
 
-static SizedString initGlobalLabelString(Assembler* pThis, SizedString* pLabelName);
 __throws Symbol* Assembler_FindLabel(Assembler* pThis, SizedString* pLabelName)
 {
     Symbol*     pSymbol = NULL;
@@ -1621,12 +1630,4 @@ __throws Symbol* Assembler_FindLabel(Assembler* pThis, SizedString* pLabelName)
     }
 
     return pSymbol;
-}
-
-static SizedString initGlobalLabelString(Assembler* pThis, SizedString* pLabelName)
-{
-    if (!isGlobalLabelName(pLabelName))
-        return pThis->globalLabel;
-
-    return *pLabelName;
 }
