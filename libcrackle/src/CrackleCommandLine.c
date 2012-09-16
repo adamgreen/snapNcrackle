@@ -26,9 +26,11 @@ static void displayUsage(void)
            "       scriptFilename is the name of the input script to be used\n"
            "         for placing data in the image file.  Each line should have\n"
            "         this format:\n"
-           "           RWTS16|RWTS18,objectFilename,startOffset,length,track,sector\n\n"
+           "           BLOCK,objectFilename,startOffset,length,block,[intraBlockOffset]\n"
+           "           RWTS16,objectFilename,startOffset,length,track,sector\n"
+           "           RWTS18,objectFilename,startOffset,length,side,track,sector,intraSectorOffset\n"
            "       outputImageFilename is the name of the nibble based image to be\n"
-           "         created by this tool.");
+           "         created by this tool.\n\n");
 }
 
 

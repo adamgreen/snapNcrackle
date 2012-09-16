@@ -11,6 +11,7 @@
     GNU General Public License for more details.
 */
 #include <stdio.h>
+#include <string.h>
 #include "CrackleCommandLine.h"
 #include "NibbleDiskImage.h"
 #include "BlockDiskImage.h"
@@ -23,6 +24,7 @@ int main(int argc, const char** argv)
     DiskImage*         pDiskImage = NULL;
     CrackleCommandLine commandLine;
 
+    memset(&commandLine, 0, sizeof(commandLine));
     __try
     {
         commandLine = CrackleCommandLine_Init(argc-1, argv+1);
@@ -33,7 +35,7 @@ int main(int argc, const char** argv)
     }
     __catch
     {
-        printf("%s image build failed.\n", commandLine.pOutputImageFilename);
+        printf("%s image build failed.\n", commandLine.pOutputImageFilename ? commandLine.pOutputImageFilename : "");
         returnValue = 1;
     }
     
