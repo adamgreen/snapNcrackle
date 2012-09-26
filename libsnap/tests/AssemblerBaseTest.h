@@ -46,7 +46,7 @@ TEST_BASE(AssemblerBase)
     SnapCommandLine     m_commandLine;
     AssemblerInitParams m_initParams;
     int                 m_argc;
-    char                m_buffer[128];
+    char                m_buffer[512];
     
     void setup()
     {
@@ -74,6 +74,7 @@ TEST_BASE(AssemblerBase)
     
     char* dupe(const char* pString)
     {
+        assert ( strlen(pString) < sizeof(m_buffer) );
         strcpy(m_buffer, pString);
         return m_buffer;
     }

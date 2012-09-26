@@ -835,6 +835,292 @@ TEST(AssemblerDirectives, USR_DirectiveFailsBinaryBufferWriteQueueingOperation)
                                                    " hex 00,ff\n"
                                                    " usr $a9,1,$a80,*-$800\n"), NULL);
     MallocFailureInject_FailAllocation(4);
-    __try_and_catch( runAssemblerAndValidateFailure("filename:3: error: Failed to queue up USR save to 'filename.usr'.\n", 
-                                                  "    :              3  usr $a9,1,$a80,*-$800\n", 4) );
+    __try_and_catch( Assembler_Run(m_pAssembler) );
+    validateFailureOutput("filename:3: error: Failed to queue up USR save to 'filename.usr'.\n", 
+                          "    :              3  usr $a9,1,$a80,*-$800\n", 4);
 }
+
+TEST(AssemblerDirectives, DO_DirectiveWithOneExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"
+                                                   " hex 00\n"
+                                                   " fin\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 00           2  hex 00\n",
+                                                   "    :              3  fin\n", 3);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWithMaxShortExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do $ffff\n"
+                                                   " hex 00\n"
+                                                   " fin\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 00           2  hex 00\n",
+                                                   "    :              3  fin\n", 3);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWithZeroExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do 0\n"
+                                                   " hex 00\n"
+                                                   " fin\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              2  hex 00\n",
+                                                   "    :              3  fin\n", 3);
+}
+
+TEST(AssemblerDirectives, DO_DirectivewithZeroExpressionButContinueToAssembleAfterFIN)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do 0\n"
+                                                   " hex 00\n"
+                                                   " fin\n"
+                                                   " hex 01\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              3  fin\n",
+                                                   "8000: 01           4  hex 01\n", 4);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWithDivExpressionThatResultsInNonZero)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("two equ 2\n"
+                                                   " do 2/two\n"
+                                                   " hex 00\n"
+                                                   " fin\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 00           3  hex 00\n",
+                                                   "    :              4  fin\n", 4);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWithDivExpressionThatResultsInZero)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("two equ 2\n"
+                                                   " do 1/two\n"
+                                                   " hex 00\n"
+                                                   " fin\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              3  hex 00\n",
+                                                   "    :              4  fin\n", 4);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWith0Else)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do 0\n"
+                                                   " hex 00\n"
+                                                   " else\n"
+                                                   " hex 01\n"
+                                                   " fin\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 01           4  hex 01\n",
+                                                   "    :              5  fin\n", 5);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWith1Else)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"
+                                                   " hex 00\n"
+                                                   " else\n"
+                                                   " hex 01\n"
+                                                   " fin\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              4  hex 01\n",
+                                                   "    :              5  fin\n", 5);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWith2LevelNestingTest00)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("test1 equ 0\n"
+                                                   "test2 equ 0\n"
+                                                   " do test1\n"
+                                                   " do test2\n"
+                                                   "label equ 1\n"
+                                                   " else\n"
+                                                   "label equ 2\n"
+                                                   " fin\n"
+                                                   " else\n"
+                                                   " do test2\n"
+                                                   "label equ 3\n"
+                                                   " else\n"
+                                                   "label equ 4\n"
+                                                   " fin\n"
+                                                   " fin\n"
+                                                   " db label\n"), NULL);
+    runAssemblerAndValidateLastLineIs("8000: 04          16  db label\n", 16);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWith2LevelNestingTest01)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("test1 equ 0\n"
+                                                   "test2 equ 1\n"
+                                                   " do test1\n"
+                                                   " do test2\n"
+                                                   "label equ 1\n"
+                                                   " else\n"
+                                                   "label equ 2\n"
+                                                   " fin\n"
+                                                   " else\n"
+                                                   " do test2\n"
+                                                   "label equ 3\n"
+                                                   " else\n"
+                                                   "label equ 4\n"
+                                                   " fin\n"
+                                                   " fin\n"
+                                                   " db label\n"), NULL);
+    runAssemblerAndValidateLastLineIs("8000: 03          16  db label\n", 16);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWith2LevelNestingTest10)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("test1 equ 1\n"
+                                                   "test2 equ 0\n"
+                                                   " do test1\n"
+                                                   " do test2\n"
+                                                   "label equ 1\n"
+                                                   " else\n"
+                                                   "label equ 2\n"
+                                                   " fin\n"
+                                                   " else\n"
+                                                   " do test2\n"
+                                                   "label equ 3\n"
+                                                   " else\n"
+                                                   "label equ 4\n"
+                                                   " fin\n"
+                                                   " fin\n"
+                                                   " db label\n"), NULL);
+    runAssemblerAndValidateLastLineIs("8000: 02          16  db label\n", 16);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWith2LevelNestingTest11)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe("test1 equ 1\n"
+                                                   "test2 equ 1\n"
+                                                   " do test1\n"
+                                                   " do test2\n"
+                                                   "label equ 1\n"
+                                                   " else\n"
+                                                   "label equ 2\n"
+                                                   " fin\n"
+                                                   " else\n"
+                                                   " do test2\n"
+                                                   "label equ 3\n"
+                                                   " else\n"
+                                                   "label equ 4\n"
+                                                   " fin\n"
+                                                   " fin\n"
+                                                   " db label\n"), NULL);
+    runAssemblerAndValidateLastLineIs("8000: 01          16  db label\n", 16);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWith8LevelsOfNesting)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"
+                                                   " do 1\n"
+                                                   " do 1\n"
+                                                   " do 1\n"
+                                                   " do 1\n"
+                                                   " do 1\n"
+                                                   " do 1\n"
+                                                   " do 1\n"
+                                                   "label equ $ff\n"
+                                                   " fin\n"
+                                                   " fin\n"
+                                                   " fin\n"
+                                                   " fin\n"
+                                                   " fin\n"
+                                                   " fin\n"
+                                                   " fin\n"
+                                                   " fin\n"
+                                                   " db label\n"), NULL);
+    runAssemblerAndValidateLastLineIs("8000: FF          18  db label\n", 18);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWithForwardReferenceInClause)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"
+                                                   " db label\n"
+                                                   " fin\n"
+                                                   "label equ $ff"), NULL);
+    Assembler_Run(m_pAssembler);
+
+    LineInfo* pSecondLine = m_pAssembler->linesHead.pNext->pNext;
+    LONGS_EQUAL(1, pSecondLine->machineCodeSize);
+    LONGS_EQUAL(0, memcmp(pSecondLine->pMachineCode, "\xff", 1));
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWithNoExpressionIsInvalid)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: do directive requires operand.\n", 
+                                    "    :              1  do\n", 2);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWithForwardExpressionIsInvalid)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do ForwardLabel\n"
+                                                   "ForwardLabel equ 1\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: do directive can't forward reference labels.\n", 
+                                   "    :    =0001     2 ForwardLabel equ 1\n", 3);
+}
+
+TEST(AssemblerDirectives, ELSE_DirectiveWithExpressionIsInvalid)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"
+                                                   " hex 00\n"
+                                                   " else 0\n"
+                                                   " hex 01\n"
+                                                   " fin\n"), NULL);
+    runAssemblerAndValidateFailure("filename:3: error: else directive doesn't require operand.\n", 
+                                   "    :              5  fin\n", 6);
+}
+
+TEST(AssemblerDirectives, FIN_DirectiveWithExpressionIsInvalid)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"
+                                                   " hex 00\n"
+                                                   " else\n"
+                                                   " hex 01\n"
+                                                   " fin 1\n"
+                                                   " fin\n"), NULL);
+    runAssemblerAndValidateFailure("filename:5: error: fin directive doesn't require operand.\n", 
+                                    "    :              6  fin\n", 7);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWithNoMatchingFIN)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"
+                                                   " do 1\n"
+                                                   " fin\n"), NULL);
+    runAssemblerAndValidateFailure("filename:3: error: DO/IF directive is missing matching FIN directive.\n", 
+                                   "    :              3  fin\n", 4);
+}
+
+TEST(AssemblerDirectives, FIN_DirectiveWithNoMatchingDO)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"
+                                                   " fin\n"
+                                                   " fin\n"), NULL);
+    runAssemblerAndValidateFailure("filename:3: error: fin directive without corresponding DO/IF directive.\n", 
+                                   "    :              3  fin\n", 4);
+}
+
+TEST(AssemblerDirectives, ELSE_DirectiveWithNoMatchingDO)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"
+                                                   " fin\n"
+                                                   " else\n"), NULL);
+    runAssemblerAndValidateFailure("filename:3: error: else directive without corresponding DO/IF directive.\n", 
+                                   "    :              3  else\n", 4);
+}
+
+TEST(AssemblerDirectives, ELSE_DirectiveWhenELSEAlreadyUsed)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"
+                                                   " else\n"
+                                                   " else\n"
+                                                   " fin\n"), NULL);
+    runAssemblerAndValidateFailure("filename:3: error: Can't have multiple ELSE directives in a DO/IF clause.\n", 
+                                   "    :              4  fin\n", 5);
+}
+
+TEST(AssemblerDirectives, DO_DirectiveWithFailedAllocationForConditional)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"), NULL);
+    MallocFailureInject_FailAllocation(2);
+    __try_and_catch( Assembler_Run(m_pAssembler) );
+    validateFailureOutput("filename:1: error: Failed to allocate space for DO conditional storage.\n", 
+                          "    :              1  do 1\n", 2);
+}
+
+

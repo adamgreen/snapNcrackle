@@ -16,7 +16,8 @@
 #include "Symbol.h"
 #include "TextFile.h"
 
-#define LINEINFO_FLAG_WAS_EQU 1
+#define LINEINFO_FLAG_WAS_EQU           1
+#define LINEINFO_FLAG_FORWARD_REFERENCE 2
 
 
 typedef struct Symbol Symbol;

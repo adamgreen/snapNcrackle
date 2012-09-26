@@ -29,6 +29,11 @@
 #define NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS 511
 #define SIZE_OF_OBJECT_AND_DUMMY_BUFFERS    (64 * 1024)
 
+/* Bits in the Conditional::flags field. */
+#define CONDITIONAL_SKIP_SOURCE           1
+#define CONDITIONAL_INHERITED_SKIP_SOURCE 2
+#define CONDITIONAL_SEEN_ELSE             4
+#define CONDITIONAL_SKIP_STATES_MASK      (CONDITIONAL_SKIP_SOURCE | CONDITIONAL_INHERITED_SKIP_SOURCE)
 
 typedef struct OpCodeEntry
 {
@@ -58,6 +63,13 @@ typedef struct TextFileNode
 } TextFileNode;
 
 
+typedef struct Conditional
+{
+    unsigned int        flags;
+    struct Conditional* pPrev;
+} Conditional;
+
+
 struct Assembler
 {
     TextFile*                  pTextFile;
@@ -71,6 +83,7 @@ struct Assembler
     ParseCSV*                  pPutSearchPath;
     LineInfo*                  pLineInfo;
     SizedString                globalLabel;
+    Conditional*               pConditionals;
     BinaryBuffer*              pObjectBuffer;
     BinaryBuffer*              pDummyBuffer;
     BinaryBuffer*              pCurrentBuffer;

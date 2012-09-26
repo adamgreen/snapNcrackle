@@ -270,6 +270,7 @@ __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, const 
 
 
 static void freeLines(Assembler* pThis);
+static void freeConditionals(Assembler* pThis);
 static void freeInstructionSets(Assembler* pThis);
 static void freeIncludedTextFiles(Assembler* pThis);
 void Assembler_Free(Assembler* pThis)
@@ -278,6 +279,7 @@ void Assembler_Free(Assembler* pThis)
         return;
     
     freeLines(pThis);
+    freeConditionals(pThis);
     freeInstructionSets(pThis);
     freeIncludedTextFiles(pThis);
     ParseCSV_Free(pThis->pPutSearchPath);
@@ -301,6 +303,18 @@ static void freeLines(Assembler* pThis)
         LineInfo* pNext = pCurr->pNext;
         free(pCurr);
         pCurr = pNext;
+    }
+}
+
+static void freeConditionals(Assembler* pThis)
+{
+    Conditional* pCurr = pThis->pConditionals;
+    
+    while (pCurr)
+    {
+        Conditional* pPrev = pCurr->pPrev;
+        free(pCurr);
+        pCurr = pPrev;
     }
 }
 
@@ -334,6 +348,7 @@ static void parseLine(Assembler* pThis, char* pLine);
 static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine);
 static void rememberLabel(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
+static int shouldSkipSourceLines(Assembler* pThis);
 static void validateLabelFormat(Assembler* pThis, SizedString* pLabel);
 static int isGlobalLabelName(SizedString* pLabelName);
 static int isLocalLabelName(SizedString* pLabelName);
@@ -348,6 +363,7 @@ static void rememberGlobalLabel(Assembler* pThis);
 static void firstPassAssembleLine(Assembler* pThis);
 static int compareInstructionSetEntryToOperatorSizedString(const void* pvKey, const void* pvEntry);
 static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry);
+static int isOpcodeSkippable(const OpCodeEntry* pOpcodeEntry);
 static void handleImpliedAddressingMode(Assembler* pThis, unsigned char opcodeImplied);
 static void logInvalidAddressingModeError(Assembler* pThis);
 static void emitSingleByteInstruction(Assembler* pThis, unsigned char opCode);
@@ -392,6 +408,8 @@ static void validateEQULabelFormat(Assembler* pThis);
 static void updateLinesWhichForwardReferencedThisLabel(Assembler* pThis, Symbol* pSymbol);
 static int symbolContainsForwardReferences(Symbol* pSymbol);
 static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, LineInfo* pLineInfo);
+static void flagLineInfoAsProcessingForwardReference(LineInfo* pLineInfo);
+static void resetLineInfoAsNotProcessingForwardReference(LineInfo* pLineInfo);
 static void handleInvalidOperator(Assembler* pThis);
 static const char* fullOperandStringWithSpaces(Assembler* pThis);
 static void validateNoOperandWasProvided(Assembler* pThis);
@@ -408,8 +426,21 @@ static void rememberIncludedTextFile(Assembler* pThis, TextFile* pTextFile);
 static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString* pFilename);
 static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments);
 static SizedString removeDirectoryAndSuffixFromFullFilename(SizedString* pFullFilename);
+static int isUpdatingForwardReference(Assembler* pThis);
+static void validateExpressionContainsNoForwardReferences(Assembler* pThis, Expression* pExpression);
+static int doesExpressionEqualZeroIndicatingToSkipSourceLines(Expression* pExpression);
+static void pushConditional(Assembler* pThis, int skipSourceLines);
+static unsigned int determineInheritedConditionalSkipSourceLineState(Assembler* pThis);
+static void flipTopConditionalState(Assembler* pThis);
+static void validateInConditionalAlready(Assembler* pThis);
+static void flipConditionalState(Conditional* pConditional);
+static void validateElseNotAlreadySeen(Assembler* pThis);
+static int seenElseAlready(Conditional* pConditional);
+static void rememberThatConditionalHasSeenElse(Conditional* pConditional);
+static void popConditional(Assembler* pThis);
 static void checkForUndefinedSymbols(Assembler* pThis);
 static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol* pSymbol);
+static void checkForOpenConditionals(Assembler* pThis);
 static void secondPass(Assembler* pThis);
 static void outputListFile(Assembler* pThis);
 void Assembler_Run(Assembler* pThis)
@@ -418,6 +449,7 @@ void Assembler_Run(Assembler* pThis)
     {
         firstPass(pThis);
         checkForUndefinedSymbols(pThis);
+        checkForOpenConditionals(pThis);
         secondPass(pThis);
     }
     __catch
@@ -494,7 +526,7 @@ static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine)
 
 static void rememberLabel(Assembler* pThis)
 {
-    if (!doesLineContainALabel(pThis))
+    if (!doesLineContainALabel(pThis) || shouldSkipSourceLines(pThis))
         return;
 
     __try
@@ -516,6 +548,14 @@ static void rememberLabel(Assembler* pThis)
 static int doesLineContainALabel(Assembler* pThis)
 {
     return SizedString_strlen(&pThis->parsedLine.label) > 0;
+}
+
+static int shouldSkipSourceLines(Assembler* pThis)
+{
+    if (!pThis->pConditionals)
+        return FALSE;
+        
+    return (int)(pThis->pConditionals->flags & CONDITIONAL_SKIP_STATES_MASK);
 }
 
 static void validateLabelFormat(Assembler* pThis, SizedString* pLabel)
@@ -668,6 +708,10 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
 {
     AddressingMode addressingMode;
 
+    // UNDONE: This skip state should be in line info structure.
+    if (shouldSkipSourceLines(pThis) && isOpcodeSkippable(pOpcodeEntry))
+        return;
+        
     if (pOpcodeEntry->directiveHandler)
     {
         pOpcodeEntry->directiveHandler(pThis);
@@ -716,6 +760,13 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
         handleZeroPageOrAbsoluteIndirectAddressingMode(pThis, &addressingMode, pOpcodeEntry);
         break;
     }
+}
+
+static int isOpcodeSkippable(const OpCodeEntry* pOpcodeEntry)
+{
+    return pOpcodeEntry->directiveHandler != handleELSE &&
+           pOpcodeEntry->directiveHandler != handleDO &&
+           pOpcodeEntry->directiveHandler != handleFIN;
 }
 
 static void handleImpliedAddressingMode(Assembler* pThis, unsigned char opcodeImplied)
@@ -999,11 +1050,23 @@ static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, Li
     pThis->pLineInfo = pLineInfo;
 
     Symbol_LineReferenceRemove(pSymbol, pLineInfo);
+    flagLineInfoAsProcessingForwardReference(pLineInfo);
     ParseLine(&pThis->parsedLine, pLineInfo->pLineText);
     firstPassAssembleLine(pThis);
 
+    resetLineInfoAsNotProcessingForwardReference(pLineInfo);
     pThis->parsedLine = parsedLineSave;
     pThis->pLineInfo = pLineInfoSave;
+}
+
+static void flagLineInfoAsProcessingForwardReference(LineInfo* pLineInfo)
+{
+    pLineInfo->flags |= LINEINFO_FLAG_FORWARD_REFERENCE;
+}
+
+static void resetLineInfoAsNotProcessingForwardReference(LineInfo* pLineInfo)
+{
+    pLineInfo->flags &= ~LINEINFO_FLAG_FORWARD_REFERENCE;
 }
 
 static void ignoreOperator(Assembler* pThis)
@@ -1548,6 +1611,167 @@ static SizedString removeDirectoryAndSuffixFromFullFilename(SizedString* pFullFi
     return result;
 }
 
+static void handleDO(Assembler* pThis)
+{
+    if (isUpdatingForwardReference(pThis))
+        return;
+        
+    __try
+    {
+        Expression  expression;
+
+        validateOperandWasProvided(pThis);
+        expression = ExpressionEval(pThis, &pThis->parsedLine.operands);
+        validateExpressionContainsNoForwardReferences(pThis, &expression);
+        pushConditional(pThis, doesExpressionEqualZeroIndicatingToSkipSourceLines(&expression));
+    }
+    __catch
+    {
+        __nothrow;
+    }
+}
+
+static int isUpdatingForwardReference(Assembler* pThis)
+{
+    return pThis->pLineInfo->flags & LINEINFO_FLAG_FORWARD_REFERENCE;
+}
+
+static void validateExpressionContainsNoForwardReferences(Assembler* pThis, Expression* pExpression)
+{
+    if (!expressionContainsForwardReference(pExpression))
+        return;
+
+    LOG_ERROR(pThis, "%.*s directive can't forward reference labels.", 
+              pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
+    __throw(invalidArgumentException);
+}
+
+static int doesExpressionEqualZeroIndicatingToSkipSourceLines(Expression* pExpression)
+{
+    return pExpression->value == 0;
+}
+
+static void pushConditional(Assembler* pThis, int skipSourceLines)
+{
+    Conditional* pAlloc = NULL;
+    
+    __try
+    {
+        pAlloc = allocateAndZero(sizeof(*pAlloc));
+        if (skipSourceLines)
+            pAlloc->flags |= CONDITIONAL_SKIP_SOURCE;
+        pAlloc->flags |= determineInheritedConditionalSkipSourceLineState(pThis);
+        pAlloc->pPrev = pThis->pConditionals;
+        pThis->pConditionals = pAlloc;
+    }
+    __catch
+    {
+        LOG_ERROR(pThis, "Failed to allocate space for %s conditional storage.", "DO");
+        __rethrow;
+    }
+}
+
+static unsigned int determineInheritedConditionalSkipSourceLineState(Assembler* pThis)
+{
+    unsigned int parentSkipState = pThis->pConditionals ? 
+                                        pThis->pConditionals->flags & CONDITIONAL_SKIP_STATES_MASK : 
+                                        0;
+    
+    return parentSkipState ? CONDITIONAL_INHERITED_SKIP_SOURCE : 0;
+}
+
+static void handleELSE(Assembler* pThis)
+{
+    __try
+    {
+        validateNoOperandWasProvided(pThis);
+        flipTopConditionalState(pThis);
+    }
+    __catch
+    {
+        __nothrow;
+    }
+}
+
+static void flipTopConditionalState(Assembler* pThis)
+{
+    __try
+    {
+        validateInConditionalAlready(pThis);
+        flipConditionalState(pThis->pConditionals);
+        validateElseNotAlreadySeen(pThis);
+        rememberThatConditionalHasSeenElse(pThis->pConditionals);
+    }
+    __catch
+    {
+        __rethrow;
+    }
+}
+
+static void validateInConditionalAlready(Assembler* pThis)
+{
+    if (pThis->pConditionals)
+        return;
+
+    LOG_ERROR(pThis, "%.*s directive without corresponding DO/IF directive.",
+              pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
+    __throw(invalidArgumentException);
+}
+
+static void flipConditionalState(Conditional* pConditional)
+{
+    pConditional->flags ^= CONDITIONAL_SKIP_SOURCE;
+}
+
+static void validateElseNotAlreadySeen(Assembler* pThis)
+{
+    if (!seenElseAlready(pThis->pConditionals))
+        return;
+        
+    LOG_ERROR(pThis, "Can't have multiple %s directives in a DO/IF clause.", "ELSE");
+    __throw(invalidArgumentException);
+}
+
+static int seenElseAlready(Conditional* pConditional)
+{
+    return (int)(pConditional->flags & CONDITIONAL_SEEN_ELSE);
+}
+
+static void rememberThatConditionalHasSeenElse(Conditional* pConditional)
+{
+    pConditional->flags |= CONDITIONAL_SEEN_ELSE;
+}
+
+static void handleFIN(Assembler* pThis)
+{
+    __try
+    {
+        validateNoOperandWasProvided(pThis);
+        popConditional(pThis);
+    }
+    __catch
+    {
+        __nothrow;
+    }
+}
+
+static void popConditional(Assembler* pThis)
+{
+    __try
+    {
+        Conditional* pPrev;
+        
+        validateInConditionalAlready(pThis);
+        pPrev = pThis->pConditionals->pPrev;
+        free(pThis->pConditionals);
+        pThis->pConditionals = pPrev;
+    }
+    __catch
+    {
+        __rethrow;
+    }
+}
+
 static void checkForUndefinedSymbols(Assembler* pThis)
 {
     Symbol* pSymbol;
@@ -1572,6 +1796,12 @@ static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol*
                   pSymbol->globalKey.stringLength, pSymbol->globalKey.pString,
                   pSymbol->localKey.stringLength, pSymbol->localKey.pString);
     }
+}
+
+static void checkForOpenConditionals(Assembler* pThis)
+{
+    if (pThis->pConditionals)
+        LOG_ERROR(pThis, "%s directive is missing matching FIN directive.", "DO/IF");
 }
 
 static void secondPass(Assembler* pThis)
