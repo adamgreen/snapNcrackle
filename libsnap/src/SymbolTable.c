@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -40,7 +40,6 @@ typedef struct LineReferenceFind
 
 
 
-static SymbolTable* allocateSymbolTable(void);
 static void allocateBuckets(SymbolTable* pThis, size_t bucketCount);
 __throws SymbolTable* SymbolTable_Create(size_t bucketCount)
 {
@@ -48,7 +47,7 @@ __throws SymbolTable* SymbolTable_Create(size_t bucketCount)
     
     __try
     {
-        pThis = allocateSymbolTable();
+        pThis = allocateAndZero(sizeof(*pThis));
         allocateBuckets(pThis, bucketCount);
     }
     __catch
@@ -60,22 +59,10 @@ __throws SymbolTable* SymbolTable_Create(size_t bucketCount)
     return pThis;
 }
 
-static SymbolTable* allocateSymbolTable(void)
-{
-    SymbolTable* pThis = malloc(sizeof(*pThis));
-    if (!pThis)
-        __throw(outOfMemoryException);
-    memset(pThis, 0, sizeof(*pThis));
-    return pThis;
-}
-
 static void allocateBuckets(SymbolTable* pThis, size_t bucketCount)
 {
     size_t allocationSize = bucketCount * sizeof(*pThis->ppBuckets);
-    pThis->ppBuckets = malloc(allocationSize);
-    if (!pThis->ppBuckets)
-        __throw(outOfMemoryException);
-    memset(pThis->ppBuckets, 0, allocationSize);
+    pThis->ppBuckets = allocateAndZero(allocationSize);
     pThis->bucketCount = bucketCount;
 }
 
@@ -97,9 +84,6 @@ static void freeBuckets(SymbolTable* pThis)
 {
     size_t i;
     
-    if (!pThis->ppBuckets)
-        return;
-        
     for (i = 0 ; i < pThis->bucketCount ; i++)
         freeBucket(pThis->ppBuckets[i]);
     free(pThis->ppBuckets);
@@ -147,11 +131,7 @@ __throws Symbol* SymbolTable_Add(SymbolTable* pThis, SizedString* pGlobalKey, Si
     Symbol*  pElement;
     Symbol** ppBucket;    
     
-    __try
-        pElement = allocateSymbol(pGlobalKey, pLocalKey);
-    __catch
-        __rethrow;
-
+    pElement = allocateSymbol(pGlobalKey, pLocalKey);
     ppBucket = &pThis->ppBuckets[hashString(pGlobalKey, pLocalKey) % pThis->bucketCount];
     pElement->pNext = *ppBucket;
     *ppBucket = pElement;
@@ -164,11 +144,7 @@ static Symbol* allocateSymbol(SizedString* pGlobalKey, SizedString* pLocalKey)
 {
     Symbol* pSymbol = NULL;
     
-    pSymbol = malloc(sizeof(*pSymbol));
-    if (!pSymbol)
-        __throw(outOfMemoryException);
-    
-    memset(pSymbol, 0, sizeof(*pSymbol));
+    pSymbol = allocateAndZero(sizeof(*pSymbol));
     pSymbol->globalKey = *pGlobalKey;
     pSymbol->localKey = *pLocalKey;
     
@@ -280,11 +256,7 @@ __throws void Symbol_LineReferenceAdd(Symbol* pSymbol, LineInfo* pLineInfo)
     if (Symbol_LineReferenceExist(pSymbol, pLineInfo))
         return;
         
-    pLineReference = malloc(sizeof(*pLineReference));
-    if (!pLineReference)
-        __throw(outOfMemoryException);
-        
-    memset(pLineReference, 0, sizeof(*pLineReference));
+    pLineReference = allocateAndZero(sizeof(*pLineReference));
     pLineReference->pLineInfo = pLineInfo;
     pLineReference->pNext = pSymbol->pLineReferences;
     pSymbol->pLineReferences = pLineReference;

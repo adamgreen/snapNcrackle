@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -29,7 +29,7 @@ static void create65c02InstructionSetTable(Assembler* pThis);
 static size_t countNewInstructionMnemonics(const OpCodeEntry* pBaseSet, size_t baseSetLength, 
                                            const OpCodeEntry* pNewSet,  size_t newSetLength);
 static int compareInstructionSetEntryToOperatorString(const void* pvKey, const void* pvEntry);
-static void updateExistingInstructions(OpCodeEntry* pBaseSet, size_t baseSetLength, size_t totalLength,
+static void mergeInstructionSets(OpCodeEntry* pBaseSet, size_t baseSetLength, size_t totalLength,
                                        const OpCodeEntry* pAddSet,  size_t addSetLength);
 static void updateInstructionEntry(OpCodeEntry* pEntryToUpdate, const OpCodeEntry* pAdditionalEntry);
 static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned short orgAddress);
@@ -54,26 +54,19 @@ __throws Assembler* Assembler_CreateFromString(char* pText, const AssemblerInitP
 
 static void commonObjectInit(Assembler* pThis, const AssemblerInitParams* pParams)
 {
-    __try
-    {
-        FILE* pListFile = createListFileOrRedirectToStdOut(pThis, pParams);
-        pThis->pListFile = ListFile_Create(pListFile);
-        pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
-        pThis->pObjectBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
-        pThis->pDummyBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
-        createParseObjectForPutSearchPath(pThis, pParams);
-        createFullInstructionSetTables(pThis);
-        pThis->pInitParams = pParams;
-        pThis->pTextFile = pThis->pMainFile;
-        pThis->linesHead.pTextFile = pThis->pMainFile;
-        pThis->pLineInfo = &pThis->linesHead;
-        pThis->pCurrentBuffer = pThis->pObjectBuffer;
-        setOrgInAssemblerAndBinaryBufferModules(pThis, 0x8000);
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    FILE* pListFile = createListFileOrRedirectToStdOut(pThis, pParams);
+    pThis->pListFile = ListFile_Create(pListFile);
+    pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
+    pThis->pObjectBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
+    pThis->pDummyBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
+    createParseObjectForPutSearchPath(pThis, pParams);
+    createFullInstructionSetTables(pThis);
+    pThis->pInitParams = pParams;
+    pThis->pTextFile = pThis->pMainFile;
+    pThis->linesHead.pTextFile = pThis->pMainFile;
+    pThis->pLineInfo = &pThis->linesHead;
+    pThis->pCurrentBuffer = pThis->pObjectBuffer;
+    setOrgInAssemblerAndBinaryBufferModules(pThis, 0x8000);
 }
 
 static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, const AssemblerInitParams* pParams)
@@ -114,35 +107,23 @@ static void createParseObjectForPutSearchPath(Assembler* pThis, const AssemblerI
 
 static void createFullInstructionSetTables(Assembler* pThis)
 {
-    __try
-    {
-        create6502InstructionSetTable(pThis);
-        create65c02InstructionSetTable(pThis);
+    create6502InstructionSetTable(pThis);
+    create65c02InstructionSetTable(pThis);
 
-        pThis->instructionSets[2] = allocateAndZero(sizeof(g_6502InstructionSet));
-        pThis->instructionSetSizes[2] = ARRAYSIZE(g_6502InstructionSet);
-        memcpy(pThis->instructionSets[2], pThis->instructionSets[0], sizeof(g_6502InstructionSet));
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    /* UNDONE: Just faking out 65816 instruction set for now. */
+    pThis->instructionSets[INSTRUCTION_SET_65816] = allocateAndZero(sizeof(g_6502InstructionSet));
+    pThis->instructionSetSizes[INSTRUCTION_SET_65816] = pThis->instructionSetSizes[INSTRUCTION_SET_6502];
+    memcpy(pThis->instructionSets[INSTRUCTION_SET_65816], 
+           pThis->instructionSets[INSTRUCTION_SET_6502], sizeof(g_6502InstructionSet));
 }
 
 static void create6502InstructionSetTable(Assembler* pThis)
 {
-    __try
-    {
-        pThis->instructionSets[0] = allocateAndZero(sizeof(g_6502InstructionSet));
-        memcpy(pThis->instructionSets[0], g_6502InstructionSet, sizeof(g_6502InstructionSet));
-        pThis->instructionSetSizes[0] = ARRAYSIZE(g_6502InstructionSet);
-        qsort(pThis->instructionSets[0], ARRAYSIZE(g_6502InstructionSet), sizeof(g_6502InstructionSet[0]), 
-              compareInstructionSetEntries);
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    pThis->instructionSets[INSTRUCTION_SET_6502] = allocateAndZero(sizeof(g_6502InstructionSet));
+    memcpy(pThis->instructionSets[INSTRUCTION_SET_6502], g_6502InstructionSet, sizeof(g_6502InstructionSet));
+    pThis->instructionSetSizes[INSTRUCTION_SET_6502] = ARRAYSIZE(g_6502InstructionSet);
+    qsort(pThis->instructionSets[INSTRUCTION_SET_6502], ARRAYSIZE(g_6502InstructionSet), sizeof(g_6502InstructionSet[0]), 
+          compareInstructionSetEntries);
 }
 
 static int compareInstructionSetEntries(const void* pv1, const void* pv2)
@@ -155,25 +136,19 @@ static int compareInstructionSetEntries(const void* pv1, const void* pv2)
 
 static void create65c02InstructionSetTable(Assembler* pThis)
 {
-    size_t baseSetLength = pThis->instructionSetSizes[0];
+    size_t baseSetLength = pThis->instructionSetSizes[INSTRUCTION_SET_6502];
     size_t instructionsAdded = countNewInstructionMnemonics(
-                                    pThis->instructionSets[0], baseSetLength, 
+                                    pThis->instructionSets[INSTRUCTION_SET_6502], baseSetLength, 
                                     g_65c02AdditionalInstructions, ARRAYSIZE(g_65c02AdditionalInstructions));
     size_t newSetLength = baseSetLength + instructionsAdded;
     
-    __try
-    {
-        pThis->instructionSets[1] = allocateAndZero(sizeof(OpCodeEntry) * newSetLength);
-        memcpy(pThis->instructionSets[1], pThis->instructionSets[0], sizeof(OpCodeEntry) * baseSetLength);
-        updateExistingInstructions(pThis->instructionSets[1], baseSetLength, newSetLength, 
-                                   g_65c02AdditionalInstructions, ARRAYSIZE(g_65c02AdditionalInstructions));
-        pThis->instructionSetSizes[1] = newSetLength;
-        qsort(pThis->instructionSets[1], newSetLength, sizeof(g_6502InstructionSet[0]), compareInstructionSetEntries);
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    pThis->instructionSets[INSTRUCTION_SET_65C02] = allocateAndZero(sizeof(OpCodeEntry) * newSetLength);
+    memcpy(pThis->instructionSets[INSTRUCTION_SET_65C02], pThis->instructionSets[INSTRUCTION_SET_6502], 
+           sizeof(OpCodeEntry) * baseSetLength);
+    mergeInstructionSets(pThis->instructionSets[INSTRUCTION_SET_65C02], baseSetLength, newSetLength, 
+                               g_65c02AdditionalInstructions, ARRAYSIZE(g_65c02AdditionalInstructions));
+    pThis->instructionSetSizes[INSTRUCTION_SET_65C02] = newSetLength;
+    qsort(pThis->instructionSets[INSTRUCTION_SET_65C02], newSetLength, sizeof(g_6502InstructionSet[0]), compareInstructionSetEntries);
 }
 
 static size_t countNewInstructionMnemonics(const OpCodeEntry* pBaseSet, size_t baseSetLength, 
@@ -202,8 +177,8 @@ static int compareInstructionSetEntryToOperatorString(const void* pvKey, const v
     return strcasecmp(pKey, pEntry->pOperator);
 }
 
-static void updateExistingInstructions(OpCodeEntry* pBaseSet, size_t baseSetLength, size_t totalLength,
-                                       const OpCodeEntry* pAddSet,  size_t addSetLength)
+static void mergeInstructionSets(OpCodeEntry* pBaseSet, size_t baseSetLength, size_t totalLength,
+                                 const OpCodeEntry* pAddSet,  size_t addSetLength)
 {
     OpCodeEntry* pNewInstruction = pBaseSet + baseSetLength;
     size_t       i;
@@ -371,9 +346,9 @@ static void allocateLineInfoMachineCodeBytes(Assembler* pThis, size_t bytesToAll
 static int isMachineCodeAlreadyAllocatedFromForwardReference(Assembler* pThis);
 static void verifyThatMachineCodeSizeFromForwardReferenceMatches(Assembler* pThis, size_t bytesToAllocate);
 static void reallocLineInfoMachineCodeBytes(Assembler* pThis, size_t bytesToAllocate);
-static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis, 
-                                                   AddressingMode*    pAddressingMode, 
-                                                   const OpCodeEntry* pOpcodeEntry);
+static void handleZeroPageAbsoluteOrRelativeAddressingMode(Assembler*         pThis, 
+                                                           AddressingMode*    pAddressingMode, 
+                                                           const OpCodeEntry* pOpcodeEntry);
 static void handleRelativeAddressingMode(Assembler* pThis, AddressingMode* pAddressingMode, unsigned char opcodeRelative);
 static int expressionContainsForwardReference(Expression* pExpression);
 static void handleZeroPageOrAbsoluteAddressingModes(Assembler*         pThis, 
@@ -445,17 +420,10 @@ static void secondPass(Assembler* pThis);
 static void outputListFile(Assembler* pThis);
 void Assembler_Run(Assembler* pThis)
 {
-    __try
-    {
-        firstPass(pThis);
-        checkForUndefinedSymbols(pThis);
-        checkForOpenConditionals(pThis);
-        secondPass(pThis);
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    firstPass(pThis);
+    checkForUndefinedSymbols(pThis);
+    checkForOpenConditionals(pThis);
+    secondPass(pThis);
 }
 
 static void firstPass(Assembler* pThis)
@@ -463,12 +431,7 @@ static void firstPass(Assembler* pThis)
     char*      pLine = NULL;
     
     while (NULL != (pLine = getNextSourceLine(pThis)))
-    {
-        __try
-            parseLine(pThis, pLine);
-        __catch
-            __rethrow;
-    }
+        parseLine(pThis, pLine);
 }
 
 static char* getNextSourceLine(Assembler* pThis)
@@ -492,28 +455,17 @@ static int isProcessingTextFromPutFile(Assembler* pThis)
 
 static void parseLine(Assembler* pThis, char* pLine)
 {
-    __try
-    {
-        prepareLineInfoForThisLine(pThis, pLine);
-        ParseLine(&pThis->parsedLine, pLine);
-        rememberLabel(pThis);
-        firstPassAssembleLine(pThis);
-        pThis->programCounter += pThis->pLineInfo->machineCodeSize;
-        updateLinesWhichForwardReferencedThisLabel(pThis, pThis->pLineInfo->pSymbol);
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    prepareLineInfoForThisLine(pThis, pLine);
+    ParseLine(&pThis->parsedLine, pLine);
+    rememberLabel(pThis);
+    firstPassAssembleLine(pThis);
+    pThis->programCounter += pThis->pLineInfo->machineCodeSize;
+    updateLinesWhichForwardReferencedThisLabel(pThis, pThis->pLineInfo->pSymbol);
 }
 
 static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine)
 {
-    LineInfo* pLineInfo = malloc(sizeof(*pLineInfo));
-    if (!pLineInfo)
-        __throw(outOfMemoryException);
-        
-    memset(pLineInfo, 0, sizeof(*pLineInfo));
+    LineInfo* pLineInfo = allocateAndZero(sizeof(*pLineInfo));
     pLineInfo->pTextFile = pThis->pTextFile;
     pLineInfo->lineNumber = TextFile_GetLineNumber(pThis->pTextFile);
     pLineInfo->pLineText = pLine;
@@ -590,11 +542,6 @@ static void validateLabelFormat(Assembler* pThis, SizedString* pLabel)
     }
 }
 
-static int isGlobalLabelName(SizedString* pLabelName)
-{
-    return !isLocalLabelName(pLabelName) && !isVariableLabelName(pLabelName);
-}
-
 static int isLocalLabelName(SizedString* pLabelName)
 {
     return pLabelName->pString && pLabelName->pString[0] == ':';
@@ -603,6 +550,19 @@ static int isLocalLabelName(SizedString* pLabelName)
 static int seenGlobalLabel(Assembler* pThis)
 {
     return SizedString_strlen(&pThis->globalLabel) > 0;
+}
+
+static void rememberGlobalLabel(Assembler* pThis)
+{
+    if (!isGlobalLabelName(&pThis->parsedLine.label))
+        return;
+        
+    pThis->globalLabel = pThis->parsedLine.label;
+}
+
+static int isGlobalLabelName(SizedString* pLabelName)
+{
+    return !isLocalLabelName(pLabelName) && !isVariableLabelName(pLabelName);
 }
 
 static Symbol* attemptToAddSymbol(Assembler* pThis, SizedString* pLabelName, Expression* pExpression)
@@ -669,14 +629,6 @@ static void flagSymbolAsDefined(Symbol* pSymbol, LineInfo* pThisLine)
     pThisLine->pSymbol = pSymbol;
 }
 
-static void rememberGlobalLabel(Assembler* pThis)
-{
-    if (!isGlobalLabelName(&pThis->parsedLine.label))
-        return;
-        
-    pThis->globalLabel = pThis->parsedLine.label;
-}
-
 static void firstPassAssembleLine(Assembler* pThis)
 {
     const OpCodeEntry* pInstructionSet = pThis->instructionSets[pThis->pLineInfo->instructionSet];
@@ -708,7 +660,7 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
 {
     AddressingMode addressingMode;
 
-    // UNDONE: This skip state should be in line info structure.
+    /* UNDONE: This skip state should be in line info structure. */
     if (shouldSkipSourceLines(pThis) && isOpcodeSkippable(pOpcodeEntry))
         return;
         
@@ -736,7 +688,7 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
        100% code coverage. */
     case ADDRESSING_MODE_INVALID:
     case ADDRESSING_MODE_ABSOLUTE:
-        handleZeroPageOrAbsoluteAddressingMode(pThis, &addressingMode, pOpcodeEntry);
+        handleZeroPageAbsoluteOrRelativeAddressingMode(pThis, &addressingMode, pOpcodeEntry);
         break;
     case ADDRESSING_MODE_IMMEDIATE:
         handleImmediateAddressingMode(pThis, &addressingMode, pOpcodeEntry->opcodeImmediate);
@@ -826,7 +778,6 @@ static void reallocLineInfoMachineCodeBytes(Assembler* pThis, size_t bytesToAllo
                                                               pThis->pLineInfo->pMachineCode, 
                                                               bytesToAllocate);
         pThis->pLineInfo->machineCodeSize = bytesToAllocate;
-                                                                               
     }
     __catch
     {
@@ -836,9 +787,9 @@ static void reallocLineInfoMachineCodeBytes(Assembler* pThis, size_t bytesToAllo
     }
 }
 
-static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis, 
-                                                   AddressingMode*    pAddressingMode, 
-                                                   const OpCodeEntry* pOpcodeEntry)
+static void handleZeroPageAbsoluteOrRelativeAddressingMode(Assembler*         pThis, 
+                                                           AddressingMode*    pAddressingMode, 
+                                                           const OpCodeEntry* pOpcodeEntry)
 {
     if (pOpcodeEntry->opcodeRelative != _xXX)
     {
@@ -849,19 +800,6 @@ static void handleZeroPageOrAbsoluteAddressingMode(Assembler*         pThis,
     handleZeroPageOrAbsoluteAddressingModes(pThis, 
                                             pAddressingMode, 
                                             pOpcodeEntry->opcodeZeroPage, pOpcodeEntry->opcodeAbsolute);
-}
-
-static void handleZeroPageOrAbsoluteAddressingModes(Assembler*         pThis, 
-                                                    AddressingMode*    pAddressingMode, 
-                                                    unsigned char      opcodeZeroPage,
-                                                    unsigned char      opcodeAbsolute)
-{
-    if (pAddressingMode->expression.type == TYPE_ZEROPAGE && opcodeZeroPage != _xXX)
-        emitTwoByteInstruction(pThis, opcodeZeroPage, pAddressingMode->expression.value);
-    else if (opcodeAbsolute != _xXX)
-        emitThreeByteInstruction(pThis, opcodeAbsolute, pAddressingMode->expression.value);
-    else
-        logInvalidAddressingModeError(pThis);
 }
 
 static void handleRelativeAddressingMode(Assembler* pThis, AddressingMode* pAddressingMode, unsigned char opcodeRelative)
@@ -882,6 +820,19 @@ static void handleRelativeAddressingMode(Assembler* pThis, AddressingMode* pAddr
 static int expressionContainsForwardReference(Expression* pExpression)
 {
     return pExpression->flags & EXPRESSION_FLAG_FORWARD_REFERENCE;
+}
+
+static void handleZeroPageOrAbsoluteAddressingModes(Assembler*         pThis, 
+                                                    AddressingMode*    pAddressingMode, 
+                                                    unsigned char      opcodeZeroPage,
+                                                    unsigned char      opcodeAbsolute)
+{
+    if (pAddressingMode->expression.type == TYPE_ZEROPAGE && opcodeZeroPage != _xXX)
+        emitTwoByteInstruction(pThis, opcodeZeroPage, pAddressingMode->expression.value);
+    else if (opcodeAbsolute != _xXX)
+        emitThreeByteInstruction(pThis, opcodeAbsolute, pAddressingMode->expression.value);
+    else
+        logInvalidAddressingModeError(pThis);
 }
 
 static void emitTwoByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value)
@@ -1013,7 +964,7 @@ static void validateEQULabelFormat(Assembler* pThis)
         LOG_ERROR(pThis, "%s directive requires a line label.", "EQU");
         __throw(invalidArgumentException);
     }
-    if (pThis->parsedLine.label.pString[0] == ':')
+    if (isLocalLabelName(&pThis->parsedLine.label))
     {
         LOG_ERROR(pThis, "'%.*s' can't be a local label when used with EQU.", 
                   pThis->parsedLine.label.stringLength, pThis->parsedLine.label.pString);
@@ -1023,7 +974,7 @@ static void validateEQULabelFormat(Assembler* pThis)
 
 static void updateLinesWhichForwardReferencedThisLabel(Assembler* pThis, Symbol* pSymbol)
 {
-    LineInfo* pCurr = NULL;
+    LineInfo* pCurr;
     
     if (!pSymbol)
         return;
@@ -1037,7 +988,7 @@ static void updateLinesWhichForwardReferencedThisLabel(Assembler* pThis, Symbol*
 
 static int symbolContainsForwardReferences(Symbol* pSymbol)
 {
-    return pSymbol->expression.flags & EXPRESSION_FLAG_FORWARD_REFERENCE;
+    return expressionContainsForwardReference(&pSymbol->expression);
 }
 
 static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, LineInfo* pLineInfo)
@@ -1108,8 +1059,9 @@ static void handleASC(Assembler* pThis)
             unsigned char   byte = *pCurr | mask;
             if (!alreadyAllocated)
                 reallocLineInfoMachineCodeBytes(pThis, i+1);
-            pThis->pLineInfo->pMachineCode[i++] = byte;
+            pThis->pLineInfo->pMachineCode[i] = byte;
             pCurr++;
+            i++;
         }
         assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
     
@@ -1128,6 +1080,50 @@ static void handleASC(Assembler* pThis)
 static const char* fullOperandStringWithSpaces(Assembler* pThis)
 {
     return pThis->parsedLine.operands.pString;
+}
+
+static void handleDUM(Assembler* pThis)
+{
+    __try
+    {
+        Expression  expression;
+        
+        validateOperandWasProvided(pThis);
+        expression = getAbsoluteExpression(pThis, &pThis->parsedLine.operands);
+
+        if (!isAlreadyInDUMSection(pThis))
+            pThis->programCounterBeforeDUM = pThis->programCounter;
+        pThis->programCounter = expression.value;
+        pThis->pCurrentBuffer = pThis->pDummyBuffer;
+    }
+    __catch
+    {
+        __nothrow;
+    }
+}
+
+static Expression getAbsoluteExpression(Assembler* pThis, SizedString* pOperands)
+{
+    Expression expression;
+    
+    expression = ExpressionEval(pThis, pOperands);
+    if (!isTypeAbsolute(&expression))
+    {
+        LOG_ERROR(pThis, "'%.*s' doesn't specify an absolute address.", pOperands->stringLength, pOperands->pString);
+        __throw(invalidArgumentException);
+    }
+    return expression;
+}
+
+static int isTypeAbsolute(Expression* pExpression)
+{
+    return pExpression->type == TYPE_ZEROPAGE ||
+           pExpression->type == TYPE_ABSOLUTE;
+}
+
+static int isAlreadyInDUMSection(Assembler* pThis)
+{
+    return pThis->pCurrentBuffer == pThis->pDummyBuffer;
 }
 
 static void handleDEND(Assembler* pThis)
@@ -1159,57 +1155,6 @@ static void validateNoOperandWasProvided(Assembler* pThis)
     LOG_ERROR(pThis, "%.*s directive doesn't require operand.", 
               pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
     __throw(invalidArgumentException);
-}
-
-static void handleDUM(Assembler* pThis)
-{
-    __try
-    {
-        Expression  expression;
-        
-        validateOperandWasProvided(pThis);
-        expression = getAbsoluteExpression(pThis, &pThis->parsedLine.operands);
-
-        if (!isAlreadyInDUMSection(pThis))
-            pThis->programCounterBeforeDUM = pThis->programCounter;
-        pThis->programCounter = expression.value;
-        pThis->pCurrentBuffer = pThis->pDummyBuffer;
-    }
-    __catch
-    {
-        __nothrow;
-    }
-}
-
-static Expression getAbsoluteExpression(Assembler* pThis, SizedString* pOperands)
-{
-    Expression expression;
-    
-    __try
-    {
-        expression = ExpressionEval(pThis, pOperands);
-        if (!isTypeAbsolute(&expression))
-        {
-            LOG_ERROR(pThis, "'%.*s' doesn't specify an absolute address.", pOperands->stringLength, pOperands->pString);
-            __throw(invalidArgumentException);
-        }
-    }
-    __catch
-    {
-        __rethrow;
-    }
-    return expression;
-}
-
-static int isTypeAbsolute(Expression* pExpression)
-{
-    return pExpression->type == TYPE_ZEROPAGE ||
-           pExpression->type == TYPE_ABSOLUTE;
-}
-
-static int isAlreadyInDUMSection(Assembler* pThis)
-{
-    return pThis->pCurrentBuffer == pThis->pDummyBuffer;
 }
 
 static void handleDS(Assembler* pThis)
@@ -1305,22 +1250,13 @@ static void handleHEX(Assembler* pThis)
 
 static unsigned char getNextHexByte(SizedString* pString, const char** ppCurr)
 {
-    unsigned char value;
-    
-    __try
-    {
-        value = hexCharToNibble(SizedString_EnumNext(pString, ppCurr)) << 4;
-        if (SizedString_EnumCurr(pString, *ppCurr) == '\0')
-            __throw(invalidArgumentException);
-        value |= hexCharToNibble(SizedString_EnumNext(pString, ppCurr));
+    unsigned char value = hexCharToNibble(SizedString_EnumNext(pString, ppCurr)) << 4;
+    if (SizedString_EnumCurr(pString, *ppCurr) == '\0')
+        __throw(invalidArgumentException);
+    value |= hexCharToNibble(SizedString_EnumNext(pString, ppCurr));
 
-        if (SizedString_EnumCurr(pString, *ppCurr) == ',')
-            SizedString_EnumNext(pString, ppCurr);
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    if (SizedString_EnumCurr(pString, *ppCurr) == ',')
+        SizedString_EnumNext(pString, ppCurr);
 
     return value;
 }
@@ -1522,17 +1458,10 @@ static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString*
 
 static void rememberIncludedTextFile(Assembler* pThis, TextFile* pTextFile)
 {
-    __try
-    {
-        TextFileNode* pNode = allocateAndZero(sizeof(*pNode));
-        pNode->pNext = pThis->pIncludedFiles;
-        pNode->pTextFile = pTextFile;
-        pThis->pIncludedFiles = pNode;
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    TextFileNode* pNode = allocateAndZero(sizeof(*pNode));
+    pNode->pNext = pThis->pIncludedFiles;
+    pNode->pTextFile = pTextFile;
+    pThis->pIncludedFiles = pNode;
 }
 
 static void handleUSR(Assembler* pThis)
@@ -1550,7 +1479,7 @@ static void handleUSR(Assembler* pThis)
         
         validateOperandWasProvided(pThis);
         
-        /* NOTE: &remaningArguments is an in/out parameter in the following calls to getNextCommaSeparatedArgument()
+        /* NOTE: &remainingArguments is an in/out parameter in the following calls to getNextCommaSeparatedArgument()
                  so that it points after the next comma in the argument list after parsing out the previous argument. */
         side = getNextCommaSeparatedArgument(pThis, &remainingArguments);
         track = getNextCommaSeparatedArgument(pThis, &remainingArguments);
@@ -1577,28 +1506,6 @@ static void handleUSR(Assembler* pThis)
     }
 }
 
-static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments)
-{
-    SizedString beforeComma;
-    SizedString afterComma;
-    Expression  expression;
-    
-    __try
-    {
-        SizedString_SplitString(pRemainingArguments, ',', &beforeComma, &afterComma);
-        if (SizedString_strlen(&beforeComma) == 0)
-            __throw(invalidArgumentCountException);
-        expression = ExpressionEval(pThis, &beforeComma);
-    }
-    __catch
-    {
-        __rethrow;
-    }
-    
-    *pRemainingArguments = afterComma;
-    return expression.value;
-}
-
 static SizedString removeDirectoryAndSuffixFromFullFilename(SizedString* pFullFilename)
 {
     const char* pLastDot = SizedString_strrchr(pFullFilename, '.');
@@ -1609,6 +1516,21 @@ static SizedString removeDirectoryAndSuffixFromFullFilename(SizedString* pFullFi
     SizedString result = SizedString_Init(pStart, length);
     
     return result;
+}
+
+static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments)
+{
+    SizedString beforeComma;
+    SizedString afterComma;
+    Expression  expression;
+    
+    SizedString_SplitString(pRemainingArguments, ',', &beforeComma, &afterComma);
+    if (SizedString_strlen(&beforeComma) == 0)
+        __throw(invalidArgumentCountException);
+    expression = ExpressionEval(pThis, &beforeComma);
+    
+    *pRemainingArguments = afterComma;
+    return expression.value;
 }
 
 static void handleDO(Assembler* pThis)
@@ -1653,11 +1575,9 @@ static int doesExpressionEqualZeroIndicatingToSkipSourceLines(Expression* pExpre
 
 static void pushConditional(Assembler* pThis, int skipSourceLines)
 {
-    Conditional* pAlloc = NULL;
-    
     __try
     {
-        pAlloc = allocateAndZero(sizeof(*pAlloc));
+        Conditional* pAlloc = allocateAndZero(sizeof(*pAlloc));
         if (skipSourceLines)
             pAlloc->flags |= CONDITIONAL_SKIP_SOURCE;
         pAlloc->flags |= determineInheritedConditionalSkipSourceLineState(pThis);
@@ -1695,17 +1615,10 @@ static void handleELSE(Assembler* pThis)
 
 static void flipTopConditionalState(Assembler* pThis)
 {
-    __try
-    {
-        validateInConditionalAlready(pThis);
-        flipConditionalState(pThis->pConditionals);
-        validateElseNotAlreadySeen(pThis);
-        rememberThatConditionalHasSeenElse(pThis->pConditionals);
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    validateInConditionalAlready(pThis);
+    flipConditionalState(pThis->pConditionals);
+    validateElseNotAlreadySeen(pThis);
+    rememberThatConditionalHasSeenElse(pThis->pConditionals);
 }
 
 static void validateInConditionalAlready(Assembler* pThis)
@@ -1757,19 +1670,12 @@ static void handleFIN(Assembler* pThis)
 
 static void popConditional(Assembler* pThis)
 {
-    __try
-    {
-        Conditional* pPrev;
-        
-        validateInConditionalAlready(pThis);
-        pPrev = pThis->pConditionals->pPrev;
-        free(pThis->pConditionals);
-        pThis->pConditionals = pPrev;
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    Conditional* pPrev;
+    
+    validateInConditionalAlready(pThis);
+    pPrev = pThis->pConditionals->pPrev;
+    free(pThis->pConditionals);
+    pThis->pConditionals = pPrev;
 }
 
 static void checkForUndefinedSymbols(Assembler* pThis)
@@ -1842,22 +1748,15 @@ __throws Symbol* Assembler_FindLabel(Assembler* pThis, SizedString* pLabelName)
 {
     Symbol*     pSymbol = NULL;
     
-    __try
-    {
-        SizedString globalLabel = initGlobalLabelString(pThis, pLabelName);
-        SizedString localLabel = initLocalLabelString(pLabelName);
+    SizedString globalLabel = initGlobalLabelString(pThis, pLabelName);
+    SizedString localLabel = initLocalLabelString(pLabelName);
 
-        validateLabelFormat(pThis, pLabelName);
-        pSymbol = SymbolTable_Find(pThis->pSymbols, &globalLabel, &localLabel);
-        if (!pSymbol)
-            pSymbol = SymbolTable_Add(pThis->pSymbols, &globalLabel, &localLabel);
-        if (!isSymbolAlreadyDefined(pSymbol, NULL))
-            Symbol_LineReferenceAdd(pSymbol, pThis->pLineInfo);
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    validateLabelFormat(pThis, pLabelName);
+    pSymbol = SymbolTable_Find(pThis->pSymbols, &globalLabel, &localLabel);
+    if (!pSymbol)
+        pSymbol = SymbolTable_Add(pThis->pSymbols, &globalLabel, &localLabel);
+    if (!isSymbolAlreadyDefined(pSymbol, NULL))
+        Symbol_LineReferenceAdd(pSymbol, pThis->pLineInfo);
 
     return pSymbol;
 }

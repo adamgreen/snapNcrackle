@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -48,13 +48,7 @@ struct BinaryBuffer
 static void* allocateAndZero(size_t sizeToAllocate);
 __throws BinaryBuffer* BinaryBuffer_Create(size_t bufferSize)
 {
-    BinaryBuffer* pThis;
-    
-    __try
-        pThis = allocateAndZero(sizeof(*pThis));
-    __catch
-        __rethrow;
-
+    BinaryBuffer* pThis = allocateAndZero(sizeof(*pThis));
     pThis->pBuffer = malloc(bufferSize);
     if (!pThis->pBuffer)
     {
@@ -124,6 +118,7 @@ __throws unsigned char* BinaryBuffer_Realloc(BinaryBuffer* pThis, unsigned char*
 {
     if (!pToRealloc)
         return BinaryBuffer_Alloc(pThis, bytesToAllocate);
+    
     if(pToRealloc != pThis->pLastAlloc)
         __throw(invalidArgumentException);
         
@@ -257,20 +252,13 @@ __throws void BinaryBuffer_QueueRW18WriteToFile(BinaryBuffer*  pThis,
     static const unsigned char signature[4] = BINARY_BUFFER_RW18SAV_SIGNATURE;
     FileWriteEntry*            pEntry = NULL;
     
-    __try
-    {
-        pEntry = queueWriteToFile(pThis, pDirectoryName, pFilename, pFilenameSuffix);
-        memcpy(pEntry->rw18FileHeader.signature, signature, sizeof(pEntry->rw18FileHeader.signature));
-        pEntry->rw18FileHeader.side = side;
-        pEntry->rw18FileHeader.track = track;
-        pEntry->rw18FileHeader.offset = offset;
-        pEntry->rw18FileHeader.length = pEntry->contentLength;
-        pEntry->headerLength = sizeof(pEntry->rw18FileHeader);
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    pEntry = queueWriteToFile(pThis, pDirectoryName, pFilename, pFilenameSuffix);
+    memcpy(pEntry->rw18FileHeader.signature, signature, sizeof(pEntry->rw18FileHeader.signature));
+    pEntry->rw18FileHeader.side = side;
+    pEntry->rw18FileHeader.track = track;
+    pEntry->rw18FileHeader.offset = offset;
+    pEntry->rw18FileHeader.length = pEntry->contentLength;
+    pEntry->headerLength = sizeof(pEntry->rw18FileHeader);
 }
 
 

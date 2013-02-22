@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -20,17 +20,17 @@ static void displayUsage(void)
 {
     printf("Usage: crackle --format image_format scriptFilename outputImageFilename\n\n"
            "Where: --format image_format indicates the type outputImage is to be\n"
-           "         created.  image_format can be on of:\n"
+           "         created.  image_format can be one of:\n"
            "           nib_5.25 - creates a .nib nibble image for a 5 1/4\" disk.\n"
            "           2mg_3.5 - creates a .2MG block image for a 3 1/2\" disk.\n"
            "       scriptFilename is the name of the input script to be used\n"
-           "         for placing data in the image file.  Each line should have\n"
-           "         this format:\n"
+           "         for placing data in the image file.  Each line should meet\n"
+           "         one of these formats:\n"
            "           BLOCK,objectFilename,startOffset,length,block,[intraBlockOffset]\n"
            "           RWTS16,objectFilename,startOffset,length,track,sector\n"
            "           RWTS18,objectFilename,startOffset,length,side,track,sector,intraSectorOffset\n"
-           "       outputImageFilename is the name of the nibble based image to be\n"
-           "         created by this tool.\n\n");
+           "       outputImageFilename is the name of the image to be created by\n"
+           "           this tool.\n\n");
 }
 
 
@@ -47,24 +47,22 @@ __throws CrackleCommandLine CrackleCommandLine_Init(int argc, const char** argv)
     CrackleCommandLine commandLine;
     memset(&commandLine, 0, sizeof(commandLine));
     
-    while (argc)
-    {
-        int argumentsUsed;
-        
-        __try
-            argumentsUsed = parseArgument(&commandLine, argc, argv);
-        __catch
-            __rethrow;
-            
-        argc -= argumentsUsed;
-        argv += argumentsUsed;
-    }
-
     __try
+    {
+        while (argc)
+        {
+            int argumentsUsed = parseArgument(&commandLine, argc, argv);
+
+            argc -= argumentsUsed;
+            argv += argumentsUsed;
+        }
         throwIfRequiredArgumentNotSpecified(&commandLine);
+    }
     __catch
-        __rethrow;
-        
+    {
+        displayUsage();
+    }
+    
     return commandLine;
 }
 
@@ -85,16 +83,11 @@ static int parseFlagArgument(CrackleCommandLine* pThis, int argc, const char** p
 {
     if (0 == strcasecmp(*ppArgs, "--format"))
     {
-        __try
-            parseFormat(pThis, argc - 1, ppArgs[1]);
-        __catch
-            __rethrow;
-
+        parseFormat(pThis, argc - 1, ppArgs[1]);
         return 2;
     }
     else
     {
-        displayUsage();
         __throw(invalidArgumentException);
     }
 }
@@ -102,23 +95,13 @@ static int parseFlagArgument(CrackleCommandLine* pThis, int argc, const char** p
 static void parseFormat(CrackleCommandLine* pThis, int argc, const char* pFormat)
 {
     if (argc < 1)
-    {
-        displayUsage();
         __throw(invalidArgumentException);
-    }
     if (0 == strcasecmp(pFormat, "nib_5.25"))
-    {
         pThis->imageFormat = FORMAT_NIB_5_25;
-    }
     else if (0 == strcasecmp(pFormat, "2mg_3.5"))
-    {
         pThis->imageFormat = FORMAT_2MG_3_5;
-    }
     else
-    {
-        displayUsage();
         __throw(invalidArgumentException);
-    }
 }
 
 static int parseFilenameArgument(CrackleCommandLine* pThis, int argc, const char* pArgument)
@@ -135,7 +118,6 @@ static int parseFilenameArgument(CrackleCommandLine* pThis, int argc, const char
     }
     else
     {
-        displayUsage();
         __throw(invalidArgumentException);
     }
 }
@@ -143,8 +125,5 @@ static int parseFilenameArgument(CrackleCommandLine* pThis, int argc, const char
 static void throwIfRequiredArgumentNotSpecified(CrackleCommandLine* pThis)
 {
     if (!pThis->pScriptFilename || !pThis->pOutputImageFilename || pThis->imageFormat == FORMAT_UNKNOWN)
-    {
-        displayUsage();
         __throw(invalidArgumentException);
-    }
 }

@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -168,11 +168,7 @@ static AddressingMode indexedIndirectAddressing(Assembler* pAssembler, SizedStri
     if (0 != SizedString_strcasecmp(&indexRegister, "X"))
         reportAndThrowOnInvalidIndexRegister(pAssembler, &indexRegister);
 
-    __try
-        addressingMode.expression = ExpressionEval(pAssembler, &beforeComma);
-    __catch
-        __rethrow;
-
+    addressingMode.expression = ExpressionEval(pAssembler, &beforeComma);
     addressingMode.mode = ADDRESSING_MODE_INDEXED_INDIRECT;
     return addressingMode;
 }
@@ -180,7 +176,7 @@ static AddressingMode indexedIndirectAddressing(Assembler* pAssembler, SizedStri
 static int usesIndirectIndexedAddressing(CharLocations* pLocations)
 {
     return hasParensAndComma(pLocations) && hasOpeningParenAtBeginning(pLocations) && 
-           isCommaAfterOpeningParen(pLocations) && isCommaAfterClosingParen(pLocations);
+           isCommaAfterClosingParen(pLocations);
 }
 
 static int isCommaAfterClosingParen(CharLocations* pLocations)
@@ -204,18 +200,13 @@ static AddressingMode indirectIndexedAddressing(Assembler* pAssembler, SizedStri
     if (0 != SizedString_strcasecmp(&indexRegister, "Y"))
         reportAndThrowOnInvalidIndexRegister(pAssembler, &indexRegister);
         
-    __try
-        addressingMode.expression = ExpressionEval(pAssembler, &beforeCloseParen);
-    __catch
-        __rethrow;
-        
+    addressingMode.expression = ExpressionEval(pAssembler, &beforeCloseParen);
     if (addressingMode.expression.type != TYPE_ZEROPAGE)
     {
         LOG_ERROR(pAssembler, "'%.*s' isn't in page zero as required for indirect indexed addressing.", 
                   beforeCloseParen.stringLength, beforeCloseParen.pString);
         __throw(invalidArgumentException);
     }
-
     addressingMode.mode = ADDRESSING_MODE_INDIRECT_INDEXED;
     return addressingMode;
 }
@@ -241,11 +232,8 @@ static AddressingMode indirectAddressing(Assembler* pAssembler, SizedString* pOp
 
     SizedString_SplitString(pOperandsString, '(', &beforeOpenParen, &afterOpenParen);
     SizedString_SplitString(&afterOpenParen, ')', &beforeCloseParen, &afterCloseParen);
-    __try
-        addressingMode.expression = ExpressionEval(pAssembler, &beforeCloseParen);
-    __catch
-        __rethrow;
-        
+
+    addressingMode.expression = ExpressionEval(pAssembler, &beforeCloseParen);
     addressingMode.mode = ADDRESSING_MODE_INDIRECT;
     return addressingMode;
 }

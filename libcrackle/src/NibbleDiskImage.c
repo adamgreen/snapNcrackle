@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -126,27 +126,13 @@ static void checksumNibbilizeAndWriteDataBuffer(NibbleDiskImage* pThis, const un
 static void nibbilizeAndWriteChecksum(NibbleDiskImage* pThis);
 __throws void NibbleDiskImage_InsertData(NibbleDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert)
 {
-    __try
-    {
-        validateOffsetType(pInsert);
-        prepareForFirstSector(pThis, pData, pInsert);
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    validateOffsetType(pInsert);
+    prepareForFirstSector(pThis, pData, pInsert);
     
     while (pThis->bytesLeft > 0)
     {
-        __try
-        {
-            writeRWTS16Sector(pThis);
-            advanceToNextSector(pThis);
-        }
-        __catch
-        {
-            __rethrow;
-        }
+        writeRWTS16Sector(pThis);
+        advanceToNextSector(pThis);
     }
 }
 
@@ -184,10 +170,7 @@ static void writeRWTS16Sector(NibbleDiskImage* pThis)
     const unsigned char*         pStart;
     int                          encodedSize;
     
-    __try
-        validateTrackAndSector(pThis);
-    __catch
-        __rethrow;
+    validateTrackAndSector(pThis);
         
     pThis->pWrite = DiskImage_GetImagePointer(&pThis->super) + sourceOffset;
     pStart = pThis->pWrite;

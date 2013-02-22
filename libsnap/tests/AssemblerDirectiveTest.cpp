@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -769,7 +769,7 @@ TEST(AssemblerDirectives, PUT_DirectiveFailAllAllocations)
     clearExceptionCode();
 }
 
-TEST(AssemblerDirectives, USR_DirectiveWithDirectorAndSuffixToRemoveFromSourceFilename)
+TEST(AssemblerDirectives, USR_DirectiveWithDirectoryAndSuffixToRemoveFromSourceFilename)
 {
     createSourceFile(" org $800\n"
                      " hex 00,ff\n"

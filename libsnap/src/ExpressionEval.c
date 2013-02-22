@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -67,7 +67,7 @@ __throws Expression ExpressionEval(Assembler* pAssembler, SizedString* pOperands
 {
     ExpressionEvaluation eval;
     
-    memset(&eval.expression, 0, sizeof(eval.expression));
+    memset(&eval, 0, sizeof(eval));
     eval.pString = pOperands;
     SizedString_EnumStart(eval.pString, &eval.pCurrent);
 
@@ -122,25 +122,15 @@ static int isHighBytePrefix(char prefixChar)
 
 static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
 {
-
-    __try
-        evaluatePrimitive(pAssembler, pEval);
-    __catch
-        __rethrow;
-        
+    evaluatePrimitive(pAssembler, pEval);
     pEval->pCurrent = pEval->pNext;
     while (SizedString_EnumRemaining(pEval->pString, pEval->pCurrent) > 0)
-    {
-        __try
-            evaluateOperation(pAssembler, pEval);
-        __catch
-            __rethrow;
-    }
+        evaluateOperation(pAssembler, pEval);
 }
 
 static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval)
 {
-    char     prefixChar = SizedString_EnumCurr(pEval->pString, pEval->pCurrent);
+    char prefixChar = SizedString_EnumCurr(pEval->pString, pEval->pCurrent);
 
     if (isHexPrefix(prefixChar))
     {
@@ -184,23 +174,13 @@ static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval
 
 static void evaluateOperation(Assembler* pAssembler, ExpressionEvaluation* pEval)
 {
-    __try
-    {
-        operatorHandler      handleOperator;
-        ExpressionEvaluation rightEval;
-        
-        handleOperator = determineHandlerForOperator(pAssembler, SizedString_EnumCurr(pEval->pString, pEval->pCurrent));
-        rightEval = *pEval;
-        SizedString_EnumNext(rightEval.pString, &rightEval.pCurrent);
-        evaluatePrimitive(pAssembler, &rightEval);
-        handleOperator(pAssembler, pEval, &rightEval);
-        combineExpressionTypeAndFlags(&pEval->expression, &rightEval.expression);
-        pEval->pCurrent = rightEval.pNext;
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    operatorHandler handleOperator = determineHandlerForOperator(pAssembler, SizedString_EnumCurr(pEval->pString, pEval->pCurrent));
+    ExpressionEvaluation rightEval = *pEval;
+    SizedString_EnumNext(rightEval.pString, &rightEval.pCurrent);
+    evaluatePrimitive(pAssembler, &rightEval);
+    handleOperator(pAssembler, pEval, &rightEval);
+    combineExpressionTypeAndFlags(&pEval->expression, &rightEval.expression);
+    pEval->pCurrent = rightEval.pNext;
 }
 
 static operatorHandler determineHandlerForOperator(Assembler* pAssembler, char operatorChar)
@@ -278,9 +258,12 @@ typedef struct Parser
 {
     const char*    pType;
     unsigned short (*parseDigit)(char digit);
-    unsigned short multiplier;
     int            skipPrefix;
+    unsigned int   multiplier;
 } Parser;
+
+#define SKIP_PREFIX_CHAR   1
+#define NOSKIP_PREFIX_CHAR 0
 
 static void parseValue(Assembler* pAssembler, ExpressionEvaluation* pEval, Parser* pParser)
 {
@@ -315,7 +298,8 @@ static void parseValue(Assembler* pAssembler, ExpressionEvaluation* pEval, Parse
     
     if (overflowDetected)
     {
-        LOG_ERROR(pAssembler, "%s number '%.*s' doesn't fit in 16-bits.", pParser->pType, digitCount+1, pEval->pCurrent);
+        LOG_ERROR(pAssembler, "%s number '%.*s' doesn't fit in 16-bits.", 
+                  pParser->pType, digitCount + pParser->skipPrefix, pEval->pCurrent);
         setExceptionCode(invalidArgumentException);
         value = 0;
     }
@@ -329,8 +313,8 @@ static void parseHexValue(Assembler* pAssembler, ExpressionEvaluation* pEval)
     {
         "Hexadecimal",
         parseHexDigit,
-        16,
-        1
+        SKIP_PREFIX_CHAR,
+        16
     };
 
     parseValue(pAssembler, pEval, &hexParser);
@@ -359,8 +343,8 @@ static void parseBinaryValue(Assembler* pAssembler, ExpressionEvaluation* pEval)
     {
         "Binary",
         parseBinaryDigit,
-        2,
-        1
+        SKIP_PREFIX_CHAR,
+        2
     };
 
     parseValue(pAssembler, pEval, &binaryParser);
@@ -385,8 +369,8 @@ static void parseDecimalValue(Assembler* pAssembler, ExpressionEvaluation* pEval
     {
         "Decimal",
         parseDecimalDigit,
-        10,
-        0
+        NOSKIP_PREFIX_CHAR,
+        10
     };
 
     parseValue(pAssembler, pEval, &decimalParser);
@@ -449,15 +433,9 @@ static int isLabelReference(char prefixChar)
 
 static void parseLabelReference(Assembler* pAssembler, ExpressionEvaluation* pEval)
 {
-    Symbol*     pSymbol = NULL;
     size_t      labelLength = lengthOfLabel(pEval);
     SizedString labelName = SizedString_Init(pEval->pCurrent, labelLength);
-
-    __try
-        pSymbol = Assembler_FindLabel(pAssembler, &labelName);
-    __catch
-        __rethrow;
-
+    Symbol* pSymbol = Assembler_FindLabel(pAssembler, &labelName);
     pEval->expression = pSymbol->expression;
     flagForwardReferenceOnExpressionIfUndefinedLabel(pEval, pSymbol);
 }

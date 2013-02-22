@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -24,34 +24,13 @@ struct ListFile
     unsigned short address;
 };
 
-static ListFile* allocateAndZeroObject(void);
 __throws ListFile* ListFile_Create(FILE* pOutputFile)
 {
     ListFile* pThis = NULL;
     
-    __try
-    {
-        pThis = allocateAndZeroObject();
-    }
-    __catch
-    {
-        ListFile_Free(pThis);
-        __rethrow;
-    }
+    pThis = allocateAndZero(sizeof(*pThis));
     pThis->pFile = pOutputFile;
     
-    return pThis;
-}
-
-static ListFile* allocateAndZeroObject(void)
-{
-    ListFile* pThis = NULL;
-    
-    pThis = malloc(sizeof(*pThis));
-    if (!pThis)
-        __throw(outOfMemoryException);
-    
-    memset(pThis, 0, sizeof(*pThis));
     return pThis;
 }
 
@@ -73,7 +52,7 @@ static void listOverflowMachineCodeLine(ListFile* pThis);
 void ListFile_OutputLine(ListFile* pThis, LineInfo* pLineInfo)
 {
     char           addressString[4+1] = "    ";
-    char           machineCodeOrSymbol[8+1] = "        ";
+    char           machineCodeOrSymbol[2+1+2+1+2+1] = "        ";
     
     initMachineCodeFields(pThis, pLineInfo);
     fillAddressBuffer(pLineInfo, addressString);
@@ -115,20 +94,20 @@ static void fillMachineCodeBuffer(ListFile* pThis, char* pOutputBuffer)
 {
     size_t bytesUsed = 0;
     
-    if (pThis->machineCodeSize == 1)
+    switch(pThis->machineCodeSize)
     {
+    case 1:
         sprintf(pOutputBuffer, "%02X      ", pThis->pMachineCode[0]);
         bytesUsed = 1;
-    }
-    else if (pThis->machineCodeSize == 2)
-    {
+        break;
+    case 2:
         sprintf(pOutputBuffer, "%02X %02X   ", pThis->pMachineCode[0], pThis->pMachineCode[1]);
         bytesUsed = 2;
-    }
-    else if (pThis->machineCodeSize >= 3)
-    {
+        break;
+    default:
         sprintf(pOutputBuffer, "%02X %02X %02X", pThis->pMachineCode[0], pThis->pMachineCode[1], pThis->pMachineCode[2]);
         bytesUsed = 3;
+        break;
     }
 
     pThis->pMachineCode += bytesUsed;
@@ -137,7 +116,7 @@ static void fillMachineCodeBuffer(ListFile* pThis, char* pOutputBuffer)
 
 static void listOverflowMachineCodeLine(ListFile* pThis)
 {
-    char machineCodeBuffer[8+1] = "        ";
+    char machineCodeBuffer[2+1+2+1+2+1] = "        ";
 
     pThis->address += 3;
     fillMachineCodeBuffer(pThis, machineCodeBuffer);

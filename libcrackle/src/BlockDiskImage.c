@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -109,16 +109,9 @@ static void insertRW18Data(BlockDiskImage* pThis, const unsigned char* pData, Di
 {
     DiskImageInsert insert = *pInsert;
     
-    __try
-    {
-        validateRW18InsertionProperties(pInsert);
-        insert = convertRW18SideTrackSectorToBlockAndOffset(pInsert);
-        insertBlockData(pThis, pData, &insert);
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    validateRW18InsertionProperties(pInsert);
+    insert = convertRW18SideTrackSectorToBlockAndOffset(pInsert);
+    insertBlockData(pThis, pData, &insert);
 }
 
 static void validateRW18InsertionProperties(DiskImageInsert* pInsert)
@@ -135,19 +128,12 @@ static DiskImageInsert convertRW18SideTrackSectorToBlockAndOffset(DiskImageInser
 {
     DiskImageInsert insert = *pInsert;
     
-    __try
-    {
-        unsigned int sectorWithinSide = pInsert->track * DISK_IMAGE_RW18_SECTORS_PER_TRACK + pInsert->sector;
-        unsigned int blockWithinSide = sectorWithinSide / DISK_IMAGE_SECTORS_PER_BLOCK;
-        insert.type = DISK_IMAGE_INSERTION_BLOCK;
-        insert.block = startBlockForSide(pInsert->side) + blockWithinSide;
-        insert.intraBlockOffset = (sectorWithinSide % DISK_IMAGE_SECTORS_PER_BLOCK) * DISK_IMAGE_BYTES_PER_SECTOR;
-        insert.intraBlockOffset += pInsert->intraSectorOffset;
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    unsigned int sectorWithinSide = pInsert->track * DISK_IMAGE_RW18_SECTORS_PER_TRACK + pInsert->sector;
+    unsigned int blockWithinSide = sectorWithinSide / DISK_IMAGE_SECTORS_PER_BLOCK;
+    insert.type = DISK_IMAGE_INSERTION_BLOCK;
+    insert.block = startBlockForSide(pInsert->side) + blockWithinSide;
+    insert.intraBlockOffset = (sectorWithinSide % DISK_IMAGE_SECTORS_PER_BLOCK) * DISK_IMAGE_BYTES_PER_SECTOR;
+    insert.intraBlockOffset += pInsert->intraSectorOffset;
     
     return insert;
 }
@@ -170,18 +156,11 @@ static unsigned int startBlockForSide(unsigned short side)
 static void insertBlockData(BlockDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert)
 {
     unsigned char* pImage = DiskImage_GetImagePointer(&pThis->super);
-    __try
-    {
-        validateOffsetTypeIsBlock(pInsert);
-        validateImageOffsets(pThis, pInsert);
-        memcpy(pImage + calculateSourceOffset(pInsert), 
-               pData + pInsert->sourceOffset, 
-               pInsert->length);
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    validateOffsetTypeIsBlock(pInsert);
+    validateImageOffsets(pThis, pInsert);
+    memcpy(pImage + calculateSourceOffset(pInsert), 
+           pData + pInsert->sourceOffset, 
+           pInsert->length);
 }
 
 static void validateOffsetTypeIsBlock(DiskImageInsert* pInsert)

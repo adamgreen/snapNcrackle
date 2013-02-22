@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -19,12 +19,12 @@
 static void displayUsage(void)
 {
     printf("Usage: snap [--list listFilename] [--putdirs includeDir1;includeDir2...]\n"
-           "            [--outdir outputDirector]sourceFilename\n\n"
+           "            [--outdir outputDirectory]sourceFilename\n\n"
            "Where: --list listFilename allows the list file for the assembly\n"
            "         process to be output to the specified file.  By default it\n"
            "         will be sent to stdout.\n"
-           "       --putdirs sets the directories in which files will be searched\n"
-           "         when including files with PUT directive.\n"
+           "       --putdirs sets the directories (semi-colon separated) in which\n"
+           "         files will be searched when including files with PUT directive.\n"
            "       --outdir sets the directory where output files from directives\n"
            "         like USR and SAV should be stored.\n"
            "       sourceFilename is the required name of an input assembly\n"
@@ -42,25 +42,21 @@ static void throwIfRequiredArgumentNotSpecified(SnapCommandLine* pThis);
 
 __throws void SnapCommandLine_Init(SnapCommandLine* pThis, int argc, const char** argv)
 {
-    memset(pThis, 0, sizeof(*pThis));
-    
-    while (argc)
-    {
-        int argumentsUsed;
-        
-        __try
-            argumentsUsed = parseArgument(pThis, argc, argv);
-        __catch
-            __rethrow;
-            
-        argc -= argumentsUsed;
-        argv += argumentsUsed;
-    }
-
     __try
+    {
+        memset(pThis, 0, sizeof(*pThis));
+        while (argc)
+        {
+            int argumentsUsed = parseArgument(pThis, argc, argv);
+            argc -= argumentsUsed;
+            argv += argumentsUsed;
+        }
         throwIfRequiredArgumentNotSpecified(pThis);
+    }
     __catch
-        __rethrow;
+    {
+        displayUsage();
+    }
 }
 
 static int parseArgument(SnapCommandLine* pThis, int argc, const char** ppArgs)
@@ -95,26 +91,19 @@ static int parseFlagArgument(SnapCommandLine* pThis, int argc, const char** ppAr
         if (0 == strcasecmp(*ppArgs, flagArguments[i].pFlag))
         {
             const char** ppDestField = (const char**)((char*)pThis + flagArguments[i].destStringOffsetInThis);
-            __try
-                parseStringParamter(ppDestField, argc - 1, ppArgs[1]);
-            __catch
-                __rethrow;
-
+            parseStringParamter(ppDestField, argc - 1, ppArgs[1]);
             return 2;
         }
     }
 
-    displayUsage();
     __throw(invalidArgumentException);
 }
 
 static void parseStringParamter(const char** ppDestField, int argc, const char* pSourceArgument)
 {
     if (argc < 1)
-    {
-        displayUsage();
         __throw(invalidArgumentException);
-    }
+
     *ppDestField = pSourceArgument;
 }
 
@@ -127,7 +116,6 @@ static int parseFilenameArgument(SnapCommandLine* pThis, int argc, const char* p
     }
     else
     {
-        displayUsage();
         __throw(invalidArgumentException);
     }
 }
@@ -135,8 +123,5 @@ static int parseFilenameArgument(SnapCommandLine* pThis, int argc, const char* p
 static void throwIfRequiredArgumentNotSpecified(SnapCommandLine* pThis)
 {
     if (!pThis->pSourceFilename)
-    {
-        displayUsage();
         __throw(invalidArgumentException);
-    }
 }
