@@ -48,7 +48,7 @@ static DiskImage* allocateDiskImageObject(CrackleCommandLine* pCommandLine)
 {
     if (pCommandLine->imageFormat == FORMAT_NIB_5_25)
         return (DiskImage*) NibbleDiskImage_Create();
-    else if (pCommandLine->imageFormat == FORMAT_2MG_3_5)
+    else if (pCommandLine->imageFormat == FORMAT_HDV_3_5)
         return (DiskImage*) BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     else
         return NULL;

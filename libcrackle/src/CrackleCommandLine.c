@@ -22,7 +22,7 @@ static void displayUsage(void)
            "Where: --format image_format indicates the type outputImage is to be\n"
            "         created.  image_format can be one of:\n"
            "           nib_5.25 - creates a .nib nibble image for a 5 1/4\" disk.\n"
-           "           2mg_3.5 - creates a .2MG block image for a 3 1/2\" disk.\n"
+           "           hdv_3.5 - creates a .HDV block image for a 3 1/2\" disk.\n"
            "       scriptFilename is the name of the input script to be used\n"
            "         for placing data in the image file.  Each line should meet\n"
            "         one of these formats:\n"
@@ -98,8 +98,8 @@ static void parseFormat(CrackleCommandLine* pThis, int argc, const char* pFormat
         __throw(invalidArgumentException);
     if (0 == strcasecmp(pFormat, "nib_5.25"))
         pThis->imageFormat = FORMAT_NIB_5_25;
-    else if (0 == strcasecmp(pFormat, "2mg_3.5"))
-        pThis->imageFormat = FORMAT_2MG_3_5;
+    else if (0 == strcasecmp(pFormat, "hdv_3.5"))
+        pThis->imageFormat = FORMAT_HDV_3_5;
     else
         __throw(invalidArgumentException);
 }
