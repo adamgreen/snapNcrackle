@@ -984,6 +984,16 @@ TEST(BlockDiskImage, PassInvalidRWTS18SectorOffsetToProcessScript)
                  printfSpy_GetLastErrorOutput());
 }
 
+TEST(BlockDiskImage, PassInvalidRWTS18SideToProcessScript)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
+
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0,0,0,0\n"));
+    STRCMP_EQUAL("<null>:1: error: 0x0 specifies an invalid side.  Must be 0xa9, 0xad, 0x79.\n",
+                 printfSpy_GetLastErrorOutput());
+}
+
 TEST(BlockDiskImage, ProcessTwoLineScriptFile)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);

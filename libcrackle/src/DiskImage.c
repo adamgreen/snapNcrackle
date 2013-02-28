@@ -287,6 +287,7 @@ static void reportScriptLineException(DiskImageScriptEngine* pThis)
              exceptionCode == invalidArgumentException ||
              exceptionCode == blockExceedsImageBoundsException ||
              exceptionCode == invalidInsertionTypeException ||
+             exceptionCode == invalidSideException ||
              exceptionCode == invalidSectorException ||
              exceptionCode == invalidTrackException ||
              exceptionCode == invalidIntraBlockOffsetException ||
@@ -299,6 +300,8 @@ static void reportScriptLineException(DiskImageScriptEngine* pThis)
                   pThis->insert.block, pThis->insert.intraBlockOffset);
     else if (exceptionCode == invalidInsertionTypeException)
         LOG_ERROR(pThis, "%s insertion type isn't supported for this output image type.", ppFields[0]);
+    else if (exceptionCode == invalidSideException)
+        LOG_ERROR(pThis, "0x%x specifies an invalid side.  Must be 0xa9, 0xad, 0x79.", pThis->insert.side);
     else if (exceptionCode == invalidSectorException)
         LOG_ERROR(pThis, "%u specifies an invalid sector.  Must be 0 - 15.", pThis->insert.sector);
     else if (exceptionCode == invalidTrackException)
