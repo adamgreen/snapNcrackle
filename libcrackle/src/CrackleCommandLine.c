@@ -61,6 +61,7 @@ __throws CrackleCommandLine CrackleCommandLine_Init(int argc, const char** argv)
     __catch
     {
         displayUsage();
+        __rethrow;
     }
     
     return commandLine;

@@ -56,6 +56,7 @@ __throws void SnapCommandLine_Init(SnapCommandLine* pThis, int argc, const char*
     __catch
     {
         displayUsage();
+        __rethrow;
     }
 }
 
