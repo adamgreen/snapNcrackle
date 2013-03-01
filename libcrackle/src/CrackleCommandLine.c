@@ -14,7 +14,14 @@
 #include <stdio.h>
 #include "CrackleCommandLine.h"
 #include "CrackleCommandLineTest.h"
+#include "version.h"
 
+static void displayCopyrightNotice(void)
+{
+    printf("crackle - Simple Disk Imaging Tool for Apple II (" VERSION_STRING ")\n\n"
+           COPYRIGHT_NOTICE
+           "\n");
+}
 
 static void displayUsage(void)
 {
@@ -60,6 +67,7 @@ __throws CrackleCommandLine CrackleCommandLine_Init(int argc, const char** argv)
     }
     __catch
     {
+        displayCopyrightNotice();
         displayUsage();
         __rethrow;
     }

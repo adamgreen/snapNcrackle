@@ -15,6 +15,14 @@
 #include "SnapCommandLine.h"
 #include "SnapCommandLineTest.h"
 #include "util.h"
+#include "version.h"
+
+static void displayCopyrightNotice(void)
+{
+    printf("snap - 6502 Macro Assembler (" VERSION_STRING ")\n\n"
+           COPYRIGHT_NOTICE
+           "\n");
+}
 
 static void displayUsage(void)
 {
@@ -55,6 +63,7 @@ __throws void SnapCommandLine_Init(SnapCommandLine* pThis, int argc, const char*
     }
     __catch
     {
+        displayCopyrightNotice();
         displayUsage();
         __rethrow;
     }
