@@ -147,6 +147,13 @@ TEST_BASE(AssemblerBase)
         LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler) );
     }
     
+    void runAssemblerAndValidateWarning(const char* pExpectedFailureMessage, const char* pExpectedListOutput, long expectedPrintfCalls = 2)
+    {
+        Assembler_Run(m_pAssembler);
+        validateFailureOutput(pExpectedFailureMessage, pExpectedListOutput, expectedPrintfCalls);
+        LONGS_EQUAL(1, Assembler_GetWarningCount(m_pAssembler) );
+    }
+    
     void validateFailureOutput(const char* pExpectedErrorOutput, const char* pExpectedListOutput, int expectedPrintfCalls = 2)
     {
         STRCMP_EQUAL(pExpectedErrorOutput, printfSpy_GetLastErrorOutput());

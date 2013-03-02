@@ -41,13 +41,13 @@ int main(int argc, const char** argv)
 
 static void displayErrorCountIfAnyWereEncountered(Assembler* pAssembler)
 {
-    unsigned int errorCount = 0;
-
-    errorCount = Assembler_GetErrorCount(pAssembler);
+    unsigned int errorCount = Assembler_GetErrorCount(pAssembler);
+    unsigned int warningCount = Assembler_GetWarningCount(pAssembler);
     
-    if (errorCount)
-        printf(LINE_ENDING "Encountered %d %s during assembly." LINE_ENDING,
-               errorCount, errorCount != 1 ? "errors" : "error");
+    if (errorCount || warningCount)
+        printf(LINE_ENDING "Encountered %d %s and %d %s during assembly." LINE_ENDING,
+               errorCount, errorCount != 1 ? "errors" : "error",
+               warningCount, warningCount != 1 ? "warnings" : "warning");
     else
         printf(LINE_ENDING "Assembly completed successfully." LINE_ENDING);
 }

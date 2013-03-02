@@ -1088,7 +1088,7 @@ TEST(AssemblerDirectives, DO_DirectiveWithNoMatchingFIN)
     m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"
                                                    " do 1\n"
                                                    " fin\n"), NULL);
-    runAssemblerAndValidateFailure("filename:3: error: DO/IF directive is missing matching FIN directive.\n", 
+    runAssemblerAndValidateWarning("filename:1: warning: DO/IF directive is missing matching FIN directive.\n", 
                                    "    :              3  fin\n", 4);
 }
 

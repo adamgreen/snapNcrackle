@@ -32,6 +32,7 @@ __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, const 
 
          void       Assembler_Run(Assembler* pThis);
          unsigned int Assembler_GetErrorCount(Assembler* pThis);
+         unsigned int Assembler_GetWarningCount(Assembler* pThis);
 
 
 #endif /* _ASSEMBLER_H_ */

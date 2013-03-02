@@ -1582,6 +1582,7 @@ static void pushConditional(Assembler* pThis, int skipSourceLines)
             pAlloc->flags |= CONDITIONAL_SKIP_SOURCE;
         pAlloc->flags |= determineInheritedConditionalSkipSourceLineState(pThis);
         pAlloc->pPrev = pThis->pConditionals;
+        pAlloc->pLineInfo = pThis->pLineInfo;
         pThis->pConditionals = pAlloc;
     }
     __catch
@@ -1707,7 +1708,7 @@ static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol*
 static void checkForOpenConditionals(Assembler* pThis)
 {
     if (pThis->pConditionals)
-        LOG_ERROR(pThis, "%s directive is missing matching FIN directive.", "DO/IF");
+        LOG_LINE_WARNING(pThis, pThis->pConditionals->pLineInfo, "%s directive is missing matching FIN directive.", "DO/IF");
 }
 
 static void secondPass(Assembler* pThis)
@@ -1741,6 +1742,12 @@ static void outputListFile(Assembler* pThis)
 unsigned int Assembler_GetErrorCount(Assembler* pThis)
 {
     return pThis->errorCount;
+}
+
+
+unsigned int Assembler_GetWarningCount(Assembler* pThis)
+{
+    return pThis->warningCount;
 }
 
 

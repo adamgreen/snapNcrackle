@@ -65,8 +65,9 @@ typedef struct TextFileNode
 
 typedef struct Conditional
 {
-    unsigned int        flags;
     struct Conditional* pPrev;
+    LineInfo*           pLineInfo;
+    unsigned int        flags;
 } Conditional;
 
 
@@ -93,17 +94,30 @@ struct Assembler
     LineInfo                   linesHead;
     InstructionSetSupported    instructionSet;
     unsigned int               errorCount;
+    unsigned int               warningCount;
     int                        indentation;
     unsigned short             programCounter;
     unsigned short             programCounterBeforeDUM;
 };
 
 
-#define LOG_ERROR(pASSEMBLER, FORMAT, ...) fprintf(stderr, \
-                                       "%s:%d: error: " FORMAT LINE_ENDING, \
-                                       TextFile_GetFilename(pASSEMBLER->pLineInfo->pTextFile), \
-                                       pASSEMBLER->pLineInfo->lineNumber, \
-                                       __VA_ARGS__), pASSEMBLER->errorCount++
+#define LOG_ERROR(pASSEMBLER, FORMAT, ...) LOG_ISSUE(pASSEMBLER->pLineInfo, "error", FORMAT, __VA_ARGS__), \
+                                           pASSEMBLER->errorCount++
+
+#define LOG_LINE_ERROR(pASSEMBLER, pLINEINFO, FORMAT, ...) LOG_ISSUE(pLINEINFO, "error", FORMAT, __VA_ARGS__), \
+                                           pASSEMBLER->errorCount++
+
+#define LOG_WARNING(pASSEMBLER, FORMAT, ...) LOG_ISSUE(pASSEMBLER->pLineInfo, "warning", FORMAT, __VA_ARGS__), \
+                                           pASSEMBLER->warningCount++
+
+#define LOG_LINE_WARNING(pASSEMBLER, pLINEINFO, FORMAT, ...) LOG_ISSUE(pLINEINFO, "warning", FORMAT, __VA_ARGS__), \
+                                           pASSEMBLER->warningCount++
+
+#define LOG_ISSUE(pLINEINFO, TYPE, FORMAT, ...) fprintf(stderr, \
+                                       "%s:%d: " TYPE ": " FORMAT LINE_ENDING, \
+                                       TextFile_GetFilename(pLINEINFO->pTextFile), \
+                                       pLINEINFO->lineNumber, \
+                                       __VA_ARGS__)
 
 
 __throws Symbol* Assembler_FindLabel(Assembler* pThis, SizedString* pLabelName);
