@@ -41,6 +41,12 @@ TEST(AssemblerDirectives, IgnoreLSTDirective)
     runAssemblerAndValidateOutputIs("    :              1  lst off\n");
 }
 
+TEST(AssemblerDirectives, IgnoreLSTDODirective)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lstdo off\n"), NULL);
+    runAssemblerAndValidateOutputIs("    :              1  lstdo off\n");
+}
+
 TEST(AssemblerDirectives, HEXDirectiveWithSingleValue)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" hex 01\n"), NULL);
