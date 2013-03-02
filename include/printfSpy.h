@@ -30,4 +30,16 @@ const char* printfSpy_GetLastErrorOutput(void);
 FILE*       printfSpy_GetLastFile(void);
 size_t      printfSpy_GetCallCount(void);
 
+
+#ifdef CODE_UNDER_TEST
+
+#undef  printf
+#define printf hook_printf
+
+#undef fprintf
+#define fprintf hook_fprintf
+
+#endif /* CODE_UNDER_TEST */
+
+
 #endif /* _PRINTF_SPY_H_ */

@@ -16,7 +16,4 @@
 /* Used to redirect specific calls to stubs as necessary for testing. */
 #include <printfSpy.h>
 
-/* Force printf() to go through function pointer so that tests can spy on it. */
-#define printf hook_printf
-
 #endif /* _COMMAND_LINE_TEST_H_ */

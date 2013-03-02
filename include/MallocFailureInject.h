@@ -25,4 +25,19 @@ extern void  (*hook_free)(void* ptr);
 void        MallocFailureInject_FailAllocation(unsigned int allocationToFail);
 void        MallocFailureInject_Restore(void);
 
+
+#ifdef CODE_UNDER_TEST
+
+#undef  malloc
+#define malloc hook_malloc
+
+#undef  realloc
+#define realloc hook_realloc
+
+#undef  free
+#define free hook_free
+
+#endif /* CODE_UNDER_TEST */
+
+
 #endif /* _MALLOC_FAILURE_INJECT_H_ */

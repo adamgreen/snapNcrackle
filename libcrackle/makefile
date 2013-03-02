@@ -23,6 +23,7 @@ CPPUTEST_WARNINGFLAGS += -Wno-overlength-strings
 CPPUTEST_CFLAGS += -std=c99
 CPPUTEST_CFLAGS += -Wextra 
 CPPUTEST_CFLAGS += -Wstrict-prototypes
+CPPUTEST_CFLAGS += -DCODE_UNDER_TEST
 
 SRC_DIRS = \
 	src\

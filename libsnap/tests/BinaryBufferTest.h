@@ -17,21 +17,4 @@
 #include <MallocFailureInject.h>
 #include <FileFailureInject.h>
 
-
-/* Force malloc() to go through function pointer so that memory failures can be injected. */
-#undef  malloc
-#define malloc hook_malloc
-
-/* Force free() to go through function pointer so that it doesn't need CppUTest to do leak detection in production. */
-#undef  free
-#define free hook_free
-
-/* Force file I/O routines to go through hooking routines in unit tests. */
-#define fopen  hook_fopen
-#define fseek  hook_fseek
-#define ftell  hook_ftell
-#define fwrite hook_fwrite
-#define fread  hook_fread
-
-
 #endif /* _BINARY_BUFFER_TEST_H_ */

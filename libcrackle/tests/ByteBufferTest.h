@@ -18,25 +18,4 @@
 #include <FileFailureInject.h>
 #include <printfSpy.h>
 
-
-/* Force malloc() to go through function pointer so that memory failures can be injected. */
-#undef  malloc
-#define malloc hook_malloc
-
-/* Force file I/O routines to go through hooking routines in unit tests. */
-#define fopen  hook_fopen
-#define fseek  hook_fseek
-#define ftell  hook_ftell
-#define fwrite hook_fwrite
-#define fread  hook_fread
-
-/* Force free() to go through function pointer so that it doesn't need CppUTest to do leak detection in production. */
-#undef  free
-#define free hook_free
-
-/* Force *printf routines to go through hooks so that calls can be spied upon. */
-#undef fprintf
-#define fprintf hook_fprintf
-
-
 #endif /* _BYTE_BUFFER_TEST_H_ */

@@ -16,13 +16,4 @@
 
 #include <MallocFailureInject.h>
 
-
-/* Force malloc() to go through function pointer so that memory failures can be injected. */
-#undef  malloc
-#define malloc hook_malloc
-
-/* Force free() to go through function pointer so that it doesn't need CppUTest to do leak detection in production. */
-#undef  free
-#define free hook_free
-
 #endif /* _SYMBOL_TABLE_TEST_H_ */

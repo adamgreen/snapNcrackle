@@ -40,4 +40,16 @@ void freadFail(size_t failureReturn);
 void freadToFail(int readToFail);
 void freadRestore(void);
 
+
+#ifdef CODE_UNDER_TEST
+
+/* Force file I/O routines to go through hooking routines in unit tests. */
+#define fopen  hook_fopen
+#define fseek  hook_fseek
+#define ftell  hook_ftell
+#define fwrite hook_fwrite
+#define fread  hook_fread
+
+#endif /* CODE_UNDER_TEST */
+
 #endif /* _FILE_FAILURE_INJECT_H_ */
