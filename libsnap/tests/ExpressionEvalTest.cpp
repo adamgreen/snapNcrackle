@@ -185,22 +185,22 @@ TEST(ExpressionEval, ImmediateValueLargerThan8BitsWithCaretPrefix)
     validateExpression(TYPE_IMMEDIATE, 0x0100 >> 8);
 }
 
-TEST(ExpressionEval, InvalidUseOfLessThanPrefixOnNonImmediateValue)
+TEST(ExpressionEval, UseOfLessThanPrefixOnNonImmediateValue)
 {
-    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString("<$100")) );
-    validateFailureMessageAndThrownException("filename:0: error: '$' is unexpected operator.\n", invalidArgumentException);
+    m_expression = ExpressionEval(m_pAssembler, toSizedString("<$100"));
+    validateExpression(TYPE_ABSOLUTE, 0x0100 & 0xFF);
 }
 
-TEST(ExpressionEval, InvalidUseOfGreaterThanPrefixOnNonImmediateValue)
+TEST(ExpressionEval, UseOfGreaterThanPrefixOnNonImmediateValue)
 {
-    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString(">$100")) );
-    validateFailureMessageAndThrownException("filename:0: error: '$' is unexpected operator.\n", invalidArgumentException);
+    m_expression = ExpressionEval(m_pAssembler, toSizedString(">$100"));
+    validateExpression(TYPE_ABSOLUTE, 0x0100 >> 8);
 }
 
-TEST(ExpressionEval, InvalidUseOfCaretPrefixOnNonImmediateValue)
+TEST(ExpressionEval, UseOfCaretPrefixOnNonImmediateValue)
 {
-    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString("^$100")) );
-    validateFailureMessageAndThrownException("filename:0: error: '$' is unexpected operator.\n", invalidArgumentException);
+    m_expression = ExpressionEval(m_pAssembler, toSizedString("^$100"));
+    validateExpression(TYPE_ABSOLUTE, 0x0100 >> 8);
 }
 
 TEST(ExpressionEval, EvaluateSingleQuotedASCII)

@@ -86,38 +86,9 @@ static int isImmediatePrefix(char prefixChar)
 
 static void parseImmediate(Assembler* pAssembler, ExpressionEvaluation* pEval)
 {
-    char prefixChar;
-
     SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
-    prefixChar = SizedString_EnumCurr(pEval->pString, pEval->pCurrent);
-    
-    if (isLowBytePrefix(prefixChar))
-    {
-        SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
-        expressionEval(pAssembler, pEval);
-        pEval->expression.value &= 0xff;
-    }
-    else if (isHighBytePrefix(prefixChar))
-    {
-        SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
-        expressionEval(pAssembler, pEval);
-        pEval->expression.value >>= 8;
-    }
-    else
-    {
-        expressionEval(pAssembler, pEval);
-    }
+    expressionEval(pAssembler, pEval);
     pEval->expression.type = TYPE_IMMEDIATE;
-}
-
-static int isLowBytePrefix(char prefixChar)
-{
-    return prefixChar == '<';
-}
-
-static int isHighBytePrefix(char prefixChar)
-{
-    return prefixChar == '>' || prefixChar == '^';
 }
 
 static void expressionEval(Assembler* pAssembler, ExpressionEvaluation* pEval)
@@ -152,6 +123,18 @@ static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval
     {
         parseCurrentAddressChar(pAssembler, pEval);
     }
+    else if (isLowBytePrefix(prefixChar))
+    {
+        SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
+        expressionEval(pAssembler, pEval);
+        pEval->expression.value &= 0xff;
+    }
+    else if (isHighBytePrefix(prefixChar))
+    {
+        SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
+        expressionEval(pAssembler, pEval);
+        pEval->expression.value >>= 8;
+    }
     else if (isUnarySubtractionOperator(prefixChar))
     {
         SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
@@ -181,6 +164,7 @@ static void evaluateOperation(Assembler* pAssembler, ExpressionEvaluation* pEval
     handleOperator(pAssembler, pEval, &rightEval);
     combineExpressionTypeAndFlags(&pEval->expression, &rightEval.expression);
     pEval->pCurrent = rightEval.pNext;
+    pEval->pNext = rightEval.pNext;
 }
 
 static operatorHandler determineHandlerForOperator(Assembler* pAssembler, char operatorChar)
@@ -419,6 +403,16 @@ static void parseCurrentAddressChar(Assembler* pAssembler, ExpressionEvaluation*
     SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
     pEval->pNext = pEval->pCurrent;
     pEval->expression = ExpressionEval_CreateAbsoluteExpression(pAssembler->programCounter);
+}
+
+static int isLowBytePrefix(char prefixChar)
+{
+    return prefixChar == '<';
+}
+
+static int isHighBytePrefix(char prefixChar)
+{
+    return prefixChar == '>' || prefixChar == '^';
 }
 
 static int isUnarySubtractionOperator(char prefixChar)
