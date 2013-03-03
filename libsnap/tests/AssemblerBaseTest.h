@@ -50,6 +50,7 @@ TEST_BASE(AssemblerBase)
     
     void setup()
     {
+        assert(g_pExceptionHandlers == NULL);
         clearExceptionCode();
         printfSpy_Hook(512);
         memset(&m_initParams, 0, sizeof(m_initParams));

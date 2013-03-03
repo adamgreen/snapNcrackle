@@ -32,6 +32,8 @@ static int compareInstructionSetEntryToOperatorString(const void* pvKey, const v
 static void mergeInstructionSets(OpCodeEntry* pBaseSet, size_t baseSetLength, size_t totalLength,
                                        const OpCodeEntry* pAddSet,  size_t addSetLength);
 static void updateInstructionEntry(OpCodeEntry* pEntryToUpdate, const OpCodeEntry* pAdditionalEntry);
+static void initParameterVariablesTo0(Assembler* pThis);
+static void initParameterVariableTo0(Assembler* pThis, const char* pVariableName);
 static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned short orgAddress);
 __throws Assembler* Assembler_CreateFromString(char* pText, const AssemblerInitParams* pParams)
 {
@@ -67,6 +69,7 @@ static void commonObjectInit(Assembler* pThis, const AssemblerInitParams* pParam
     pThis->pLineInfo = &pThis->linesHead;
     pThis->pCurrentBuffer = pThis->pObjectBuffer;
     setOrgInAssemblerAndBinaryBufferModules(pThis, 0x8000);
+    initParameterVariablesTo0(pThis);
 }
 
 static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, const AssemblerInitParams* pParams)
@@ -214,6 +217,29 @@ static void updateInstructionEntry(OpCodeEntry* pEntryToUpdate, const OpCodeEntr
     COPY_UPDATED_FIELD(opcodeAbsoluteIndirect);
     COPY_UPDATED_FIELD(opcodeAbsoluteIndexedIndirect);
     COPY_UPDATED_FIELD(opcodeZeroPageIndirect);
+}
+
+static void initParameterVariablesTo0(Assembler* pThis)
+{
+    initParameterVariableTo0(pThis, "]0");
+    initParameterVariableTo0(pThis, "]1");
+    initParameterVariableTo0(pThis, "]2");
+    initParameterVariableTo0(pThis, "]3");
+    initParameterVariableTo0(pThis, "]4");
+    initParameterVariableTo0(pThis, "]5");
+    initParameterVariableTo0(pThis, "]6");
+    initParameterVariableTo0(pThis, "]7");
+    initParameterVariableTo0(pThis, "]8");
+    initParameterVariableTo0(pThis, "]9");
+}
+
+static void initParameterVariableTo0(Assembler* pThis, const char* pVariableName)
+{
+    SizedString globalVariableName = SizedString_InitFromString(pVariableName);
+    SizedString nullLocalName = SizedString_InitFromString(NULL);
+    Symbol* pSymbol = SymbolTable_Add(pThis->pSymbols, &globalVariableName, &nullLocalName);
+    pSymbol->pDefinedLine = &pThis->linesHead;
+    pSymbol->expression = ExpressionEval_CreateAbsoluteExpression(0);
 }
 
 static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned short orgAddress)
@@ -1155,7 +1181,7 @@ static void handleDEND(Assembler* pThis)
         {
             LOG_ERROR(pThis, "%.*s isn't allowed without a preceding DUM directive.", 
                       pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
-            return;
+            __throw(invalidArgumentException);
         }
 
         pThis->programCounter = pThis->programCounterBeforeDUM;
@@ -1257,7 +1283,6 @@ static void handleHEX(Assembler* pThis)
         {
             LOG_ERROR(pThis, "'%.*s' contains more than 32 values.", 
                       pThis->parsedLine.operands.stringLength, pThis->parsedLine.operands.pString);
-            return;
         }
     }
     __catch
@@ -1450,6 +1475,7 @@ static void handlePUT(Assembler* pThis)
 
 static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString* pFilename)
 {
+    TextFile*    pTextFile = NULL;
     size_t       fieldCount;
     const char** ppFields;
     size_t       i;
@@ -1463,8 +1489,8 @@ static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString*
     {
         __try
         {
-            TextFile* pTextFile = TextFile_CreateFromFile(ppFields[i], pFilename, ".S");
-            return pTextFile;
+            pTextFile = TextFile_CreateFromFile(ppFields[i], pFilename, ".S");
+            break;
         }
         __catch
         {
@@ -1473,7 +1499,9 @@ static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString*
         }
     }
     
-    __throw(fileNotFoundException);
+    if (i == fieldCount)
+        __throw(fileNotFoundException);
+    return pTextFile;
 }
 
 static void rememberIncludedTextFile(Assembler* pThis, TextFile* pTextFile)

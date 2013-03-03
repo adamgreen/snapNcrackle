@@ -186,6 +186,18 @@ TEST(AssemblerLabel, ForwardReferencesToVariableWithMultipleDefinitionsUsesFirst
     CHECK(0 == memcmp(pFirstLine->pMachineCode, "\x8d\x03\x80", 3));
 }
 
+TEST(AssemblerLabel, Variable0DefaultTo0Value)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta ]0\n"), NULL);
+    runAssemblerAndValidateLastLineIs("8000: 85 00        1  sta ]0\n", 1);
+}
+
+TEST(AssemblerLabel, Variable9DefaultTo0Value)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta ]9\n"), NULL);
+    runAssemblerAndValidateLastLineIs("8000: 85 00        1  sta ]9\n", 1);
+}
+
 TEST(AssemblerLabel, FailZeroPageForwardReference)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
