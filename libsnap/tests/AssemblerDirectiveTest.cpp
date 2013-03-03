@@ -670,6 +670,13 @@ TEST(AssemblerDirectives, XC_DirectiveForwardReferenceFrom6502To65816)
     runAssemblerAndValidateLastLineIs("8002: 60           4 ForwardLabel lda #20\n", 4);
 }
 
+/* UNDONE: This should be supported in the future. */
+TEST(AssemblerDirectives, MX_DirectiveIgnored)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" mx\n"), NULL);
+    runAssemblerAndValidateOutputIs("    :              1  mx\n");
+}
+
 TEST(AssemblerDirectives, PUT_DirectiveOnly)
 {
     createThisSourceFile(g_putFilename, " sta $ff\n");
