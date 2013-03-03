@@ -1097,7 +1097,7 @@ TEST(AssemblerDirectives, FIN_DirectiveWithNoMatchingDO)
     m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"
                                                    " fin\n"
                                                    " fin\n"), NULL);
-    runAssemblerAndValidateFailure("filename:3: error: fin directive without corresponding DO/IF directive.\n", 
+    runAssemblerAndValidateWarning("filename:3: warning: fin directive without corresponding DO/IF directive.\n", 
                                    "    :              3  fin\n", 4);
 }
 
@@ -1106,7 +1106,7 @@ TEST(AssemblerDirectives, ELSE_DirectiveWithNoMatchingDO)
     m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"
                                                    " fin\n"
                                                    " else\n"), NULL);
-    runAssemblerAndValidateFailure("filename:3: error: else directive without corresponding DO/IF directive.\n", 
+    runAssemblerAndValidateWarning("filename:3: warning: else directive without corresponding DO/IF directive.\n", 
                                    "    :              3  else\n", 4);
 }
 

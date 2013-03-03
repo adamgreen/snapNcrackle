@@ -1627,7 +1627,7 @@ static void validateInConditionalAlready(Assembler* pThis)
     if (pThis->pConditionals)
         return;
 
-    LOG_ERROR(pThis, "%.*s directive without corresponding DO/IF directive.",
+    LOG_WARNING(pThis, "%.*s directive without corresponding DO/IF directive.",
               pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
     __throw(invalidArgumentException);
 }
