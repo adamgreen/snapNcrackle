@@ -387,6 +387,7 @@ static void flagLineInfoAsProcessingForwardReference(LineInfo* pLineInfo);
 static void resetLineInfoAsNotProcessingForwardReference(LineInfo* pLineInfo);
 static void handleInvalidOperator(Assembler* pThis);
 static const char* fullOperandStringWithSpaces(Assembler* pThis);
+static void reverseMachineCode(LineInfo* pLineInfo);
 static void validateNoOperandWasProvided(Assembler* pThis);
 static Expression getAbsoluteExpression(Assembler* pThis, SizedString* pOperands);
 static int isTypeAbsolute(Expression* pExpression);
@@ -1080,6 +1081,25 @@ static void handleASC(Assembler* pThis)
 static const char* fullOperandStringWithSpaces(Assembler* pThis)
 {
     return pThis->parsedLine.operands.pString;
+}
+
+static void handleREV(Assembler* pThis)
+{
+    handleASC(pThis);
+    reverseMachineCode(pThis->pLineInfo);
+}
+
+static void reverseMachineCode(LineInfo* pLineInfo)
+{
+    unsigned char* pLower = &pLineInfo->pMachineCode[0];
+    unsigned char* pUpper = &pLineInfo->pMachineCode[pLineInfo->machineCodeSize-1];
+    
+    while (pLower < pUpper)
+    {
+        char temp = *pLower;
+        *pLower++ = *pUpper;
+        *pUpper-- = temp;
+    }
 }
 
 static void handleDUM(Assembler* pThis)

@@ -361,7 +361,7 @@ TEST(AssemblerDirectives, ASC_DirectiveInSingleQuotes)
     runAssemblerAndValidateOutputIs("8000: 54 73 74     1  asc 'Tst'\n");
 }
 
-TEST(AssemblerDirectives, ASC_DirectiveWithNoSpacesBetweenQuotes)
+TEST(AssemblerDirectives, ASC_DirectiveWithSpaceBetweenQuotes)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" asc 'a b'\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: 61 20 62     1  asc 'a b'\n");
@@ -387,6 +387,40 @@ TEST(AssemblerDirectives, FailBinaryBufferAllocationInASCDirective)
     BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
     runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
                                    "    :              1  asc 'Tst'\n");
+}
+
+TEST(AssemblerDirectives, REV_DirectiveInDoubleQuotes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" rev \"Tst\"\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: F4 F3 D4     1  rev \"Tst\"\n");
+}
+
+TEST(AssemblerDirectives, REV_DirectiveInSingleQuotes)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" rev 'Tst'\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: 74 73 54     1  rev 'Tst'\n");
+}
+
+TEST(AssemblerDirectives, REV_DirectiveWithNoEndingDelimiter)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" rev 'Tst\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: 'Tst didn't end with the expected ' delimiter.\n",
+                                   "8000: 74 73 54     1  rev 'Tst\n");
+}
+
+TEST(AssemblerDirectives, REV_DirectiveMissingOperand)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" rev\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: rev directive requires operand.\n",
+                                   "    :              1  rev\n", 2);
+}
+
+TEST(AssemblerDirectives, FailBinaryBufferAllocationInREVDirective)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" rev 'Tst'\n"), NULL);
+    BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
+    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
+                                   "    :              1  rev 'Tst'\n");
 }
 
 TEST(AssemblerDirectives, SAV_DirectiveOnEmptyObjectFile)
