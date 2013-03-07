@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -12,6 +12,8 @@
 */
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
+#include "util.h"
 #include "SizedString.h"
 #include "SizedStringTest.h"
 
@@ -133,6 +135,12 @@ int SizedString_Compare(const SizedString* pString1, const SizedString* pString2
 }
 
 
+int SizedString_IsNull(const SizedString* pString)
+{
+    return pString == NULL || pString->pString == NULL;
+}
+
+
 size_t SizedString_strlen(const SizedString* pString)
 {
     return pString->stringLength;
@@ -146,7 +154,8 @@ __throws char* SizedString_strdup(const SizedString* pStringToCopy)
     pCopiedString = malloc(pStringToCopy->stringLength + 1);
     if (!pCopiedString)
         __throw(outOfMemoryException);
-    memcpy(pCopiedString, pStringToCopy->pString, pStringToCopy->stringLength + 1);
+    memcpy(pCopiedString, pStringToCopy->pString, pStringToCopy->stringLength);
+    pCopiedString[pStringToCopy->stringLength] = '\0';
     
     return pCopiedString;
 }
@@ -166,6 +175,91 @@ void SizedString_SplitString(const SizedString* pInput, char splitAtChar, SizedS
     pBefore->stringLength = pSplitChar - pInput->pString;
     pAfter->pString = pSplitChar + 1;
     pAfter->stringLength = pInput->stringLength - pBefore->stringLength - 1;
+}
+
+
+static int determineBaseAndUpdateEnumerator(const char** ppNumberStart, int base);
+static int isHexPrefix(const char* pString);
+static int isOctalPrefix(const char* pString);
+static unsigned int parseValue(const SizedString* pString, const char* pCurr, const char** ppEndPtr, unsigned int base);
+unsigned int SizedString_strtoul(const SizedString* pString, const char** ppEndPtr, int base)
+{
+    const char* pNumberStart = NULL;
+    
+    if (ppEndPtr)
+        *ppEndPtr = pString ? pString->pString : NULL;
+
+    if (SizedString_IsNull(pString) || base < 0 || base == 1 || base > 36)
+        return 0;
+
+    SizedString_EnumStart(pString, &pNumberStart);
+    base = determineBaseAndUpdateEnumerator(&pNumberStart, base);
+        
+    return parseValue(pString, pNumberStart, ppEndPtr, (unsigned int)base);
+}
+
+static int determineBaseAndUpdateEnumerator(const char** ppNumberStart, int base)
+{
+    const char* pString = *ppNumberStart;
+    
+    if ((base == 16 || base == 0) && isHexPrefix(pString))
+    {
+        *ppNumberStart += 2;
+        return 16;
+    }
+    if ((base == 8 || base == 0) && isOctalPrefix(pString))
+    {
+        *ppNumberStart += 1;
+        return 8;
+    }
+    
+    if (base != 0)
+        return base;
+    return 10;
+}
+
+static int isHexPrefix(const char* pString)
+{
+    return pString[0] == '0' && (pString[1] == 'x' || pString[1] == 'X');
+}
+
+static int isOctalPrefix(const char* pString)
+{
+    return pString[0] == '0';
+}
+
+static unsigned int parseValue(const SizedString* pString, const char* pCurr, const char** ppEndPtr, unsigned int base)
+{
+    unsigned int  value = 0;
+    int           overflowDetected = FALSE;
+    
+    while (SizedString_EnumRemaining(pString, pCurr))
+    {
+        unsigned long prevValue = value;
+        unsigned long digit = (unsigned int)SizedString_EnumCurr(pString, pCurr);
+
+        if (digit >= '0' && digit <= '9')
+            digit -= '0';
+        else if (digit >= 'a' && digit <= 'z')
+            digit = digit - 'a' + 10;
+        else if (digit >= 'A' && digit <= 'Z')
+            digit = digit - 'A' + 10;
+        else
+            break;
+            
+        if (digit >= base)
+            break;
+            
+        value = (value * base) + digit;
+        if (value < prevValue)
+            overflowDetected = TRUE;
+        SizedString_EnumNext(pString, &pCurr);
+    }
+    if (overflowDetected)
+        value = UINT_MAX;
+    if (ppEndPtr)
+        *ppEndPtr = pCurr;
+    return value;
 }
 
 

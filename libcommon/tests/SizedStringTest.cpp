@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -17,6 +17,7 @@ extern "C"
     #include "SizedString.h"
     #include "try_catch.h"
     #include "MallocFailureInject.h"
+    #include "util.h"
 }
 
 // Include C++ headers for test harness.
@@ -28,26 +29,33 @@ TEST_GROUP(SizedString)
     const char* m_pExpectedString;
     const char* m_pExpectedContent;
     char*       m_pDupeString;
+    const char* m_pEndPtr;
     size_t      m_expectedStringLength;
     SizedString m_sizedString;
     SizedString m_bufferString;
+    int         m_verifyString;
     char        m_testString[64];
     
     void setup()
     {
         clearExceptionCode();
         memset(&m_sizedString, 0xff, sizeof(m_sizedString));
+        m_verifyString = FALSE;
         m_pDupeString = NULL;
+        m_pEndPtr = NULL;
     }
 
     void teardown()
     {
         MallocFailureInject_Restore();
         free(m_pDupeString);
-        POINTERS_EQUAL(m_pExpectedString, m_sizedString.pString);
-        LONGS_EQUAL(m_expectedStringLength, m_sizedString.stringLength);
+        if (m_verifyString)
+        {
+            POINTERS_EQUAL(m_pExpectedString, m_sizedString.pString);
+            LONGS_EQUAL(m_expectedStringLength, m_sizedString.stringLength);
+            CHECK_TRUE(0 == strncmp(m_pExpectedContent, m_sizedString.pString, m_sizedString.stringLength));
+        }
         LONGS_EQUAL(noException, getExceptionCode());
-        CHECK_TRUE(0 == strncmp(m_pExpectedContent, m_sizedString.pString, m_sizedString.stringLength));
     }
     
     void testSizedStringInit(const char* pString, size_t stringLength)
@@ -56,6 +64,7 @@ TEST_GROUP(SizedString)
         m_pExpectedString = pString;
         m_pExpectedContent = pString;
         m_expectedStringLength = stringLength;
+        m_verifyString = TRUE;
     }
     
     void testSizedStringInit(const char* pString)
@@ -64,6 +73,7 @@ TEST_GROUP(SizedString)
         m_pExpectedString = pString;
         m_pExpectedContent = pString;
         m_expectedStringLength = pString ? strlen(pString) : 0;
+        m_verifyString = TRUE;
     }
     
     SizedString* toSizedString(const char* pString)
@@ -100,11 +110,13 @@ TEST(SizedString, FailTruncateStringInit)
 TEST(SizedString, NullStringInit)
 {
     testSizedStringInit(NULL);
+    CHECK_TRUE(SizedString_IsNull(&m_sizedString));
 }
 
 TEST(SizedString, EmptyInit)
 {
     testSizedStringInit("");
+    CHECK_FALSE(SizedString_IsNull(&m_sizedString));
 }
 
 TEST(SizedString, OneCharInit)
@@ -301,6 +313,14 @@ TEST(SizedString, strdupShortString)
     STRCMP_EQUAL(m_pDupeString, "Test string");
 }
 
+TEST(SizedString, strdupTruncatedString)
+{
+    SizedString testString = SizedString_InitFromString("test 1 2 3");
+    testString.stringLength = 4;
+    m_pDupeString = SizedString_strdup(&testString);
+    STRCMP_EQUAL(m_pDupeString, "test");
+}
+
 TEST(SizedString, FailAllocationDuringStrdup)
 {
     testSizedStringInit("");
@@ -345,6 +365,170 @@ TEST(SizedString, strlenOnSizedString)
 {
     testSizedStringInit("Test string");
     LONGS_EQUAL(11, SizedString_strlen(&m_sizedString));
+}
+
+TEST(SizedString, strtoulOnNullStringPointerNullEndPtrNoBase)
+{
+    testSizedStringInit(NULL);
+    LONGS_EQUAL(0, SizedString_strtoul(NULL, NULL, 0));
+}
+
+TEST(SizedString, strtoulOnNullStringEndPtrNoBase)
+{
+    const char* m_pEndPtr = NULL;
+    testSizedStringInit(NULL);
+    LONGS_EQUAL(0, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
+    POINTERS_EQUAL(NULL, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnOneInvalidNegativeBase)
+{
+    const char* m_pEndPtr = NULL;
+    testSizedStringInit("1");
+    LONGS_EQUAL(0, SizedString_strtoul(&m_sizedString, &m_pEndPtr, -1));
+    POINTERS_EQUAL(m_sizedString.pString, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnOneInvalid1Base)
+{
+    const char* m_pEndPtr = NULL;
+    testSizedStringInit("1");
+    LONGS_EQUAL(0, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 1));
+    POINTERS_EQUAL(m_sizedString.pString, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnInvalid37Base)
+{
+    const char* m_pEndPtr = NULL;
+    testSizedStringInit("1");
+    LONGS_EQUAL(0, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 37));
+    POINTERS_EQUAL(m_sizedString.pString, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnBlankStringEndPtrNoBase)
+{
+    const char* m_pEndPtr = NULL;
+    testSizedStringInit("");
+    LONGS_EQUAL(0, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
+    POINTERS_EQUAL(m_sizedString.pString, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnZeroNullEndPtrNoBase)
+{
+    testSizedStringInit("0");
+    LONGS_EQUAL(0, SizedString_strtoul(&m_sizedString, NULL, 0));
+}
+
+TEST(SizedString, strtoulOnOneNoBase)
+{
+    testSizedStringInit("1");
+    LONGS_EQUAL(1, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
+    POINTERS_EQUAL(m_sizedString.pString+1, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnLargeNumberNoBase)
+{
+    testSizedStringInit("4294967295");
+    LONGS_EQUAL(4294967295, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
+    POINTERS_EQUAL(m_sizedString.pString + 10, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnNumberDecimalBase)
+{
+    testSizedStringInit("12345");
+    LONGS_EQUAL(12345, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 10));
+    POINTERS_EQUAL(m_sizedString.pString + 5, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnZeroHexBase)
+{
+    testSizedStringInit("0");
+    LONGS_EQUAL(0, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 16));
+    POINTERS_EQUAL(m_sizedString.pString + 1, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnLargeHexBase)
+{
+    testSizedStringInit("FFFFFFFF");
+    LONGS_EQUAL(0xFFFFFFFF, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 16));
+    POINTERS_EQUAL(m_sizedString.pString + 8, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulBasicOctalBase)
+{
+    testSizedStringInit("10");
+    LONGS_EQUAL(010, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 8));
+    POINTERS_EQUAL(m_sizedString.pString + 2, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnHexWithDefaultBase)
+{
+    testSizedStringInit("0xf");
+    LONGS_EQUAL(0xf, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
+    POINTERS_EQUAL(m_sizedString.pString + 3, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnHexWithHexBase)
+{
+    testSizedStringInit("0xf");
+    LONGS_EQUAL(0xf, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 16));
+    POINTERS_EQUAL(m_sizedString.pString + 3, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnUpperCaseHexPrefix)
+{
+    testSizedStringInit("0Xf");
+    LONGS_EQUAL(0xf, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
+    POINTERS_EQUAL(m_sizedString.pString + 3, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnOctalWithDefaultBase)
+{
+    testSizedStringInit("010");
+    LONGS_EQUAL(010, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
+    POINTERS_EQUAL(m_sizedString.pString + 3, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnOctalWithOctalBase)
+{
+    testSizedStringInit("010");
+    LONGS_EQUAL(010, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 8));
+    POINTERS_EQUAL(m_sizedString.pString + 3, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulBase36)
+{
+    testSizedStringInit("aZ");
+    LONGS_EQUAL(10*36+35, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 36));
+    POINTERS_EQUAL(m_sizedString.pString + 2, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnDecimalWithNonDigitTerminator)
+{
+    testSizedStringInit("12*");
+    LONGS_EQUAL(12, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 10));
+    POINTERS_EQUAL(m_sizedString.pString + 2, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnDecimalWithCharacterTerminator)
+{
+    testSizedStringInit("12a");
+    LONGS_EQUAL(12, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 10));
+    POINTERS_EQUAL(m_sizedString.pString + 2, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnDecimalOverflow)
+{
+    testSizedStringInit("4294967296");
+    LONGS_EQUAL(4294967295, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
+    POINTERS_EQUAL(m_sizedString.pString + 10, m_pEndPtr);
+}
+
+TEST(SizedString, strtoulOnVeryLongDecimalWhichOverflows)
+{
+    testSizedStringInit("12345678901234567890");
+    LONGS_EQUAL(4294967295, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
+    POINTERS_EQUAL(m_sizedString.pString + 20, m_pEndPtr);
 }
 
 TEST(SizedString, EnumBlankString)

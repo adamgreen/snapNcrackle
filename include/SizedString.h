@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -31,9 +31,11 @@ const char*    SizedString_strrchr(const SizedString* pString, char searchChar);
 int            SizedString_strcmp(const SizedString* pString, const char* pSearchString);
 int            SizedString_strcasecmp(const SizedString* pString, const char* pSearchString);
 int            SizedString_Compare(const SizedString* pString1, const SizedString* pString2);
+int            SizedString_IsNull(const SizedString* pString);
 void           SizedString_SplitString(const SizedString* pInput, char splitAtChar, SizedString* pBefore, SizedString* pAfter);
 size_t         SizedString_strlen(const SizedString* pString);
 __throws char* SizedString_strdup(const SizedString* pString);
+unsigned int   SizedString_strtoul(const SizedString* pString, const char** ppEndPtr, int base);
 
 void        SizedString_EnumStart(const SizedString* pString, const char** ppEnumerator);
 char        SizedString_EnumCurr(const SizedString* pString, const char* pEnumerator);
