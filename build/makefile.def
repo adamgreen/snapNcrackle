@@ -1,4 +1,4 @@
-# Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+# Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -107,6 +107,15 @@ endif
 endif
 
 
+# Reduce build output if VERBOSE not set to non-0 value.
+VERBOSE?=0
+ifeq "$(VERBOSE)" "0"
+Q=@
+else
+Q=
+endif
+
+
 # Compiler flags used to enable creation of header dependencies.
 DEPFLAGS = -MMD -MP
 
@@ -178,58 +187,70 @@ endif
 
 
 ifeq "$(APPTYPE)" "LIB"
-all : GEN_OUTDIR $(PCH_OUT) $(OUTDIR)/$(TARGET).a
+all : $(OUTDIR) $(PCH_OUT) $(OUTDIR)/$(TARGET).a
 else
-all : GEN_OUTDIR $(PCH_OUT) $(OUTDIR)/$(TARGET)
+all : $(OUTDIR) $(PCH_OUT) $(OUTDIR)/$(TARGET)
 endif
 
-GEN_OUTDIR :
-	-@mkdir $(OUTDIR) > /dev/null 2>&1 ; exit 0
+$(OUTDIR) :
+	@echo Creating $@
+	$(Q) mkdir $@ > /dev/null 2>&1 ; exit 0
 
 $(OUTDIR)/%.o : %.c
-	$(GCC) $(C_PCH) -x c -c $(CFLAGS) -o $@ $<
+	@echo Compiling $<
+	$(Q) $(GCC) $(C_PCH) -x c -c $(CFLAGS) -o $@ $<
 
 $(OUTDIR)/%.o : %.cpp
-	$(GPP) $(CPP_PCH) -x c++ -c $(CPPFLAGS) -o $@ $<
+	@echo Compiling $<
+	$(Q) $(GPP) $(CPP_PCH) -x c++ -c $(CPPFLAGS) -o $@ $<
 
 $(OUTDIR)/%.o : %.cxx
-	$(GPP) $(CPP_PCH) -x c++ -c $(CPPFLAGS) -o $@ $<
+	@echo Compiling $<
+	$(Q) $(GPP) $(CPP_PCH) -x c++ -c $(CPPFLAGS) -o $@ $<
 
 $(OUTDIR)/%.o : %.m
-	$(GCC) $(M_PCH) -x objective-c -c $(MFLAGS) -o $@ $<
+	@echo Compiling $<
+	$(Q) $(GCC) $(M_PCH) -x objective-c -c $(MFLAGS) -o $@ $<
 
 $(OUTDIR)/%.o : %.mm
-	$(GPP) $(MM_PCH) -x objective-c++ -c $(MMFLAGS) -o $@ $<
+	@echo Compiling $<
+	$(Q) $(GPP) $(MM_PCH) -x objective-c++ -c $(MMFLAGS) -o $@ $<
 
 $(OUTDIR)/__c.pch.gch : $(PCHFILE)
-	$(GCC) -x c-header -c $(CFLAGS) -o $@ $<
+	@echo Preprocessing $<
+	$(Q) $(GCC) -x c-header -c $(CFLAGS) -o $@ $<
 
 $(OUTDIR)/__cpp.pch.gch : $(PCHFILE)
-	$(GPP) -x c++-header -c $(CPPFLAGS) -o $@ $<
+	@echo Preprocessing $<
+	$(Q) $(GPP) -x c++-header -c $(CPPFLAGS) -o $@ $<
 
 $(OUTDIR)/__m.pch.gch : $(PCHFILE)
-	$(GCC) -x objective-c-header -c $(MFLAGS) -o $@ $<
+	@echo Preprocessing $<
+	$(Q) $(GCC) -x objective-c-header -c $(MFLAGS) -o $@ $<
 
 $(OUTDIR)/__mm.pch.gch : $(PCHFILE)
-	$(GPP) -x objective-c++-header -c $(MMFLAGS) -o $@ $<
+	@echo Preprocessing $<
+	$(Q) $(GPP) -x objective-c++-header -c $(MMFLAGS) -o $@ $<
 
 
 $(OUTDIR)/$(TARGET).a : $(OBJECTS)
-	$(LIBMAN) $(LIB_FLAGS) -rc $@ $?
+	@echo Linking $@
+	$(Q) $(LIBMAN) $(LIB_FLAGS) -rc $@ $?
 
 
 $(OUTDIR)/$(TARGET) : $(OBJECTS) $(LIBS)
-	$(GCCLINK) $(LINK_FLAGS) -o $@ $(OBJECTS) $(LIBS)
+	@echo Linking $@
+	$(Q) $(GCCLINK) $(LINK_FLAGS) -o $@ $(OBJECTS) $(LIBS)
 
 
 .PHONY : clean
 clean:
 	@echo Cleaning out $(OUTDIR) ...
-	-@rm $(OBJECTS) > /dev/null 2>&1 ; exit 0
-	-@rm $(DEPFILES) > /dev/null 2>&1 ; exit 0
-	-@rm $(PCH_OUT) > /dev/null 2>&1 ; exit 0
-	-@rm $(OUTDIR)/$(TARGET) > /dev/null 2>&1 ; exit 0
-	-@rm $(OUTDIR)/$(TARGET).a > /dev/null 2>&1 ; exit 0
+	$(Q) rm $(OBJECTS) > /dev/null 2>&1 ; exit 0
+	$(Q) rm $(DEPFILES) > /dev/null 2>&1 ; exit 0
+	$(Q) rm $(PCH_OUT) > /dev/null 2>&1 ; exit 0
+	$(Q) rm $(OUTDIR)/$(TARGET) > /dev/null 2>&1 ; exit 0
+	$(Q) rm $(OUTDIR)/$(TARGET).a > /dev/null 2>&1 ; exit 0
 
 
 # Include the header dependency file(s) from previous build if they exist.
