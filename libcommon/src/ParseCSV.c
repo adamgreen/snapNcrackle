@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -17,11 +17,10 @@
 
 struct ParseCSV
 {
-    char*   pLine;
-    char**  ppFields;
-    size_t  allocatedFieldCount;
-    size_t  fieldCount;
-    char    separator;
+    SizedString* pFields;
+    size_t       allocatedFieldCount;
+    size_t       fieldCount;
+    char         separator;
 };
 
 
@@ -33,16 +32,8 @@ __throws ParseCSV* ParseCSV_Create(void)
 
 __throws ParseCSV* ParseCSV_CreateWithCustomSeparator(char separator)
 {
-    ParseCSV* pThis = NULL;
-    __try
-    {
-        pThis = allocateAndZero(sizeof(ParseCSV));
-        pThis->separator = separator;
-    }
-    __catch
-    {
-        __rethrow;
-    }
+    ParseCSV* pThis = allocateAndZero(sizeof(ParseCSV));
+    pThis->separator = separator;
     return pThis;
 }
 
@@ -52,48 +43,48 @@ void ParseCSV_Free(ParseCSV* pThis)
     if (!pThis)
         return;
         
-    free(pThis->ppFields);
+    free(pThis->pFields);
     free(pThis);
 }
 
 
-static size_t getFieldCount(ParseCSV* pThis, char* pLine);
-static size_t getCharCount(char* pLine, char separator);
+static size_t getFieldCount(ParseCSV* pThis, const SizedString* pLine);
+static int isStringEmptyOrNull(const SizedString* pLine);
+static size_t getCharCount(const SizedString* pLine, char charToCount);
 static void growFieldArrayIfNecessary(ParseCSV* pThis, size_t fieldCount);
 static size_t fieldArraySizeForFieldsAndNullTerminator(size_t fieldCount);
-static void setupFieldPointers(ParseCSV* pThis);
-static char* findChar(char* pCurr, char separator);
-__throws void ParseCSV_Parse(ParseCSV* pThis, char* pLine)
+static void setupFieldPointers(ParseCSV* pThis, const SizedString* pLine);
+static const char* findChar(const SizedString* pLine, const char* pCurr, char separator);
+__throws void ParseCSV_Parse(ParseCSV* pThis, const SizedString* pLine)
 {
     size_t fieldCount = getFieldCount(pThis, pLine);
-    __try
-        growFieldArrayIfNecessary(pThis, fieldCount);
-    __catch
-        __rethrow;
-    
-    pThis->pLine = pLine;
+    growFieldArrayIfNecessary(pThis, fieldCount);
     pThis->fieldCount = fieldCount;
-    setupFieldPointers(pThis);
+    setupFieldPointers(pThis, pLine);
 }
 
-static size_t getFieldCount(ParseCSV* pThis, char* pLine)
+static size_t getFieldCount(ParseCSV* pThis, const SizedString* pLine)
 {
-    if (!pLine)
-        return 0;
-    if (pLine[0] == '\0')
+    if (isStringEmptyOrNull(pLine))
         return 0;
     return getCharCount(pLine, pThis->separator) + 1;
 }
 
-static size_t getCharCount(char* pLine, char charToCount)
+static int isStringEmptyOrNull(const SizedString* pLine)
 {
+    return !pLine || !pLine->pString || pLine->stringLength == 0;
+}
+
+static size_t getCharCount(const SizedString* pLine, char charToCount)
+{
+    const char* pEnum;
     size_t count = 0;
-    
-    while (*pLine)
+
+    SizedString_EnumStart(pLine, &pEnum);
+    while (SizedString_EnumRemaining(pLine, pEnum))
     {
-        if (*pLine == charToCount)
+        if (SizedString_EnumNext(pLine, &pEnum) == charToCount)
             count++;
-        pLine++;
     }
     
     return count;
@@ -104,10 +95,10 @@ static void growFieldArrayIfNecessary(ParseCSV* pThis, size_t fieldCount)
     size_t requiredArraySize = fieldArraySizeForFieldsAndNullTerminator(fieldCount);
     if (requiredArraySize > pThis->allocatedFieldCount)
     {
-        char** ppRealloc = realloc(pThis->ppFields, requiredArraySize * sizeof(*ppRealloc));
-        if (!ppRealloc)
+        SizedString* pRealloc = realloc(pThis->pFields, requiredArraySize * sizeof(*pRealloc));
+        if (!pRealloc)
             __throw(outOfMemoryException);
-        pThis->ppFields = ppRealloc;
+        pThis->pFields = pRealloc;
         pThis->allocatedFieldCount = requiredArraySize;
     }
 }
@@ -117,38 +108,39 @@ static size_t fieldArraySizeForFieldsAndNullTerminator(size_t fieldCount)
     return fieldCount + 1;
 }
 
-static void setupFieldPointers(ParseCSV* pThis)
+static void setupFieldPointers(ParseCSV* pThis, const SizedString* pLine)
 {
-    char** ppField = pThis->ppFields;
-    char*  pCurr = pThis->pLine;
-    char*  pSeparator;
+    SizedString* pField = pThis->pFields;
+    const char* pCurr;
+    const char* pStart;
+    const char* pSeparator;
     
-    if (pThis->pLine == NULL || *pThis->pLine == '\0')
+    if (isStringEmptyOrNull(pLine))
     {
-        *ppField = NULL;
+        *pField = SizedString_InitFromString(NULL);
         return;
     }
-    
+
+    SizedString_EnumStart(pLine, &pCurr);
     for (;;)
     {
-        *ppField++ = pCurr;
-        pSeparator = findChar(pCurr, pThis->separator);
-        if (*pSeparator == '\0')
+        pStart = pCurr;
+        pSeparator = findChar(pLine, pCurr, pThis->separator);
+        *pField++ = SizedString_Init(pStart, pSeparator - pStart);
+        pCurr = pSeparator;
+        if (SizedString_EnumNext(pLine, &pCurr) == '\0')
             break;
-        *pSeparator = '\0';
-        pCurr = pSeparator + 1;
     }
-    
-    *ppField = NULL;
+    *pField = SizedString_InitFromString(NULL);
 }
 
-static char* findChar(char* pCurr, char separator)
+static const char* findChar(const SizedString* pLine, const char* pCurr, char separator)
 {
-    while (*pCurr)
+    while (SizedString_EnumRemaining(pLine, pCurr))
     {
-        if (*pCurr == separator)
-            return pCurr;
-        pCurr++;
+        const char* pPrev = pCurr;
+        if (SizedString_EnumNext(pLine, &pCurr) == separator)
+            return pPrev;
     }
     return pCurr;
 }
@@ -160,7 +152,7 @@ size_t ParseCSV_FieldCount(ParseCSV* pThis)
 }
 
 
-const char** ParseCSV_FieldPointers(ParseCSV* pThis)
+const SizedString* ParseCSV_FieldPointers(ParseCSV* pThis)
 {
-    return (const char**)pThis->ppFields;
+    return pThis->pFields;
 }

@@ -23,7 +23,7 @@ TEST_GROUP_BASE(AssemblerCore, AssemblerBase)
 
 TEST(AssemblerCore, FailAllInitAllocations)
 {
-    static const int allocationsToFail = 26;
+    static const int allocationsToFail = 25;
     m_initParams.pListFilename = g_listFilename;
     m_initParams.pPutDirectories = ".";
     for (int i = 1 ; i <= allocationsToFail ; i++)
@@ -61,7 +61,7 @@ TEST(AssemblerCore, InitFromNonExistantFile)
 
 TEST(AssemblerCore, FailAllAllocationsDuringFileInit)
 {
-    static const int allocationsToFail = 27;
+    static const int allocationsToFail = 26;
     createSourceFile(" ORG $800\r\n");
     m_initParams.pListFilename = g_listFilename;
     m_initParams.pPutDirectories = ".";

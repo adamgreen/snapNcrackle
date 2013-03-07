@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -19,13 +19,15 @@
 typedef struct TextFile TextFile;
 
 
-__throws TextFile*    TextFile_CreateFromString(char* pText);
-__throws TextFile*    TextFile_CreateFromFile(const char*        pDirectoryName, 
+__throws TextFile*    TextFile_CreateFromString(const char* pText);
+__throws TextFile*    TextFile_CreateFromFile(const SizedString* pDirectoryName, 
                                               const SizedString* pFilename, 
                                               const char*        pFilenameSuffix);
          void         TextFile_Free(TextFile* pThis);
+         void         TextFile_Reset(TextFile* pThis);
 
-         char*        TextFile_GetNextLine(TextFile* pThis);
+         SizedString  TextFile_GetNextLine(TextFile* pThis);
+         int          TextFile_IsEndOfFile(TextFile* pThis);
          unsigned int TextFile_GetLineNumber(TextFile* pThis);
          const char*  TextFile_GetFilename(TextFile* pThis);
 

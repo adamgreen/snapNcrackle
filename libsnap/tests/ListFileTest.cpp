@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -66,7 +66,7 @@ TEST(ListFile, FailFirstAllocDuringCreate)
 
 TEST(ListFile, OutputLineWithOnlyLineNumberAndText)
 {
-    m_lineInfo.pLineText = "* Full line comment.";
+    m_lineInfo.lineText = SizedString_InitFromString("* Full line comment.");
     m_lineInfo.lineNumber = 1;
     ListFile_OutputLine(m_pListFile, &m_lineInfo);
 
@@ -79,7 +79,7 @@ TEST(ListFile, OutputLineWithOnlyLineNumberAndTextToStderr)
     ListFile_Free(m_pListFile);
     m_pListFile = ListFile_Create(stderr);
     
-    m_lineInfo.pLineText = "* Full line comment.";
+    m_lineInfo.lineText = SizedString_InitFromString("* Full line comment.");
     m_lineInfo.lineNumber = 1;
     ListFile_OutputLine(m_pListFile, &m_lineInfo);
 
@@ -89,7 +89,7 @@ TEST(ListFile, OutputLineWithOnlyLineNumberAndTextToStderr)
 
 TEST(ListFile, OutputLineWithSymbol)
 {
-    m_lineInfo.pLineText = "LABEL EQU $FFFF";
+    m_lineInfo.lineText = SizedString_InitFromString("LABEL EQU $FFFF");
     m_lineInfo.lineNumber = 2;
     m_lineInfo.flags |= LINEINFO_FLAG_WAS_EQU;
     m_symbol.expression.value = 0xFFFF;
@@ -101,7 +101,7 @@ TEST(ListFile, OutputLineWithSymbol)
 
 TEST(ListFile, OutputLineWithAddressAndOneMachineCodeByte)
 {
-    m_lineInfo.pLineText = " DEX";
+    m_lineInfo.lineText = SizedString_InitFromString(" DEX");
     m_lineInfo.lineNumber = 3;
     m_lineInfo.address = 0x0800;
     m_lineInfo.machineCodeSize = 1;
@@ -113,7 +113,7 @@ TEST(ListFile, OutputLineWithAddressAndOneMachineCodeByte)
 
 TEST(ListFile, OutputLineWithAddressAndTwoMachineCodeBytes)
 {
-    m_lineInfo.pLineText = " LDA $2C";
+    m_lineInfo.lineText = SizedString_InitFromString(" LDA $2C");
     m_lineInfo.lineNumber = 4;
     m_lineInfo.address = 0x0801;
     m_lineInfo.machineCodeSize = 2;
@@ -126,7 +126,7 @@ TEST(ListFile, OutputLineWithAddressAndTwoMachineCodeBytes)
 
 TEST(ListFile, OutputLineWithAddressAndThreeMachineCodeBytes)
 {
-    m_lineInfo.pLineText = " LDA $C008";
+    m_lineInfo.lineText = SizedString_InitFromString(" LDA $C008");
     m_lineInfo.lineNumber = 5;
     m_lineInfo.address = 0x0803;
     m_lineInfo.machineCodeSize = 3;
@@ -140,7 +140,7 @@ TEST(ListFile, OutputLineWithAddressAndThreeMachineCodeBytes)
 
 TEST(ListFile, OutputLineWithAddressAndFourMachineCodeBytes)
 {
-    m_lineInfo.pLineText = " DS 4";
+    m_lineInfo.lineText = SizedString_InitFromString(" DS 4");
     m_lineInfo.lineNumber = 1;
     m_lineInfo.address = 0x0800;
     m_lineInfo.machineCodeSize = 4;
@@ -156,7 +156,7 @@ TEST(ListFile, OutputLineWithAddressAndFourMachineCodeBytes)
 
 TEST(ListFile, OutputLineWithIndentation)
 {
-    m_lineInfo.pLineText = " DEX";
+    m_lineInfo.lineText = SizedString_InitFromString(" DEX");
     m_lineInfo.lineNumber = 3;
     m_lineInfo.indentation = 4;
     m_lineInfo.address = 0x0800;

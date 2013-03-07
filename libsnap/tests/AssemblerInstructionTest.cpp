@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -40,13 +40,13 @@ TEST_GROUP_BASE(AssemblerInstructions, AssemblerBase)
         if (m_isInvalidInstruction)
         {
             sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
-            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            sprintf(expectedListOutput, "    :              1 %s", testString);
             validateFailureOutput(expectedErrorOutput, expectedListOutput);
             return;
         }
         else
         {
-            sprintf(expectedListOutput, "8000: %02X 7F        1 %s\n", opcode, testString);
+            sprintf(expectedListOutput, "8000: %02X 7F        1 %s", opcode, testString);
             validateSuccessfulOutput(expectedListOutput);
         }
         
@@ -188,13 +188,13 @@ TEST_GROUP_BASE(AssemblerInstructions, AssemblerBase)
             sprintf(expectedErrorOutput, 
                     "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", 
                     pInstruction);
-            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            sprintf(expectedListOutput, "    :              1 %s", testString);
             validateFailureOutput(expectedErrorOutput, expectedListOutput);
         }
         else if (!m_isInvalidMode)
         {
             sprintf(expectedListOutput, 
-                    "8000: %02X %s     1 %s\n", 
+                    "8000: %02X %s     1 %s", 
                     m_expectedOpcode, 
                     m_isZeroPageTreatedAsAbsolute ? pAddressingModeStrings->pSuccessfulAbsoluteOperandMachineCode :
                                                     pAddressingModeStrings->pSuccessfulOperandMachineCode, 
@@ -207,7 +207,7 @@ TEST_GROUP_BASE(AssemblerInstructions, AssemblerBase)
                     "filename:1: error: Addressing mode of '%s' is not supported for '%s' instruction.\n", 
                     pAddressingModeStrings->pTestOperand,
                     pInstruction);
-            sprintf(expectedListOutput, "    :              1 %s\n", testString);
+            sprintf(expectedListOutput, "    :              1 %s", testString);
             validateFailureOutput(expectedErrorOutput, expectedListOutput);
         }
     }
@@ -283,7 +283,7 @@ TEST_GROUP_BASE(AssemblerInstructions, AssemblerBase)
         
         sprintf(testString, " %s *\n", pInstruction);
         runAssembler(testString);
-        sprintf(expectedListOutput, "8000: %02X FE        1 %s\n", m_expectedOpcode, testString);
+        sprintf(expectedListOutput, "8000: %02X FE        1 %s", m_expectedOpcode, testString);
         validateSuccessfulOutput(expectedListOutput);
     }
     

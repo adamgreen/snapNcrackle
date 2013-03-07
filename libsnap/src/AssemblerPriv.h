@@ -80,7 +80,6 @@ struct Assembler
     const AssemblerInitParams* pInitParams;
     ListFile*                  pListFile;
     FILE*                      pFileForListing;
-    char*                      pPutDirectories;
     ParseCSV*                  pPutSearchPath;
     LineInfo*                  pLineInfo;
     SizedString                globalLabel;

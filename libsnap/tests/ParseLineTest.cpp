@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -25,7 +25,7 @@ extern "C"
 TEST_GROUP(LineParser)
 {
     ParsedLine  m_parsedLine;
-    char        m_buffer[128];
+    SizedString m_string;
 
     void setup()
     {
@@ -38,10 +38,10 @@ TEST_GROUP(LineParser)
         LONGS_EQUAL(noException, getExceptionCode());
     }
 
-    char* dupe(const char* pString)
+    const SizedString* dupe(const char* pString)
     {
-        strcpy(m_buffer, pString);
-        return m_buffer;
+        m_string = SizedString_InitFromString(pString);
+        return &m_string;
     }
     
     void validateParsedLine(const char* pLabel, const char* pOperator, const char* pOperands)

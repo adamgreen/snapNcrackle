@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -14,6 +14,7 @@
 #define _PARSE_CSV_H_
 
 #include "try_catch.h"
+#include "SizedString.h"
 
 
 typedef struct ParseCSV ParseCSV;
@@ -23,8 +24,8 @@ __throws ParseCSV*    ParseCSV_Create(void);
 __throws ParseCSV*    ParseCSV_CreateWithCustomSeparator(char separator);
          void         ParseCSV_Free(ParseCSV* pThis);
          
-__throws void         ParseCSV_Parse(ParseCSV* pThis, char* pLine);
-         size_t       ParseCSV_FieldCount(ParseCSV* pThis);
-         const char** ParseCSV_FieldPointers(ParseCSV* pThis);
+__throws void               ParseCSV_Parse(ParseCSV* pThis, const SizedString* pLine);
+         size_t             ParseCSV_FieldCount(ParseCSV* pThis);
+         const SizedString* ParseCSV_FieldPointers(ParseCSV* pThis);
          
 #endif /* _PARSE_CSV_H_ */

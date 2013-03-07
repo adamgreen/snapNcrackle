@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -39,27 +39,29 @@ TEST_GROUP(ParseCSV)
         ParseCSV_Free(m_pParser);
     }
     
-    char* copy(const char* pString)
-    {
-        strcpy(m_copy, pString);
-        return m_copy;
-    }
-    
     void validateOutOfMemoryExceptionThrown()
     {
         LONGS_EQUAL(outOfMemoryException, getExceptionCode());
         clearExceptionCode();
     }
     
-    void parseAndValidate(const char* testString, size_t expectedTokenCount, const char** ppExpectedTokens)
+    void parseAndValidate(const char* pLine, size_t expectedTokenCount, const char** ppExpectedTokens)
     {
-        ParseCSV_Parse(m_pParser, copy(testString));
+        SizedString testString = SizedString_InitFromString(pLine);
+        ParseCSV_Parse(m_pParser, &testString);
         LONGS_EQUAL(expectedTokenCount - 1, ParseCSV_FieldCount(m_pParser));
-        const char** ppFields = ParseCSV_FieldPointers(m_pParser);
+        const SizedString* pFields = ParseCSV_FieldPointers(m_pParser);
         for (size_t i = 0 ; i < expectedTokenCount ; i++)
-        {
-            STRCMP_EQUAL(ppExpectedTokens[i], ppFields[i]);
-        }
+            compareFields(&pFields[i], ppExpectedTokens[i]);
+    }
+    
+    void compareFields(const SizedString* p1, const char* p2)
+    {
+        if (!p2 && SizedString_IsNull(p1))
+            return;
+        CHECK_TRUE(p1 != NULL);
+        CHECK_TRUE(p2 != NULL);
+        LONGS_EQUAL(0, SizedString_strcmp(p1, p2));
     }
 };
 
@@ -71,13 +73,14 @@ TEST(ParseCSV, FailAllocationDuringCreate)
     validateOutOfMemoryExceptionThrown();
 }
 
-TEST(ParseCSV, ParseNullPointer)
+TEST(ParseCSV, ParseNullSizedString)
 {
+    SizedString testString = SizedString_InitFromString(NULL);
     m_pParser = ParseCSV_Create();
     CHECK(m_pParser != NULL);
-    ParseCSV_Parse(m_pParser, NULL);
+    ParseCSV_Parse(m_pParser, &testString);
     LONGS_EQUAL(0, ParseCSV_FieldCount(m_pParser));
-    POINTERS_EQUAL(NULL, *ParseCSV_FieldPointers(m_pParser));
+    POINTERS_EQUAL(NULL, ParseCSV_FieldPointers(m_pParser)[0].pString);
 }
 
 TEST(ParseCSV, ParseBlankLine)
@@ -124,9 +127,10 @@ TEST(ParseCSV, ParseTwoStrings)
 
 TEST(ParseCSV, FailAllocationOnParse)
 {
+    SizedString testString = SizedString_InitFromString("a");
     m_pParser = ParseCSV_Create();
     MallocFailureInject_FailAllocation(1);
-    __try_and_catch( ParseCSV_Parse(m_pParser, copy("a")) );
+    __try_and_catch( ParseCSV_Parse(m_pParser, &testString) );
     validateOutOfMemoryExceptionThrown();
 }
 

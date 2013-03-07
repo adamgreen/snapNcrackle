@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -33,7 +33,7 @@ typedef enum InstructionSetSupported
 
 struct LineInfo
 {
-    const char*             pLineText;
+    SizedString             lineText;
     Symbol*                 pSymbol;
     TextFile*               pTextFile;
     struct LineInfo*        pNext;

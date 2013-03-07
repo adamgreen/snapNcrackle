@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -22,6 +22,6 @@ typedef struct ParsedLine
     SizedString operands;
 } ParsedLine;
 
-void ParseLine(ParsedLine* pObject, const char* pLine);
+void ParseLine(ParsedLine* pObject, const SizedString* pLine);
 
 #endif /* _PARSE_LINE_H_ */

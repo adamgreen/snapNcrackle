@@ -71,20 +71,25 @@ static void DiskImageScriptEngine_ProcessScriptFile(DiskImageScriptEngine* pThis
                                                     DiskImage*              pDiskImage, 
                                                     const char*             pScriptFilename);
 static void processScriptFromTextFile(DiskImageScriptEngine* pThis);
-static int isLineAComment(const char* pLineText);
-static void processNextScriptLine(DiskImageScriptEngine* pThis, char* pScriptLine);
-static void processBlockScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields);
-static unsigned int parseLengthField(DiskImageScriptEngine* pThis, const char* pLengthField);
+static int isLineAComment(const SizedString* pLine);
+static void processNextScriptLine(DiskImageScriptEngine* pThis, const SizedString* pScriptLine);
+static void processBlockScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields);
+static void readObjectFile(DiskImage* pDiskImage, const SizedString* pFilenameString);
+static unsigned int parseLengthField(DiskImageScriptEngine* pThis, const SizedString* pLengthField);
 static unsigned int parseFieldWhichSupportsAsteriskForDefaulValue(DiskImageScriptEngine* pThis, 
-                                                                  const char*            pField, 
+                                                                  const SizedString*     pField, 
                                                                   unsigned int           defaultValue);
-static void parseBlockRelatedFieldsAndSetInsertFields(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields);
-static int isAsterisk(const char* pString);
+static void parseBlockRelatedFieldsAndSetInsertFields(DiskImageScriptEngine* pThis, 
+                                                      size_t fieldCount, 
+                                                      const SizedString* pFields);
+static int isAsterisk(const SizedString* pString);
 static void setBlockInsertFieldsBasedOnLastInsertion(DiskImageScriptEngine* pThis);
-static void setBlockInsertFieldsBaseOnScriptFields(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields);
+static void setBlockInsertFieldsBaseOnScriptFields(DiskImageScriptEngine* pThis, 
+                                                   size_t fieldCount, 
+                                                   const SizedString* pFields);
 static void rememberLastInsertionInformation(DiskImageScriptEngine* pThis);
-static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields);
-static void processRWTS18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields);
+static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields);
+static void processRWTS18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields);
 static void reportScriptLineException(DiskImageScriptEngine* pThis);
 __throws void DiskImage_ProcessScriptFile(DiskImage* pThis, const char* pScriptFilename)
 {
@@ -113,32 +118,31 @@ static void DiskImageScriptEngine_ProcessScriptFile(DiskImageScriptEngine* pThis
 
 static void processScriptFromTextFile(DiskImageScriptEngine* pThis)
 {
-    char* pNextLine;
-
     pThis->lineNumber = 1;
-    while ((pNextLine = TextFile_GetNextLine(pThis->pTextFile)) != NULL)
+    while (!TextFile_IsEndOfFile(pThis->pTextFile))
     {
-        if (!isLineAComment(pNextLine))
-            processNextScriptLine(pThis, pNextLine);
+        SizedString nextLine = TextFile_GetNextLine(pThis->pTextFile);
+        if (!isLineAComment(&nextLine))
+            processNextScriptLine(pThis, &nextLine);
         pThis->lineNumber++;
     }
     closeTextFile(pThis);
 }
 
-static int isLineAComment(const char* pLineText)
+static int isLineAComment(const SizedString* pLine)
 {
-    return pLineText[0] == '#';
+    return pLine->pString[0] == '#';
 }
 
-static void processNextScriptLine(DiskImageScriptEngine* pThis, char* pScriptLine)
+static void processNextScriptLine(DiskImageScriptEngine* pThis, const SizedString* pScriptLine)
 {
-    size_t       fieldCount;
-    const char** ppFields;
+    size_t             fieldCount;
+    const SizedString* pFields;
     
     ParseCSV_Parse(pThis->pParser, pScriptLine);
     fieldCount = ParseCSV_FieldCount(pThis->pParser);
-    ppFields = ParseCSV_FieldPointers(pThis->pParser);
-    if (fieldCount < 1 || ppFields[0][0] == '\0')
+    pFields = ParseCSV_FieldPointers(pThis->pParser);
+    if (fieldCount < 1 || SizedString_strlen(&pFields[0]) == 0)
     {
         LOG_ERROR(pThis, "%s cannot be blank.", "Script line");
         return;
@@ -146,14 +150,15 @@ static void processNextScriptLine(DiskImageScriptEngine* pThis, char* pScriptLin
     
     __try
     {
-        if (0 == strcasecmp(ppFields[0], "block"))
-            processBlockScriptLine(pThis, fieldCount, ppFields);
-        else if (0 == strcasecmp(ppFields[0], "rwts16"))
-            processRWTS16ScriptLine(pThis, fieldCount, ppFields);
-        else if (0 == strcasecmp(ppFields[0], "rwts18"))
-            processRWTS18ScriptLine(pThis, fieldCount, ppFields);
+        if (0 == SizedString_strcasecmp(&pFields[0], "block"))
+            processBlockScriptLine(pThis, fieldCount, pFields);
+        else if (0 == SizedString_strcasecmp(&pFields[0], "rwts16"))
+            processRWTS16ScriptLine(pThis, fieldCount, pFields);
+        else if (0 == SizedString_strcasecmp(&pFields[0], "rwts18"))
+            processRWTS18ScriptLine(pThis, fieldCount, pFields);
         else
-            LOG_ERROR(pThis, "%s isn't a recognized image insertion type of BLOCK or RWTS16.", ppFields[0]);
+            LOG_ERROR(pThis, "%.*s isn't a recognized image insertion type of BLOCK or RWTS16.", 
+                      pFields[0].stringLength, pFields[0].pString);
     }
     __catch
     {
@@ -162,7 +167,7 @@ static void processNextScriptLine(DiskImageScriptEngine* pThis, char* pScriptLin
     }
 }
 
-static void processBlockScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields)
+static void processBlockScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields)
 {
     if (fieldCount < 5 || fieldCount > 6)
     {
@@ -172,43 +177,62 @@ static void processBlockScriptLine(DiskImageScriptEngine* pThis, size_t fieldCou
         __throw(invalidArgumentException);
     }
     
-    DiskImage_ReadObjectFile(pThis->pDiskImage, ppFields[1]);
-    pThis->insert.sourceOffset = strtoul(ppFields[2], NULL, 0);
-    pThis->insert.length = parseLengthField(pThis, ppFields[3]);
+    readObjectFile(pThis->pDiskImage, &pFields[1]);
+    pThis->insert.sourceOffset = SizedString_strtoul(&pFields[2], NULL, 0);
+    pThis->insert.length = parseLengthField(pThis, &pFields[3]);
     pThis->insert.type = DISK_IMAGE_INSERTION_BLOCK;
-    parseBlockRelatedFieldsAndSetInsertFields(pThis, fieldCount, ppFields);
+    parseBlockRelatedFieldsAndSetInsertFields(pThis, fieldCount, pFields);
     rememberLastInsertionInformation(pThis);
     DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert);
 }
 
-static unsigned int parseLengthField(DiskImageScriptEngine* pThis, const char* pLengthField)
+static void readObjectFile(DiskImage* pDiskImage, const SizedString* pFilenameString)
+{
+    char* pFilename = NULL;
+    
+    __try
+    {
+        pFilename = SizedString_strdup(pFilenameString);
+        DiskImage_ReadObjectFile(pDiskImage, pFilename);
+    }
+    __catch
+    {
+        free(pFilename);
+        __rethrow;
+    }
+    free(pFilename);
+}
+
+static unsigned int parseLengthField(DiskImageScriptEngine* pThis, const SizedString* pLengthField)
 {
     return parseFieldWhichSupportsAsteriskForDefaulValue(pThis, pLengthField, pThis->pDiskImage->objectFileLength);
 }
 
 static unsigned int parseFieldWhichSupportsAsteriskForDefaulValue(DiskImageScriptEngine* pThis, 
-                                                                  const char*            pField, 
+                                                                  const SizedString*     pField, 
                                                                   unsigned int           defaultValue)
 {
     if (isAsterisk(pField))
         return defaultValue;
     else
-        return strtoul(pField, NULL, 0);
+        return SizedString_strtoul(pField, NULL, 0);
 }
 
-static int isAsterisk(const char* pString)
+static int isAsterisk(const SizedString* pString)
 {
-    return 0 == strcmp(pString, "*");
+    return 0 == SizedString_strcmp(pString, "*");
 }
 
-static void parseBlockRelatedFieldsAndSetInsertFields(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields)
+static void parseBlockRelatedFieldsAndSetInsertFields(DiskImageScriptEngine* pThis, 
+                                                      size_t fieldCount, 
+                                                      const SizedString* pFields)
 {
-    const char* pBlockField = ppFields[4];
+    const SizedString* pBlockField = &pFields[4];
 
     if (isAsterisk(pBlockField))
         setBlockInsertFieldsBasedOnLastInsertion(pThis);
     else
-        setBlockInsertFieldsBaseOnScriptFields(pThis, fieldCount, ppFields);
+        setBlockInsertFieldsBaseOnScriptFields(pThis, fieldCount, pFields);
 }
 
 static void setBlockInsertFieldsBasedOnLastInsertion(DiskImageScriptEngine* pThis)
@@ -218,11 +242,13 @@ static void setBlockInsertFieldsBasedOnLastInsertion(DiskImageScriptEngine* pThi
     pThis->insert.intraBlockOffset = lastOffset % DISK_IMAGE_BLOCK_SIZE;
 }
 
-static void setBlockInsertFieldsBaseOnScriptFields(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields)
+static void setBlockInsertFieldsBaseOnScriptFields(DiskImageScriptEngine* pThis, 
+                                                   size_t fieldCount, 
+                                                   const SizedString* pFields)
 {
-    pThis->insert.block = strtoul(ppFields[4], NULL, 0);
+    pThis->insert.block = SizedString_strtoul(&pFields[4], NULL, 0);
     if (fieldCount > 5)
-        pThis->insert.intraBlockOffset = strtoul(ppFields[5], NULL, 0);
+        pThis->insert.intraBlockOffset = SizedString_strtoul(&pFields[5], NULL, 0);
     else
         pThis->insert.intraBlockOffset = 0;
 }
@@ -233,7 +259,7 @@ static void rememberLastInsertionInformation(DiskImageScriptEngine* pThis)
     pThis->lastLength = pThis->insert.length;
 }
 
-static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields)
+static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields)
 {
     if (fieldCount != 6)
     {
@@ -243,16 +269,16 @@ static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCo
         __throw(invalidArgumentException);
     }
     
-    DiskImage_ReadObjectFile(pThis->pDiskImage, ppFields[1]);
-    pThis->insert.sourceOffset = strtoul(ppFields[2], NULL, 0);
-    pThis->insert.length = parseLengthField(pThis, ppFields[3]);
+    readObjectFile(pThis->pDiskImage, &pFields[1]);
+    pThis->insert.sourceOffset = SizedString_strtoul(&pFields[2], NULL, 0);
+    pThis->insert.length = parseLengthField(pThis, &pFields[3]);
     pThis->insert.type = DISK_IMAGE_INSERTION_RWTS16;
-    pThis->insert.track = strtoul(ppFields[4], NULL, 0);
-    pThis->insert.sector = strtoul(ppFields[5], NULL, 0);
+    pThis->insert.track = SizedString_strtoul(&pFields[4], NULL, 0);
+    pThis->insert.sector = SizedString_strtoul(&pFields[5], NULL, 0);
     DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert);
 }
 
-static void processRWTS18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const char** ppFields)
+static void processRWTS18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields)
 {
     if (fieldCount != 8)
     {
@@ -263,25 +289,25 @@ static void processRWTS18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCo
         __throw(invalidArgumentException);
     }
     
-    DiskImage_ReadObjectFile(pThis->pDiskImage, ppFields[1]);
+    readObjectFile(pThis->pDiskImage, &pFields[1]);
     pThis->insert.type = DISK_IMAGE_INSERTION_RWTS18;
-    pThis->insert.sourceOffset = strtoul(ppFields[2], NULL, 0);
-    pThis->insert.length = parseLengthField(pThis, ppFields[3]);
-    pThis->insert.side = parseFieldWhichSupportsAsteriskForDefaulValue(pThis, ppFields[4], 
+    pThis->insert.sourceOffset = SizedString_strtoul(&pFields[2], NULL, 0);
+    pThis->insert.length = parseLengthField(pThis, &pFields[3]);
+    pThis->insert.side = parseFieldWhichSupportsAsteriskForDefaulValue(pThis, &pFields[4], 
                                                                        pThis->pDiskImage->insert.side);
-    pThis->insert.track = parseFieldWhichSupportsAsteriskForDefaulValue(pThis, ppFields[5], 
+    pThis->insert.track = parseFieldWhichSupportsAsteriskForDefaulValue(pThis, &pFields[5], 
                                                                         pThis->pDiskImage->insert.track);
-    pThis->insert.sector = parseFieldWhichSupportsAsteriskForDefaulValue(pThis, ppFields[6], 
+    pThis->insert.sector = parseFieldWhichSupportsAsteriskForDefaulValue(pThis, &pFields[6], 
                                                                          pThis->pDiskImage->insert.sector);
-    pThis->insert.intraSectorOffset = parseFieldWhichSupportsAsteriskForDefaulValue(pThis, ppFields[7], 
+    pThis->insert.intraSectorOffset = parseFieldWhichSupportsAsteriskForDefaulValue(pThis, &pFields[7], 
                                                                        pThis->pDiskImage->insert.intraSectorOffset);
     DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert);
 }
 
 static void reportScriptLineException(DiskImageScriptEngine* pThis)
 {
-    const char** ppFields = ParseCSV_FieldPointers(pThis->pParser);
-    int          exceptionCode = getExceptionCode();
+    const SizedString* pFields = ParseCSV_FieldPointers(pThis->pParser);
+    int                exceptionCode = getExceptionCode();
     
     assert ( exceptionCode == fileException || 
              exceptionCode == invalidArgumentException ||
@@ -294,12 +320,14 @@ static void reportScriptLineException(DiskImageScriptEngine* pThis)
              exceptionCode == invalidIntraSectorOffsetException);
 
     if (exceptionCode == fileException)
-        LOG_ERROR(pThis, "Failed to read '%s' object file.", ppFields[1]);
+        LOG_ERROR(pThis, "Failed to read '%.*s' object file.", 
+                  pFields[1].stringLength, pFields[1].pString);
     else if (exceptionCode == blockExceedsImageBoundsException)
         LOG_ERROR(pThis, "Write starting at block %u offset %u won't fit in output image file.", 
                   pThis->insert.block, pThis->insert.intraBlockOffset);
     else if (exceptionCode == invalidInsertionTypeException)
-        LOG_ERROR(pThis, "%s insertion type isn't supported for this output image type.", ppFields[0]);
+        LOG_ERROR(pThis, "%.*s insertion type isn't supported for this output image type.", 
+                  pFields[0].stringLength, pFields[0].pString);
     else if (exceptionCode == invalidSideException)
         LOG_ERROR(pThis, "0x%x specifies an invalid side.  Must be 0xa9, 0xad, 0x79.", pThis->insert.side);
     else if (exceptionCode == invalidSectorException)
@@ -364,7 +392,7 @@ __throws void DiskImage_ReadObjectFile(DiskImage* pThis, const char* pFilename)
             fclose(pFile);
         __rethrow;
     }
-    
+
     fclose(pFile);    
 }
 

@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -28,6 +28,7 @@ static const char* tempFilename = "TestFileTestCppBogusContent.S";
 TEST_GROUP(TextFile)
 {
     TextFile*   m_pTextFile;
+    TextFile*   m_pTextFileDerived;
     SizedString m_sizedString;
     char        m_buffer[128];
     
@@ -35,12 +36,14 @@ TEST_GROUP(TextFile)
     {
         clearExceptionCode();
         m_pTextFile = NULL;
+        m_pTextFileDerived = NULL;
         m_buffer[0] = '\0';
     }
 
     void teardown()
     {
         MallocFailureInject_Restore();
+        TextFile_Free(m_pTextFileDerived);
         TextFile_Free(m_pTextFile);
         LONGS_EQUAL(noException, getExceptionCode());
         remove(tempFilename);
@@ -48,14 +51,14 @@ TEST_GROUP(TextFile)
     
     void validateEndOfFileForNextLine()
     {
-        const char* pLine = TextFile_GetNextLine(m_pTextFile);
-        POINTERS_EQUAL(NULL, pLine);
+        validateEndOfFileForNextLine(m_pTextFile);
     }
     
-    char* dupe(const char* pString)
+    void validateEndOfFileForNextLine(TextFile* pTextFile)
     {
-        strcpy(m_buffer, pString);
-        return m_buffer;
+        CHECK_TRUE(TextFile_IsEndOfFile(pTextFile));
+        SizedString line = TextFile_GetNextLine(pTextFile);
+        CHECK_TRUE(SizedString_IsNull(&line));
     }
     
     SizedString* toSizedString(const char* pString)
@@ -66,10 +69,14 @@ TEST_GROUP(TextFile)
     
     void fetchAndValidateLineWithSingleSpace()
     {
-        const char* pLine = NULL;
-    
-        pLine = TextFile_GetNextLine(m_pTextFile);
-        STRCMP_EQUAL(" ", pLine);
+        fetchAndValidateLineWithSingleSpace(m_pTextFile);
+    }
+
+    void fetchAndValidateLineWithSingleSpace(TextFile* pTextFile)
+    {
+        CHECK_FALSE(TextFile_IsEndOfFile(pTextFile));
+        SizedString line = TextFile_GetNextLine(pTextFile);
+        CHECK_TRUE(0 == SizedString_strcmp(&line, " "));
     }
     
     void createTestFile(const char* pTestText)
@@ -96,26 +103,26 @@ TEST(TextFile, FailAllInitAllocation)
     for (int i = 1 ; i <= allocationsToFail ; i++)
     {
         MallocFailureInject_FailAllocation(i);
-            __try_and_catch( m_pTextFile = TextFile_CreateFromString(dupe("")) );
+            __try_and_catch( m_pTextFile = TextFile_CreateFromString("") );
         POINTERS_EQUAL(NULL, m_pTextFile);
         validateExceptionThrown(outOfMemoryException);
     }
 
     MallocFailureInject_FailAllocation(allocationsToFail + 1);
-    m_pTextFile = m_pTextFile = TextFile_CreateFromString(dupe(""));
+    m_pTextFile = m_pTextFile = TextFile_CreateFromString("");
     CHECK_TRUE(m_pTextFile != NULL);
 }
 
 TEST(TextFile, GetLineFromEmptyString)
 {
-    m_pTextFile = TextFile_CreateFromString(dupe(""));
+    m_pTextFile = TextFile_CreateFromString("");
     CHECK(NULL != m_pTextFile);
     validateEndOfFileForNextLine();
 }
 
 TEST(TextFile, GetLineFromTextWithNoLineTerminators)
 {
-    m_pTextFile = TextFile_CreateFromString(dupe(" "));
+    m_pTextFile = TextFile_CreateFromString(" ");
     CHECK(NULL != m_pTextFile);
     
     fetchAndValidateLineWithSingleSpace();
@@ -124,35 +131,35 @@ TEST(TextFile, GetLineFromTextWithNoLineTerminators)
 
 TEST(TextFile, GetLineFromSingleLineWithNewline)
 {
-    m_pTextFile = TextFile_CreateFromString(dupe(" \n"));
+    m_pTextFile = TextFile_CreateFromString(" \n");
     fetchAndValidateLineWithSingleSpace();
     validateEndOfFileForNextLine();
 }
 
 TEST(TextFile, GetLineFromSingleLineWithCarriageReturn)
 {
-    m_pTextFile = TextFile_CreateFromString(dupe(" \r"));
+    m_pTextFile = TextFile_CreateFromString(" \r");
     fetchAndValidateLineWithSingleSpace();
     validateEndOfFileForNextLine();
 }
 
 TEST(TextFile, GetLineFromSingleLineWithCarriageReturnAndLineFeed)
 {
-    m_pTextFile = TextFile_CreateFromString(dupe(" \r\n"));
+    m_pTextFile = TextFile_CreateFromString(" \r\n");
     fetchAndValidateLineWithSingleSpace();
     validateEndOfFileForNextLine();
 }
 
 TEST(TextFile, GetLineFromSingleLineWithLineFeedAndCarriageReturn)
 {
-    m_pTextFile = TextFile_CreateFromString(dupe(" \n\r"));
+    m_pTextFile = TextFile_CreateFromString(" \n\r");
     fetchAndValidateLineWithSingleSpace();
     validateEndOfFileForNextLine();
 }
 
 TEST(TextFile, GetLine2LinesWithCarriageReturnAndNewLine)
 {
-    m_pTextFile = TextFile_CreateFromString(dupe(" \n\r \n\r"));
+    m_pTextFile = TextFile_CreateFromString(" \n\r \n\r");
     fetchAndValidateLineWithSingleSpace();
     fetchAndValidateLineWithSingleSpace();
     validateEndOfFileForNextLine();
@@ -160,11 +167,12 @@ TEST(TextFile, GetLine2LinesWithCarriageReturnAndNewLine)
 
 TEST(TextFile, GetLine2LinesWithCarriageReturnAndNewLineButEOFAtEndOfSecondLine)
 {
-    m_pTextFile = TextFile_CreateFromString(dupe(" \n\r "));
+    m_pTextFile = TextFile_CreateFromString(" \n\r ");
     fetchAndValidateLineWithSingleSpace();
     fetchAndValidateLineWithSingleSpace();
     validateEndOfFileForNextLine();
 }
+
 
 TEST(TextFile, CreateFromFile)
 {
@@ -187,7 +195,8 @@ TEST(TextFile, CreateFromFileWithSuffix)
 TEST(TextFile, CreateFromFileWithSuffixAndDirectoryNoSlash)
 {
     createTestFile(" \n\r \n");
-    m_pTextFile = TextFile_CreateFromFile(".", toSizedString("TestFileTestCppBogusContent"), ".S");
+    SizedString testDirectory = SizedString_InitFromString(".");
+    m_pTextFile = TextFile_CreateFromFile(&testDirectory, toSizedString("TestFileTestCppBogusContent"), ".S");
     fetchAndValidateLineWithSingleSpace();
     fetchAndValidateLineWithSingleSpace();
     validateEndOfFileForNextLine();
@@ -196,7 +205,8 @@ TEST(TextFile, CreateFromFileWithSuffixAndDirectoryNoSlash)
 TEST(TextFile, CreateFromFileWithSuffixAndDirectorySlash)
 {
     createTestFile(" \n\r \n");
-    m_pTextFile = TextFile_CreateFromFile("./", toSizedString("TestFileTestCppBogusContent"), ".S");
+    SizedString testDirectory = SizedString_InitFromString("./");
+    m_pTextFile = TextFile_CreateFromFile(&testDirectory, toSizedString("TestFileTestCppBogusContent"), ".S");
     fetchAndValidateLineWithSingleSpace();
     fetchAndValidateLineWithSingleSpace();
     validateEndOfFileForNextLine();
@@ -223,7 +233,8 @@ TEST(TextFile, FailAllCreateFromFileAllocations)
 TEST(TextFile, FailWithBadDirectory)
 {
     createTestFile("\n\r");
-    __try_and_catch( m_pTextFile = TextFile_CreateFromFile("foo.bar", toSizedString(tempFilename), NULL) );
+    SizedString testDirectory = SizedString_InitFromString("foo.bar");
+    __try_and_catch( m_pTextFile = TextFile_CreateFromFile(&testDirectory, toSizedString(tempFilename), NULL) );
 
     POINTERS_EQUAL(NULL, m_pTextFile);
     LONGS_EQUAL(fileNotFoundException, getExceptionCode());
@@ -282,13 +293,13 @@ TEST(TextFile, FailFRead)
 
 TEST(TextFile, GetLineNumberBeforeFirstGetLineShouldReturn0)
 {
-    m_pTextFile = TextFile_CreateFromString(dupe(""));
+    m_pTextFile = TextFile_CreateFromString("");
     LONGS_EQUAL(0, TextFile_GetLineNumber(m_pTextFile));
 }
 
 TEST(TextFile, GetLineNumberForFirstLine)
 {
-    m_pTextFile = TextFile_CreateFromString(dupe(" \n"));
+    m_pTextFile = TextFile_CreateFromString(" \n");
     fetchAndValidateLineWithSingleSpace();
     LONGS_EQUAL(1, TextFile_GetLineNumber(m_pTextFile));
     validateEndOfFileForNextLine();
@@ -297,8 +308,8 @@ TEST(TextFile, GetLineNumberForFirstLine)
 
 TEST(TextFile, GetLineNumberForFirstTwoLines)
 {
-    m_pTextFile = TextFile_CreateFromString(dupe(" \n"
-                                                 " "));
+    m_pTextFile = TextFile_CreateFromString(" \n"
+                                            " ");
     fetchAndValidateLineWithSingleSpace();
     LONGS_EQUAL(1, TextFile_GetLineNumber(m_pTextFile));
     fetchAndValidateLineWithSingleSpace();
@@ -309,7 +320,7 @@ TEST(TextFile, GetLineNumberForFirstTwoLines)
 
 TEST(TextFile, GetFilenameOnStringBasedTextFileShouldBeFilename)
 {
-    m_pTextFile = TextFile_CreateFromString(dupe(""));
+    m_pTextFile = TextFile_CreateFromString("");
     STRCMP_EQUAL(TextFile_GetFilename(m_pTextFile), "filename");
 }
 
@@ -318,4 +329,23 @@ TEST(TextFile, GetFilenameOnFileBasedTextFile)
     createTestFile(" \n\r \n");
     m_pTextFile = TextFile_CreateFromFile(NULL, toSizedString(tempFilename), NULL);
     STRCMP_EQUAL(TextFile_GetFilename(m_pTextFile), tempFilename);
+}
+
+TEST(TextFile, ResetOnSingleLineWithNewline)
+{
+    m_pTextFile = TextFile_CreateFromString(" \n");
+    fetchAndValidateLineWithSingleSpace();
+    LONGS_EQUAL(1, TextFile_GetLineNumber(m_pTextFile));
+    validateEndOfFileForNextLine();
+
+    TextFile_Reset(m_pTextFile);
+    LONGS_EQUAL(0, TextFile_GetLineNumber(m_pTextFile));
+    fetchAndValidateLineWithSingleSpace();
+    LONGS_EQUAL(1, TextFile_GetLineNumber(m_pTextFile));
+    validateEndOfFileForNextLine();
+}
+
+TEST(TextFile, ResetOnNullTextObjectShouldJustBeIgnored)
+{
+    TextFile_Reset(NULL);
 }

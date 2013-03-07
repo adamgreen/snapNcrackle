@@ -86,25 +86,22 @@ static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, const AssemblerI
 static void createParseObjectForPutSearchPath(Assembler* pThis, const AssemblerInitParams* pParams)
 {
     ParseCSV* pParser = NULL;
-    char*     pPutDirectories = NULL;
     
     if (!pParams || !pParams->pPutDirectories)
         return;
     
     __try
     {
-        pPutDirectories = copyOfString(pParams->pPutDirectories);
+        SizedString putDirectories = SizedString_InitFromString(pParams->pPutDirectories);
         pParser = ParseCSV_CreateWithCustomSeparator(';');
-        ParseCSV_Parse(pParser, pPutDirectories);
+        ParseCSV_Parse(pParser, &putDirectories);
     }
     __catch
     {
-        free(pPutDirectories);
         ParseCSV_Free(pParser);
         __rethrow;
     }
     
-    pThis->pPutDirectories = pPutDirectories;
     pThis->pPutSearchPath = pParser;
 }
 
@@ -284,7 +281,6 @@ void Assembler_Free(Assembler* pThis)
     freeInstructionSets(pThis);
     freeIncludedTextFiles(pThis);
     ParseCSV_Free(pThis->pPutSearchPath);
-    free(pThis->pPutDirectories);
     ListFile_Free(pThis->pListFile);
     BinaryBuffer_Free(pThis->pDummyBuffer);
     BinaryBuffer_Free(pThis->pObjectBuffer);
@@ -343,10 +339,11 @@ static void freeIncludedTextFiles(Assembler* pThis)
 }
 
 static void firstPass(Assembler* pThis);
-static char* getNextSourceLine(Assembler* pThis);
+static int getNextSourceLine(Assembler* pThis, SizedString* pLineString);
+static int attemptToSwitchBackToMainFileAndGetNextLine(Assembler* pThis, SizedString* pLine);
 static int isProcessingTextFromPutFile(Assembler* pThis);
-static void parseLine(Assembler* pThis, char* pLine);
-static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine);
+static void parseLine(Assembler* pThis, const SizedString* pLine);
+static void prepareLineInfoForThisLine(Assembler* pThis, const SizedString* pLine);
 static void rememberLabel(Assembler* pThis);
 static int doesLineContainALabel(Assembler* pThis);
 static int shouldSkipSourceLines(Assembler* pThis);
@@ -412,7 +409,7 @@ static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, Li
 static void flagLineInfoAsProcessingForwardReference(LineInfo* pLineInfo);
 static void resetLineInfoAsNotProcessingForwardReference(LineInfo* pLineInfo);
 static void handleInvalidOperator(Assembler* pThis);
-static const char* fullOperandStringWithSpaces(Assembler* pThis);
+static SizedString fullOperandStringWithSpaces(Assembler* pThis);
 static void reverseMachineCode(LineInfo* pLineInfo);
 static void validateNoOperandWasProvided(Assembler* pThis);
 static Expression getAbsoluteExpression(Assembler* pThis, SizedString* pOperands);
@@ -455,24 +452,32 @@ void Assembler_Run(Assembler* pThis)
 
 static void firstPass(Assembler* pThis)
 {
-    char*      pLine = NULL;
-    
-    while (NULL != (pLine = getNextSourceLine(pThis)))
-        parseLine(pThis, pLine);
+    SizedString line;
+    while (getNextSourceLine(pThis, &line))
+        parseLine(pThis, &line);
 }
 
-static char* getNextSourceLine(Assembler* pThis)
+static int getNextSourceLine(Assembler* pThis, SizedString* pLine)
 {
-    char* pLine = TextFile_GetNextLine(pThis->pTextFile);
-    
-    if (!pLine && isProcessingTextFromPutFile(pThis))
-    {
-        pThis->pTextFile = pThis->pMainFile;
-        pThis->indentation = 0;
-        return TextFile_GetNextLine(pThis->pTextFile);
-    }
+    if (TextFile_IsEndOfFile(pThis->pTextFile))
+        return attemptToSwitchBackToMainFileAndGetNextLine(pThis, pLine);
 
-    return pLine;
+    *pLine = TextFile_GetNextLine(pThis->pTextFile);
+    return 1;
+}
+
+static int attemptToSwitchBackToMainFileAndGetNextLine(Assembler* pThis, SizedString* pLine)
+{
+    if (!isProcessingTextFromPutFile(pThis))
+        return 0;
+        
+    pThis->pTextFile = pThis->pMainFile;
+    pThis->indentation = 0;
+    if (TextFile_IsEndOfFile(pThis->pTextFile))
+        return 0;
+
+    *pLine = TextFile_GetNextLine(pThis->pTextFile);
+    return 1;
 }
 
 static int isProcessingTextFromPutFile(Assembler* pThis)
@@ -480,7 +485,7 @@ static int isProcessingTextFromPutFile(Assembler* pThis)
     return pThis->pTextFile != pThis->pMainFile;
 }
 
-static void parseLine(Assembler* pThis, char* pLine)
+static void parseLine(Assembler* pThis, const SizedString* pLine)
 {
     prepareLineInfoForThisLine(pThis, pLine);
     ParseLine(&pThis->parsedLine, pLine);
@@ -490,12 +495,12 @@ static void parseLine(Assembler* pThis, char* pLine)
     updateLinesWhichForwardReferencedThisLabel(pThis, pThis->pLineInfo->pSymbol);
 }
 
-static void prepareLineInfoForThisLine(Assembler* pThis, char* pLine)
+static void prepareLineInfoForThisLine(Assembler* pThis, const SizedString* pLine)
 {
     LineInfo* pLineInfo = allocateAndZero(sizeof(*pLineInfo));
     pLineInfo->pTextFile = pThis->pTextFile;
     pLineInfo->lineNumber = TextFile_GetLineNumber(pThis->pTextFile);
-    pLineInfo->pLineText = pLine;
+    pLineInfo->lineText = *pLine;
     pLineInfo->address = pThis->programCounter;
     pLineInfo->instructionSet = pThis->instructionSet;
     pLineInfo->indentation = pThis->indentation;
@@ -1029,7 +1034,7 @@ static void updateLineWithForwardReference(Assembler* pThis, Symbol* pSymbol, Li
 
     Symbol_LineReferenceRemove(pSymbol, pLineInfo);
     flagLineInfoAsProcessingForwardReference(pLineInfo);
-    ParseLine(&pThis->parsedLine, pLineInfo->pLineText);
+    ParseLine(&pThis->parsedLine, &pLineInfo->lineText);
     firstPassAssembleLine(pThis);
 
     resetLineInfoAsNotProcessingForwardReference(pLineInfo);
@@ -1070,31 +1075,32 @@ static void handleASC(Assembler* pThis)
     {
         size_t         i = 0;
         int            alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
-        const char*    pOperands;
+        SizedString    operands;
         char           delimiter;
         const char*    pCurr;
         unsigned char  mask;
+        unsigned char  byte;
 
         validateOperandWasProvided(pThis);
-        pOperands = fullOperandStringWithSpaces(pThis);
-        delimiter = *pOperands;
-        pCurr = &pOperands[1];
+        operands = fullOperandStringWithSpaces(pThis);
+        SizedString_EnumStart(&operands, &pCurr);
+        delimiter = SizedString_EnumNext(&operands, &pCurr);
         mask = delimiter < '\'' ? 0x80 : 0x00;
 
-        while (*pCurr && *pCurr != delimiter)
+        while (SizedString_EnumRemaining(&operands, pCurr) && 
+               (byte = SizedString_EnumNext(&operands, &pCurr)) != delimiter)
         {
-            unsigned char   byte = *pCurr | mask;
+            byte |= mask;
             if (!alreadyAllocated)
                 reallocLineInfoMachineCodeBytes(pThis, i+1);
             pThis->pLineInfo->pMachineCode[i] = byte;
-            pCurr++;
             i++;
         }
         assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
     
-        if (*pCurr == '\0')
+        if (byte != delimiter)
             LOG_ERROR(pThis, "%.*s didn't end with the expected %c delimiter.", 
-                      pThis->parsedLine.operands.stringLength, pThis->parsedLine.operands.pString,
+                      operands.stringLength, operands.pString,
                       delimiter);
     }
     __catch
@@ -1104,9 +1110,12 @@ static void handleASC(Assembler* pThis)
     }
 }
 
-static const char* fullOperandStringWithSpaces(Assembler* pThis)
+static SizedString fullOperandStringWithSpaces(Assembler* pThis)
 {
-    return pThis->parsedLine.operands.pString;
+    const char* pStart = pThis->parsedLine.operands.pString;
+    const char* pEnd = pThis->pLineInfo->lineText.pString + pThis->pLineInfo->lineText.stringLength;
+    
+    return SizedString_Init(pStart, pEnd - pStart);
 }
 
 static void handleREV(Assembler* pThis)
@@ -1475,21 +1484,21 @@ static void handlePUT(Assembler* pThis)
 
 static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString* pFilename)
 {
-    TextFile*    pTextFile = NULL;
-    size_t       fieldCount;
-    const char** ppFields;
-    size_t       i;
+    TextFile*          pTextFile = NULL;
+    size_t             fieldCount;
+    const SizedString* pFields;
+    size_t             i;
     
     if (!pThis->pPutSearchPath)
         return TextFile_CreateFromFile(NULL, pFilename, ".S");
         
     fieldCount = ParseCSV_FieldCount(pThis->pPutSearchPath);
-    ppFields = ParseCSV_FieldPointers(pThis->pPutSearchPath);
+    pFields = ParseCSV_FieldPointers(pThis->pPutSearchPath);
     for (i = 0 ; i < fieldCount ; i++)
     {
         __try
         {
-            pTextFile = TextFile_CreateFromFile(ppFields[i], pFilename, ".S");
+            pTextFile = TextFile_CreateFromFile(&pFields[i], pFilename, ".S");
             break;
         }
         __catch

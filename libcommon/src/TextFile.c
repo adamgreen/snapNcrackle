@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -18,19 +18,21 @@
 
 struct TextFile
 {
-    char*        pFileBuffer;
-    char*        pText;
-    char*        pCurr;
-    char*        pFilename;
-    unsigned int lineNumber;
+    const TextFile* pBaseTextFile;
+    char*           pFileBuffer;
+    const char*     pText;
+    const char*     pCurr;
+    const char*     pEnd;
+    char*           pFilename;
+    unsigned int    lineNumber;
 };
 
 
-__throws static void initObject(TextFile* pThis, char* pText);
-__throws static char* allocateStringAndCopyMergedFilename(const char*        pDirectory, 
+__throws static void initObject(TextFile* pThis, const char* pText);
+__throws static char* allocateStringAndCopyMergedFilename(const SizedString* pDirectory, 
                                                           const SizedString* pFilename, 
                                                           const char*        pFilenameSuffix);
-__throws TextFile* TextFile_CreateFromString(char* pText)
+__throws TextFile* TextFile_CreateFromString(const char* pText)
 {
     static const char        defaultFilename[] = "filename";
     static const SizedString filenameString = { defaultFilename, sizeof(defaultFilename) - 1 };
@@ -40,6 +42,7 @@ __throws TextFile* TextFile_CreateFromString(char* pText)
     {
         pThis = allocateAndZero(sizeof(*pThis));
         initObject(pThis, pText);
+        pThis->pEnd = (char*)~0UL;
         pThis->pFilename = allocateStringAndCopyMergedFilename(NULL, &filenameString, NULL);
     }
     __catch
@@ -51,27 +54,28 @@ __throws TextFile* TextFile_CreateFromString(char* pText)
     return pThis;
 }
 
-__throws static void initObject(TextFile* pThis, char* pText)
+__throws static void initObject(TextFile* pThis, const char* pText)
 {
     pThis->pText = pText;
     pThis->pCurr = pText;
 }
 
-__throws static char* allocateStringAndCopyMergedFilename(const char*        pDirectory, 
+__throws static char* allocateStringAndCopyMergedFilename(const SizedString* pDirectory, 
                                                           const SizedString* pFilename, 
                                                           const char*        pFilenameSuffix)
 {
     static const char pathSeparator = PATH_SEPARATOR;
     size_t filenameLength = SizedString_strlen(pFilename);
-    size_t directoryLength = pDirectory ? strlen(pDirectory) : 0;
-    size_t roomForSlash = !pDirectory ? 0 : (pDirectory[directoryLength-1] == PATH_SEPARATOR ? 0 : 1);
+    size_t directoryLength = pDirectory ? SizedString_strlen(pDirectory) : 0;
+    size_t roomForSlash = !pDirectory ? 0 : (pDirectory->pString[directoryLength-1] == PATH_SEPARATOR ? 0 : 1);
     size_t suffixLength = pFilenameSuffix ? strlen(pFilenameSuffix) : 0;
     size_t fullFilenameLength = directoryLength + roomForSlash + filenameLength + suffixLength + 1;
     char*  pFullFilename = malloc(fullFilenameLength);
     if (!pFullFilename)
         __throw(outOfMemoryException);
 
-    memcpy(pFullFilename, pDirectory, directoryLength);
+    if (pDirectory)
+        memcpy(pFullFilename, pDirectory->pString, directoryLength);
     memcpy(pFullFilename + directoryLength, &pathSeparator, roomForSlash);
     memcpy(pFullFilename + directoryLength + roomForSlash, pFilename->pString, filenameLength);
     memcpy(pFullFilename + directoryLength + roomForSlash + filenameLength, pFilenameSuffix, suffixLength);
@@ -83,10 +87,9 @@ __throws static char* allocateStringAndCopyMergedFilename(const char*        pDi
 
 static FILE* openFile(const char* pFilename);
 static long getTextLength(FILE* pFile);
-static long adjustFileSizeToAllowForTrailingNull(long actualFileSize);
 static char* allocateTextBuffer(long textLength);
-static void readFileContentIntoTextBufferAndNullTerminate(char* pTextBuffer, long textBufferSize, FILE* pFile);
-__throws TextFile* TextFile_CreateFromFile(const char*        pDirectory, 
+static void readFileContentIntoTextBuffer(char* pTextBuffer, long fileSize, FILE* pFile);
+__throws TextFile* TextFile_CreateFromFile(const SizedString* pDirectory, 
                                            const SizedString* pFilename, 
                                            const char*        pFilenameSuffix)
 {
@@ -101,7 +104,8 @@ __throws TextFile* TextFile_CreateFromFile(const char*        pDirectory,
         pFile = openFile(pThis->pFilename);
         textLength = getTextLength(pFile);
         pThis->pFileBuffer = allocateTextBuffer(textLength);
-        readFileContentIntoTextBufferAndNullTerminate(pThis->pFileBuffer, textLength, pFile);
+        pThis->pEnd = pThis->pFileBuffer + textLength;
+        readFileContentIntoTextBuffer(pThis->pFileBuffer, textLength, pFile);
         initObject(pThis, pThis->pFileBuffer);
     }
     __catch
@@ -142,12 +146,7 @@ static long getTextLength(FILE* pFile)
     if (result != 0)
         __throw(fileException);
         
-    return adjustFileSizeToAllowForTrailingNull(fileSize);
-}
-
-static long adjustFileSizeToAllowForTrailingNull(long actualFileSize)
-{
-    return actualFileSize + 1;
+    return fileSize;
 }
 
 static char* allocateTextBuffer(long textLength)
@@ -161,65 +160,78 @@ static char* allocateTextBuffer(long textLength)
     return pTextBuffer;
 }
 
-static void readFileContentIntoTextBufferAndNullTerminate(char* pTextBuffer, long textBufferSize, FILE* pFile)
+static void readFileContentIntoTextBuffer(char* pTextBuffer, long fileSize, FILE* pFile)
 {
-    int fileContentSize = textBufferSize - 1;
     int result;
     
-    result = fread(pTextBuffer, 1, fileContentSize, pFile);
-    if (result != fileContentSize)
+    result = fread(pTextBuffer, 1, fileSize, pFile);
+    if (result != fileSize)
         __throw(fileException);
-        
-    pTextBuffer[textBufferSize - 1] = '\0';
 }
 
 
+static int isDerivedTextFile(TextFile* pThis);
 void TextFile_Free(TextFile* pThis)
 {
     if (!pThis)
         return;
     
-    free(pThis->pFileBuffer);
-    free(pThis->pFilename);
+    if (!isDerivedTextFile(pThis))
+    {
+        free(pThis->pFileBuffer);
+        free(pThis->pFilename);
+    }
     free(pThis);
 }
 
-
-static void nullTerminateLineAndAdvanceToNextLine(TextFile* pThis);
-static char* findEndOfLine(TextFile* pThis);
-static int isLineEndCharacter(char ch);
-static char* findStartOfNextLine(char* pEndOfCurrentLine);
-char* TextFile_GetNextLine(TextFile* pThis)
+static int isDerivedTextFile(TextFile* pThis)
 {
-    char* pStartOfLine = pThis->pCurr;
+    return pThis->pBaseTextFile != NULL;
+}
+
+
+void TextFile_Reset(TextFile* pThis)
+{
+    if (!pThis)
+        return;
     
-    if (*pStartOfLine == '\0')
-        return NULL;
+    pThis->pCurr = pThis->pText;
+    pThis->lineNumber = 0;
+}
+
+
+
+static int isEndOfFile(TextFile* pThis);
+static const char* findEndOfLine(TextFile* pThis);
+static int isLineEndCharacter(char ch);
+static void advanceToNextLine(TextFile* pThis);
+SizedString TextFile_GetNextLine(TextFile* pThis)
+{
+    const char* pStartOfLine = pThis->pCurr;
+    const char* pEndOfLine;
     
-    nullTerminateLineAndAdvanceToNextLine(pThis);
+    if (isEndOfFile(pThis))
+        return SizedString_InitFromString(NULL);
+    
+    pEndOfLine = findEndOfLine(pThis);
+    advanceToNextLine(pThis);
     pThis->lineNumber++;
     
-    return pStartOfLine;
+    return SizedString_Init(pStartOfLine, pEndOfLine - pStartOfLine);
 }
 
-static void nullTerminateLineAndAdvanceToNextLine(TextFile* pThis)
+static int isEndOfFile(TextFile* pThis)
 {
-    char* pLineEnd = findEndOfLine(pThis);
-    char* pNextLineStart = findStartOfNextLine(pLineEnd);
-    
-    *pLineEnd = '\0';
-    pThis->pCurr = pNextLineStart;
+    return *pThis->pCurr == '\0' || pThis->pCurr >= pThis->pEnd;
 }
 
-static char* findEndOfLine(TextFile* pThis)
+static const char* findEndOfLine(TextFile* pThis)
 {
-    char* pCurr = pThis->pCurr;
-    
-    while (*pCurr && !isLineEndCharacter(*pCurr))
-        pCurr++;
+    while (!isEndOfFile(pThis) && !isLineEndCharacter(*pThis->pCurr))
+        pThis->pCurr++;
     
     /* Get here if *pCurr is '\0' or '\r' or '\n' */
-    return pCurr;
+    return pThis->pCurr;
 }
 
 static int isLineEndCharacter(char ch)
@@ -227,29 +239,38 @@ static int isLineEndCharacter(char ch)
     return ch == '\r' || ch == '\n';
 }
 
-static char* findStartOfNextLine(char* pEndOfCurrentLine)
+static void advanceToNextLine(TextFile* pThis)
 {
-    char  prev = *pEndOfCurrentLine;
+    char  prev = *pThis->pCurr;
     char  curr;
     
-    if (prev == '\0')
-        return pEndOfCurrentLine;
+    if (isEndOfFile(pThis))
+        return;
     
-    curr = pEndOfCurrentLine[1];
+    curr = pThis->pCurr[1];
     
     if ((prev == '\r' && curr == '\n') ||
         (prev == '\n' && curr == '\r'))
     {
-        return pEndOfCurrentLine + 2;
+        pThis->pCurr += 2;
+        return;
     }
     
-    return pEndOfCurrentLine + 1;
+    pThis->pCurr += 1;
 }
+
+
+int TextFile_IsEndOfFile(TextFile* pThis)
+{
+    return isEndOfFile(pThis);
+}
+
 
 unsigned int TextFile_GetLineNumber(TextFile* pThis)
 {
     return pThis->lineNumber;
 }
+
 
 const char* TextFile_GetFilename(TextFile* pThis)
 {
