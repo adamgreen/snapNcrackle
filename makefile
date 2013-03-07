@@ -12,13 +12,18 @@
 #
 # Directories to be built
 DIRS=CppUTest libmocks libcommon libsnap libcrackle snap crackle
+DIRSCLEAN = $(addsuffix .clean,$(DIRS))
 
-.PHONY: subdirs $(DIRS)
+all: $(DIRS)
 
-subdirs:$(DIRS)
+clean: $(DIRSCLEAN)
 
-clean: $(DIRS)
-
-# Recurse into each of the specified directories and perform a make
 $(DIRS):
-	$(MAKE) $(MAKECMDGOALS) -C $@
+	@echo Building $@
+	@ $(MAKE) -C $@ all
+
+$(DIRSCLEAN): %.clean:
+	@echo Cleaning $*
+	@ $(MAKE) -C $*  clean
+
+.PHONY: all clean $(DIRS) $(DIRSCLEAN)
