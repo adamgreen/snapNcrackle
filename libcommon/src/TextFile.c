@@ -21,6 +21,7 @@ struct TextFile
     const TextFile* pBaseTextFile;
     char*           pFileBuffer;
     const char*     pText;
+    const char*     pPrev;
     const char*     pCurr;
     const char*     pEnd;
     char*           pFilename;
@@ -57,6 +58,7 @@ __throws TextFile* TextFile_CreateFromString(const char* pText)
 __throws static void initObject(TextFile* pThis, const char* pText)
 {
     pThis->pText = pText;
+    pThis->pPrev = pText;
     pThis->pCurr = pText;
 }
 
@@ -170,6 +172,16 @@ static void readFileContentIntoTextBuffer(char* pTextBuffer, long fileSize, FILE
 }
 
 
+__throws TextFile* TextFile_CreateFromTextFile(const TextFile* pTextFile)
+{
+    TextFile* pThis = allocateAndZero(sizeof(*pThis));
+    *pThis = *pTextFile;
+    pThis->pBaseTextFile = pTextFile;
+    
+    return pThis;
+}
+
+
 static int isDerivedTextFile(TextFile* pThis);
 void TextFile_Free(TextFile* pThis)
 {
@@ -192,13 +204,26 @@ static int isDerivedTextFile(TextFile* pThis)
 
 void TextFile_Reset(TextFile* pThis)
 {
-    if (!pThis)
-        return;
-    
     pThis->pCurr = pThis->pText;
     pThis->lineNumber = 0;
 }
 
+
+void TextFile_SetEndOfFile(TextFile* pThis)
+{
+    pThis->pEnd = pThis->pPrev;    
+}
+
+
+void TextFile_AdvanceTo(TextFile* pThis, const TextFile* pAdvanceToMatch)
+{
+    if (pAdvanceToMatch->pBaseTextFile != pThis)
+        __throw(invalidArgumentException);
+    
+    pThis->pCurr = pAdvanceToMatch->pCurr;
+    pThis->pPrev = pAdvanceToMatch->pPrev;
+    pThis->lineNumber = pAdvanceToMatch->lineNumber;
+}
 
 
 static int isEndOfFile(TextFile* pThis);
@@ -213,6 +238,7 @@ SizedString TextFile_GetNextLine(TextFile* pThis)
     if (isEndOfFile(pThis))
         return SizedString_InitFromString(NULL);
     
+    pThis->pPrev = pThis->pCurr;
     pEndOfLine = findEndOfLine(pThis);
     advanceToNextLine(pThis);
     pThis->lineNumber++;

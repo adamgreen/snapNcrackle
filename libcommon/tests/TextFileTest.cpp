@@ -291,6 +291,49 @@ TEST(TextFile, FailFRead)
     validateExceptionThrown(fileException);
 }
 
+TEST(TextFile, FailAllCreateFromTextFileAllocations)
+{
+    static const int allocationsToFail = 1;
+    m_pTextFile = TextFile_CreateFromString("\n\r");
+
+    for (int i = 1 ; i <= allocationsToFail ; i++)
+    {
+        MallocFailureInject_FailAllocation(i);
+            __try_and_catch( m_pTextFileDerived = TextFile_CreateFromTextFile(m_pTextFile) );
+        POINTERS_EQUAL(NULL, m_pTextFileDerived);
+        LONGS_EQUAL(outOfMemoryException, getExceptionCode());
+    }
+    clearExceptionCode();
+
+    MallocFailureInject_FailAllocation(allocationsToFail + 1);
+    m_pTextFileDerived = TextFile_CreateFromTextFile(m_pTextFile);
+    CHECK_TRUE(m_pTextFileDerived != NULL);
+}
+
+TEST(TextFile, CreateFromTextFile)
+{
+    m_pTextFile = TextFile_CreateFromString(" \n");
+    m_pTextFileDerived = TextFile_CreateFromTextFile(m_pTextFile);
+    fetchAndValidateLineWithSingleSpace();
+    validateEndOfFileForNextLine();
+    fetchAndValidateLineWithSingleSpace(m_pTextFileDerived);
+    validateEndOfFileForNextLine(m_pTextFileDerived);
+}
+
+TEST(TextFile, CreateFrom2LineTextFileAndResetDerived)
+{
+    m_pTextFile = TextFile_CreateFromString(" \n \n");
+    fetchAndValidateLineWithSingleSpace();
+    m_pTextFileDerived = TextFile_CreateFromTextFile(m_pTextFile);
+    fetchAndValidateLineWithSingleSpace();
+    validateEndOfFileForNextLine();
+
+    TextFile_Reset(m_pTextFileDerived);
+    fetchAndValidateLineWithSingleSpace(m_pTextFileDerived);
+    fetchAndValidateLineWithSingleSpace(m_pTextFileDerived);
+    validateEndOfFileForNextLine(m_pTextFileDerived);
+}
+
 TEST(TextFile, GetLineNumberBeforeFirstGetLineShouldReturn0)
 {
     m_pTextFile = TextFile_CreateFromString("");
@@ -345,7 +388,49 @@ TEST(TextFile, ResetOnSingleLineWithNewline)
     validateEndOfFileForNextLine();
 }
 
-TEST(TextFile, ResetOnNullTextObjectShouldJustBeIgnored)
+TEST(TextFile, SetEndOfFileToEmptyFileBeforeEnumeratingAnyLines)
 {
-    TextFile_Reset(NULL);
+    m_pTextFile = TextFile_CreateFromString(" \n \n");
+    TextFile_SetEndOfFile(m_pTextFile);
+    validateEndOfFileForNextLine();
+}
+
+TEST(TextFile, SetEndOfFileAfterEnumeratingToSecondLineShouldResultInSingleLineFile)
+{
+    m_pTextFile = TextFile_CreateFromString(" \n \n");
+    fetchAndValidateLineWithSingleSpace();
+    fetchAndValidateLineWithSingleSpace();
+    TextFile_SetEndOfFile(m_pTextFile);
+
+    TextFile_Reset(m_pTextFile);
+    fetchAndValidateLineWithSingleSpace();
+    validateEndOfFileForNextLine();
+}
+
+TEST(TextFile, AdvanceBaseFileToMatchDerivedFile)
+{
+    m_pTextFile = TextFile_CreateFromString(" \n \n");
+    m_pTextFileDerived = TextFile_CreateFromTextFile(m_pTextFile);
+    fetchAndValidateLineWithSingleSpace(m_pTextFileDerived);
+    LONGS_EQUAL(1, TextFile_GetLineNumber(m_pTextFileDerived));
+    TextFile_AdvanceTo(m_pTextFile, m_pTextFileDerived);
+
+    // Validate that base file only sees last line now.
+    fetchAndValidateLineWithSingleSpace(m_pTextFile);
+    LONGS_EQUAL(2, TextFile_GetLineNumber(m_pTextFile));
+    validateEndOfFileForNextLine(m_pTextFile);
+
+    // Validate that derived file also only sees last line.
+    fetchAndValidateLineWithSingleSpace(m_pTextFileDerived);
+    LONGS_EQUAL(2, TextFile_GetLineNumber(m_pTextFileDerived));
+    validateEndOfFileForNextLine(m_pTextFileDerived);
+}
+
+TEST(TextFile, AdvanceBaseFileToNonDerivedFileShouldThrow)
+{
+    m_pTextFile = TextFile_CreateFromString(" \n \n");
+    m_pTextFileDerived = TextFile_CreateFromString(" \n");
+    __try_and_catch( TextFile_AdvanceTo(m_pTextFile, m_pTextFileDerived) );
+    LONGS_EQUAL(invalidArgumentException, getExceptionCode());
+    clearExceptionCode();
 }

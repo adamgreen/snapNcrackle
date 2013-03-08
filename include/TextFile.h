@@ -23,8 +23,11 @@ __throws TextFile*    TextFile_CreateFromString(const char* pText);
 __throws TextFile*    TextFile_CreateFromFile(const SizedString* pDirectoryName, 
                                               const SizedString* pFilename, 
                                               const char*        pFilenameSuffix);
+__throws TextFile*    TextFile_CreateFromTextFile(const TextFile* pTextFile);
          void         TextFile_Free(TextFile* pThis);
          void         TextFile_Reset(TextFile* pThis);
+         void         TextFile_SetEndOfFile(TextFile* pThis);
+         void         TextFile_AdvanceTo(TextFile* pThis, const TextFile* pAdvanceToMatch);
 
          SizedString  TextFile_GetNextLine(TextFile* pThis);
          int          TextFile_IsEndOfFile(TextFile* pThis);
