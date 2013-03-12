@@ -32,6 +32,8 @@ static void handleELSE(Assembler* pThis);
 static void handleEQU(Assembler* pThis);
 static void handleFIN(Assembler* pThis);
 static void handleHEX(Assembler* pThis);
+static void handleLUP(Assembler* pThis);
+static void handleLUPend(Assembler* pThis);
 static void handleORG(Assembler* pThis);
 static void handlePUT(Assembler* pThis);
 static void handleREV(Assembler* pThis);
@@ -44,6 +46,7 @@ static void ignoreOperator(Assembler* pThis);
 static const OpCodeEntry g_6502InstructionSet[] =
 {
     /* Assembler Directives */
+    {"--^",  handleLUPend,   _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     {"=",    handleEQU,      _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     {"ASC",  handleASC,      _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     {"DA",   handleDA,       _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
@@ -61,6 +64,7 @@ static const OpCodeEntry g_6502InstructionSet[] =
     {"LSTDO",ignoreOperator, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     {"MX",   ignoreOperator, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     {"HEX",  handleHEX,      _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+    {"LUP",  handleLUP,      _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     {"ORG",  handleORG,      _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     {"PUT",  handlePUT,      _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     {"REV",  handleREV,      _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},

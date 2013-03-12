@@ -27,7 +27,6 @@ TEST_GROUP(ListFile)
 {
     ListFile*     m_pListFile;
     LineInfo      m_lineInfo;
-    Symbol        m_symbol;
     unsigned char m_machineCode[32];
     
     void setup()
@@ -35,7 +34,6 @@ TEST_GROUP(ListFile)
         clearExceptionCode();
         printfSpy_Hook(128);
         m_pListFile = NULL;
-        memset(&m_symbol, 0, sizeof(m_symbol));
         memset(&m_lineInfo, 0, sizeof(m_lineInfo));
         m_lineInfo.pMachineCode = m_machineCode;
         m_pListFile = ListFile_Create(stdout);
@@ -92,8 +90,7 @@ TEST(ListFile, OutputLineWithSymbol)
     m_lineInfo.lineText = SizedString_InitFromString("LABEL EQU $FFFF");
     m_lineInfo.lineNumber = 2;
     m_lineInfo.flags |= LINEINFO_FLAG_WAS_EQU;
-    m_symbol.expression.value = 0xFFFF;
-    m_lineInfo.pSymbol = &m_symbol;
+    m_lineInfo.equValue = 0xFFFF;
     ListFile_OutputLine(m_pListFile, &m_lineInfo);
 
     STRCMP_EQUAL("    :    =FFFF     2 LABEL EQU $FFFF\n", printfSpy_GetLastOutput());

@@ -14,7 +14,7 @@
 #define _LINE_INFO_H_
 
 #include "Symbol.h"
-#include "TextFile.h"
+#include "TextSource.h"
 
 #define LINEINFO_FLAG_WAS_EQU           1
 #define LINEINFO_FLAG_FORWARD_REFERENCE 2
@@ -35,7 +35,7 @@ struct LineInfo
 {
     SizedString             lineText;
     Symbol*                 pSymbol;
-    TextFile*               pTextFile;
+    TextSource*             pTextSource;
     struct LineInfo*        pNext;
     unsigned char*          pMachineCode;
     size_t                  machineCodeSize;
@@ -44,6 +44,7 @@ struct LineInfo
     unsigned int            lineNumber;
     unsigned int            flags;
     unsigned short          address;
+    unsigned short          equValue;
 };
 
 #endif /* _LINE_INFO_H_ */

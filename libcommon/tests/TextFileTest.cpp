@@ -329,9 +329,18 @@ TEST(TextFile, CreateFrom2LineTextFileAndResetDerived)
     validateEndOfFileForNextLine();
 
     TextFile_Reset(m_pTextFileDerived);
+    LONGS_EQUAL(1, TextFile_GetLineNumber(m_pTextFileDerived));
     fetchAndValidateLineWithSingleSpace(m_pTextFileDerived);
-    fetchAndValidateLineWithSingleSpace(m_pTextFileDerived);
+    LONGS_EQUAL(2, TextFile_GetLineNumber(m_pTextFileDerived));
     validateEndOfFileForNextLine(m_pTextFileDerived);
+
+    TextFile_Reset(m_pTextFile);
+    LONGS_EQUAL(0, TextFile_GetLineNumber(m_pTextFile));
+    fetchAndValidateLineWithSingleSpace(m_pTextFile);
+    LONGS_EQUAL(1, TextFile_GetLineNumber(m_pTextFile));
+    fetchAndValidateLineWithSingleSpace(m_pTextFile);
+    LONGS_EQUAL(2, TextFile_GetLineNumber(m_pTextFile));
+    validateEndOfFileForNextLine(m_pTextFile);
 }
 
 TEST(TextFile, GetLineNumberBeforeFirstGetLineShouldReturn0)
@@ -413,6 +422,8 @@ TEST(TextFile, AdvanceBaseFileToMatchDerivedFile)
     m_pTextFileDerived = TextFile_CreateFromTextFile(m_pTextFile);
     fetchAndValidateLineWithSingleSpace(m_pTextFileDerived);
     LONGS_EQUAL(1, TextFile_GetLineNumber(m_pTextFileDerived));
+    fetchAndValidateLineWithSingleSpace(m_pTextFileDerived);
+    LONGS_EQUAL(2, TextFile_GetLineNumber(m_pTextFileDerived));
     TextFile_AdvanceTo(m_pTextFile, m_pTextFileDerived);
 
     // Validate that base file only sees last line now.
@@ -420,9 +431,7 @@ TEST(TextFile, AdvanceBaseFileToMatchDerivedFile)
     LONGS_EQUAL(2, TextFile_GetLineNumber(m_pTextFile));
     validateEndOfFileForNextLine(m_pTextFile);
 
-    // Validate that derived file also only sees last line.
-    fetchAndValidateLineWithSingleSpace(m_pTextFileDerived);
-    LONGS_EQUAL(2, TextFile_GetLineNumber(m_pTextFileDerived));
+    // Validate that derived file is at end of file.
     validateEndOfFileForNextLine(m_pTextFileDerived);
 }
 

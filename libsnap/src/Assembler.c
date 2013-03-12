@@ -17,9 +17,11 @@
 #include "ExpressionEval.h"
 #include "AddressingMode.h"
 #include "InstructionSets.h"
+#include "TextFileSource.h"
+#include "LupSource.h"
 
 
-static void commonObjectInit(Assembler* pThis, const AssemblerInitParams* pParams);
+static void commonObjectInit(Assembler* pThis, const AssemblerInitParams* pParams, TextFile* pTextFile);
 static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, const AssemblerInitParams* pParams);
 static void createParseObjectForPutSearchPath(Assembler* ptThis, const AssemblerInitParams* pParams);
 static void createFullInstructionSetTables(Assembler* pThis); 
@@ -41,9 +43,11 @@ __throws Assembler* Assembler_CreateFromString(char* pText, const AssemblerInitP
     
     __try
     {
+        TextFile* pTextFile;
+        
         pThis = allocateAndZero(sizeof(*pThis));
-        pThis->pMainFile = TextFile_CreateFromString(pText);
-        commonObjectInit(pThis, pParams);
+        pTextFile = TextFile_CreateFromString(pText);
+        commonObjectInit(pThis, pParams, pTextFile);
     }
     __catch
     {
@@ -54,22 +58,34 @@ __throws Assembler* Assembler_CreateFromString(char* pText, const AssemblerInitP
     return pThis;
 }
 
-static void commonObjectInit(Assembler* pThis, const AssemblerInitParams* pParams)
+static void commonObjectInit(Assembler* pThis, const AssemblerInitParams* pParams, TextFile* pTextFile)
 {
-    FILE* pListFile = createListFileOrRedirectToStdOut(pThis, pParams);
-    pThis->pListFile = ListFile_Create(pListFile);
-    pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
-    pThis->pObjectBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
-    pThis->pDummyBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
-    createParseObjectForPutSearchPath(pThis, pParams);
-    createFullInstructionSetTables(pThis);
-    pThis->pInitParams = pParams;
-    pThis->pTextFile = pThis->pMainFile;
-    pThis->linesHead.pTextFile = pThis->pMainFile;
-    pThis->pLineInfo = &pThis->linesHead;
-    pThis->pCurrentBuffer = pThis->pObjectBuffer;
-    setOrgInAssemblerAndBinaryBufferModules(pThis, 0x8000);
-    initParameterVariablesTo0(pThis);
+    __try
+    {
+        FILE* pListFile;
+        
+        TextSource* pTextSource = TextFileSource_Create(pTextFile);
+        pTextFile = NULL;
+        TextSource_StackPush(&pThis->pTextSourceStack, pTextSource);
+        pThis->linesHead.pTextSource = pTextSource;
+        pListFile = createListFileOrRedirectToStdOut(pThis, pParams);
+        pThis->pListFile = ListFile_Create(pListFile);
+        pThis->pSymbols = SymbolTable_Create(NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS);
+        pThis->pObjectBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
+        pThis->pDummyBuffer = BinaryBuffer_Create(SIZE_OF_OBJECT_AND_DUMMY_BUFFERS);
+        createParseObjectForPutSearchPath(pThis, pParams);
+        createFullInstructionSetTables(pThis);
+        pThis->pInitParams = pParams;
+        pThis->pLineInfo = &pThis->linesHead;
+        pThis->pCurrentBuffer = pThis->pObjectBuffer;
+        setOrgInAssemblerAndBinaryBufferModules(pThis, 0x8000);
+        initParameterVariablesTo0(pThis);
+    }
+    __catch
+    {
+        TextFile_Free(pTextFile);
+        __rethrow;
+    }
 }
 
 static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, const AssemblerInitParams* pParams)
@@ -252,10 +268,12 @@ __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, const 
     
     __try
     {
+        TextFile* pTextFile;
+        
         SizedString sourceFilename = SizedString_InitFromString(pSourceFilename);
         pThis = allocateAndZero(sizeof(*pThis));
-        pThis->pMainFile = TextFile_CreateFromFile(NULL, &sourceFilename, NULL);
-        commonObjectInit(pThis, pParams);
+        pTextFile = TextFile_CreateFromFile(NULL, &sourceFilename, NULL);
+        commonObjectInit(pThis, pParams, pTextFile);
     }
     __catch
     {
@@ -270,7 +288,6 @@ __throws Assembler* Assembler_CreateFromFile(const char* pSourceFilename, const 
 static void freeLines(Assembler* pThis);
 static void freeConditionals(Assembler* pThis);
 static void freeInstructionSets(Assembler* pThis);
-static void freeIncludedTextFiles(Assembler* pThis);
 void Assembler_Free(Assembler* pThis)
 {
     if (!pThis)
@@ -279,13 +296,12 @@ void Assembler_Free(Assembler* pThis)
     freeLines(pThis);
     freeConditionals(pThis);
     freeInstructionSets(pThis);
-    freeIncludedTextFiles(pThis);
     ParseCSV_Free(pThis->pPutSearchPath);
     ListFile_Free(pThis->pListFile);
     BinaryBuffer_Free(pThis->pDummyBuffer);
     BinaryBuffer_Free(pThis->pObjectBuffer);
     SymbolTable_Free(pThis->pSymbols);
-    TextFile_Free(pThis->pMainFile);
+    TextSource_FreeAll();
     if (pThis->pFileForListing)
         fclose(pThis->pFileForListing);
     free(pThis);
@@ -325,22 +341,9 @@ static void freeInstructionSets(Assembler* pThis)
     }
 }
 
-static void freeIncludedTextFiles(Assembler* pThis)
-{
-    TextFileNode* pCurr = pThis->pIncludedFiles;
-    
-    while (pCurr)
-    {
-        TextFileNode* pNext = pCurr->pNext;
-        TextFile_Free(pCurr->pTextFile);
-        free(pCurr);
-        pCurr = pNext;
-    }
-}
-
 static void firstPass(Assembler* pThis);
 static int getNextSourceLine(Assembler* pThis, SizedString* pLineString);
-static int attemptToSwitchBackToMainFileAndGetNextLine(Assembler* pThis, SizedString* pLine);
+static int attemptToPopTextFileAndGetNextLine(Assembler* pThis, SizedString* pLine);
 static int isProcessingTextFromPutFile(Assembler* pThis);
 static void parseLine(Assembler* pThis, const SizedString* pLine);
 static void prepareLineInfoForThisLine(Assembler* pThis, const SizedString* pLine);
@@ -421,7 +424,6 @@ static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount, u
 static unsigned char getNextHexByte(SizedString* pString, const char** ppCurr);
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
-static void rememberIncludedTextFile(Assembler* pThis, TextFile* pTextFile);
 static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString* pFilename);
 static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments);
 static SizedString removeDirectoryAndSuffixFromFullFilename(SizedString* pFullFilename);
@@ -459,30 +461,24 @@ static void firstPass(Assembler* pThis)
 
 static int getNextSourceLine(Assembler* pThis, SizedString* pLine)
 {
-    if (TextFile_IsEndOfFile(pThis->pTextFile))
-        return attemptToSwitchBackToMainFileAndGetNextLine(pThis, pLine);
+    if (TextSource_IsEndOfFile(pThis->pTextSourceStack))
+        return attemptToPopTextFileAndGetNextLine(pThis, pLine);
 
-    *pLine = TextFile_GetNextLine(pThis->pTextFile);
+    *pLine = TextSource_GetNextLine(pThis->pTextSourceStack);
     return 1;
 }
 
-static int attemptToSwitchBackToMainFileAndGetNextLine(Assembler* pThis, SizedString* pLine)
+static int attemptToPopTextFileAndGetNextLine(Assembler* pThis, SizedString* pLine)
 {
-    if (!isProcessingTextFromPutFile(pThis))
-        return 0;
-        
-    pThis->pTextFile = pThis->pMainFile;
-    pThis->indentation = 0;
-    if (TextFile_IsEndOfFile(pThis->pTextFile))
+    TextSource_StackPop(&pThis->pTextSourceStack);
+    if (!pThis->pTextSourceStack)
         return 0;
 
-    *pLine = TextFile_GetNextLine(pThis->pTextFile);
+    if (TextSource_IsEndOfFile(pThis->pTextSourceStack))
+        return 0;
+
+    *pLine = TextSource_GetNextLine(pThis->pTextSourceStack);
     return 1;
-}
-
-static int isProcessingTextFromPutFile(Assembler* pThis)
-{
-    return pThis->pTextFile != pThis->pMainFile;
 }
 
 static void parseLine(Assembler* pThis, const SizedString* pLine)
@@ -498,12 +494,12 @@ static void parseLine(Assembler* pThis, const SizedString* pLine)
 static void prepareLineInfoForThisLine(Assembler* pThis, const SizedString* pLine)
 {
     LineInfo* pLineInfo = allocateAndZero(sizeof(*pLineInfo));
-    pLineInfo->pTextFile = pThis->pTextFile;
-    pLineInfo->lineNumber = TextFile_GetLineNumber(pThis->pTextFile);
+    pLineInfo->pTextSource = pThis->pTextSourceStack;
+    pLineInfo->lineNumber = TextSource_GetLineNumber(pThis->pTextSourceStack);
     pLineInfo->lineText = *pLine;
     pLineInfo->address = pThis->programCounter;
     pLineInfo->instructionSet = pThis->instructionSet;
-    pLineInfo->indentation = pThis->indentation;
+    pLineInfo->indentation = (TextSource_StackDepth(pThis->pTextSourceStack)-1) * 4;
     pThis->pLineInfo->pNext = pLineInfo;
     pThis->pLineInfo = pLineInfo;
 }
@@ -970,6 +966,7 @@ static void handleEQU(Assembler* pThis)
                find and report as many syntax errors as possible to user. */
             pSymbol->expression = expression;
             pThis->pLineInfo->flags |= LINEINFO_FLAG_WAS_EQU;
+            pThis->pLineInfo->equValue = expression.value;
             updateLinesWhichForwardReferencedThisLabel(pThis, pSymbol);
         }
     }
@@ -1467,12 +1464,13 @@ static void handlePUT(Assembler* pThis)
     
     __try
     {
+        TextSource* pTextSource = NULL;
+        
         validateOperandWasProvided(pThis);
         pIncludedFile = openPutFileUsingSearchPath(pThis, pOperands);
-        rememberIncludedTextFile(pThis, pIncludedFile);
-        pThis->pTextFile = pIncludedFile;
+        pTextSource = TextFileSource_Create(pIncludedFile);
+        TextSource_StackPush(&pThis->pTextSourceStack, pTextSource);
         pIncludedFile = NULL;
-        pThis->indentation = 4;
     }
     __catch
     {
@@ -1513,17 +1511,14 @@ static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString*
     return pTextFile;
 }
 
-static void rememberIncludedTextFile(Assembler* pThis, TextFile* pTextFile)
+static int isProcessingTextFromPutFile(Assembler* pThis)
 {
-    TextFileNode* pNode = allocateAndZero(sizeof(*pNode));
-    pNode->pNext = pThis->pIncludedFiles;
-    pNode->pTextFile = pTextFile;
-    pThis->pIncludedFiles = pNode;
+    return TextSource_StackDepth(pThis->pTextSourceStack) > 1;
 }
 
 static void handleUSR(Assembler* pThis)
 {
-    SizedString fullFilename = SizedString_InitFromString(TextFile_GetFilename(pThis->pMainFile));
+    SizedString fullFilename = SizedString_InitFromString(TextSource_GetFilename(pThis->pTextSourceStack));
     SizedString filename = removeDirectoryAndSuffixFromFullFilename(&fullFilename);
 
     __try
@@ -1734,6 +1729,57 @@ static void popConditional(Assembler* pThis)
     pPrev = pThis->pConditionals->pPrev;
     free(pThis->pConditionals);
     pThis->pConditionals = pPrev;
+}
+
+static void handleLUP(Assembler* pThis)
+{
+    TextFile*   pLoopTextFile = NULL;
+    TextSource* pTextSource = NULL;
+    TextFile*   pBaseTextFile = TextSource_GetTextFile(pThis->pTextSourceStack);
+
+    __try
+    {
+        Expression     expression;
+        SizedString    nextLine;
+        ParsedLine     parsedLine;
+
+        //validateOperandWasProvided(pThis);
+        expression = ExpressionEval(pThis, &pThis->parsedLine.operands);
+        //validateExpressionContainsNoForwardReferences(pThis, &expression);
+        
+        pLoopTextFile = TextFile_CreateFromTextFile(pBaseTextFile);
+        while (!TextFile_IsEndOfFile(pLoopTextFile))
+        {
+            nextLine = TextFile_GetNextLine(pLoopTextFile);
+            ParseLine(&parsedLine, &nextLine);
+            if (0 == SizedString_strcmp(&parsedLine.op, "--^"))
+                break;
+        }
+        // UNDONE: Check for missing --^
+        TextFile_SetEndOfFile(pLoopTextFile);
+        TextFile_AdvanceTo(pBaseTextFile, pLoopTextFile);
+
+        TextFile_Reset(pLoopTextFile);
+        pTextSource = LupSource_Create(pLoopTextFile, expression.value);
+        pLoopTextFile = NULL;
+        TextSource_StackPush(&pThis->pTextSourceStack, pTextSource);
+        pThis->flags |= ASSEMBLER_LUP;
+    }
+    __catch
+    {
+        TextFile_Free(pLoopTextFile);
+        clearExceptionCode();
+    }
+}
+
+static void handleLUPend(Assembler* pThis)
+{
+    if (pThis->flags & ASSEMBLER_LUP)
+    {
+        pThis->flags &= ~ASSEMBLER_LUP;
+        return;
+    }
+    LOG_ERROR(pThis, "%s directive without corresponding LUP directive.", "--^");
 }
 
 static void checkForUndefinedSymbols(Assembler* pThis)

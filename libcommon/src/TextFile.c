@@ -26,6 +26,7 @@ struct TextFile
     const char*     pEnd;
     char*           pFilename;
     unsigned int    lineNumber;
+    unsigned int    startLineNumber;
 };
 
 
@@ -176,6 +177,8 @@ __throws TextFile* TextFile_CreateFromTextFile(const TextFile* pTextFile)
 {
     TextFile* pThis = allocateAndZero(sizeof(*pThis));
     *pThis = *pTextFile;
+    pThis->pText = pTextFile->pCurr;
+    pThis->startLineNumber = pTextFile->lineNumber;
     pThis->pBaseTextFile = pTextFile;
     
     return pThis;
@@ -204,8 +207,8 @@ static int isDerivedTextFile(TextFile* pThis)
 
 void TextFile_Reset(TextFile* pThis)
 {
-    pThis->pCurr = pThis->pText;
-    pThis->lineNumber = 0;
+    initObject(pThis, pThis->pText);
+    pThis->lineNumber = pThis->startLineNumber;
 }
 
 
@@ -220,9 +223,9 @@ void TextFile_AdvanceTo(TextFile* pThis, const TextFile* pAdvanceToMatch)
     if (pAdvanceToMatch->pBaseTextFile != pThis)
         __throw(invalidArgumentException);
     
-    pThis->pCurr = pAdvanceToMatch->pCurr;
+    pThis->pCurr = pAdvanceToMatch->pPrev;
     pThis->pPrev = pAdvanceToMatch->pPrev;
-    pThis->lineNumber = pAdvanceToMatch->lineNumber;
+    pThis->lineNumber = pAdvanceToMatch->lineNumber ? pAdvanceToMatch->lineNumber - 1 : 0;
 }
 
 

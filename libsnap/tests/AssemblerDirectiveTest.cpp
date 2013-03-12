@@ -1170,4 +1170,49 @@ TEST(AssemblerDirectives, DO_DirectiveWithFailedAllocationForConditional)
                           "    :              1  do 1\n", 2);
 }
 
+TEST(AssemblerDirectives, LUP_DirectiveWith1Iteration)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lup 1\n"
+                                                   " hex ff\n"
+                                                   " --^\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: FF               2  hex ff\n",
+                                                   "    :              3  --^\n", 3);
+}
 
+TEST(AssemblerDirectives, LUP_DirectiveWith2Iterations)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lup 2\n"
+                                                   " hex ff\n"
+                                                   " --^\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8001: FF               2  hex ff\n",
+                                                   "    :              3  --^\n", 4);
+}
+
+TEST(AssemblerDirectives, LUP_DirectiveWith2IterationsAndContinueAssemblyProcess)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lup 2\n"
+                                                   " hex ff\n"
+                                                   " --^\n"
+                                                   " hex 00\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              3  --^\n",
+                                                   "8002: 00           4  hex 00\n", 5);
+}
+
+TEST(AssemblerDirectives, LUP_DirectiveFailByTerminatingTwice)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lup 1\n"
+                                                   " hex ff\n"
+                                                   " --^\n"
+                                                   " --^\n"), NULL);
+    runAssemblerAndValidateFailure("filename:4: error: --^ directive without corresponding LUP directive.\n", 
+                                   "    :              4  --^\n", 5);
+}
+
+// $8000 iterations - check last line.
+// $8001 and 0 should output nothing.
+// Fail to allocate TextFile
+// Fail with no operands in lup call.
+// Fail with immediate operand.
+// Fail with operands in --^.
+// 26 iterations with @ in labelname.
+// 27 iterations with @ should error out.

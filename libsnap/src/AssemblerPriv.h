@@ -17,6 +17,7 @@
 #include "Assembler.h"
 #include "AssemblerTest.h"
 #include "TextFile.h"
+#include "TextSource.h"
 #include "SymbolTable.h"
 #include "ParseLine.h"
 #include "ListFile.h"
@@ -28,6 +29,9 @@
 
 #define NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS 511
 #define SIZE_OF_OBJECT_AND_DUMMY_BUFFERS    (64 * 1024)
+
+/* Bits in the Assembler::flags fields. */
+#define ASSEMBLER_LUP       1
 
 /* Bits in the Conditional::flags field. */
 #define CONDITIONAL_SKIP_SOURCE           1
@@ -56,13 +60,6 @@ typedef struct OpCodeEntry
 } OpCodeEntry;
 
 
-typedef struct TextFileNode
-{
-    TextFile*            pTextFile;
-    struct TextFileNode* pNext;
-} TextFileNode;
-
-
 typedef struct Conditional
 {
     struct Conditional* pPrev;
@@ -73,9 +70,7 @@ typedef struct Conditional
 
 struct Assembler
 {
-    TextFile*                  pTextFile;
-    TextFile*                  pMainFile;
-    TextFileNode*              pIncludedFiles;
+    TextSource*                pTextSourceStack;
     SymbolTable*               pSymbols;
     const AssemblerInitParams* pInitParams;
     ListFile*                  pListFile;
@@ -92,9 +87,9 @@ struct Assembler
     ParsedLine                 parsedLine;
     LineInfo                   linesHead;
     InstructionSetSupported    instructionSet;
+    unsigned int               flags;
     unsigned int               errorCount;
     unsigned int               warningCount;
-    int                        indentation;
     unsigned short             programCounter;
     unsigned short             programCounterBeforeDUM;
 };
@@ -114,7 +109,7 @@ struct Assembler
 
 #define LOG_ISSUE(pLINEINFO, TYPE, FORMAT, ...) fprintf(stderr, \
                                        "%s:%d: " TYPE ": " FORMAT LINE_ENDING, \
-                                       TextFile_GetFilename(pLINEINFO->pTextFile), \
+                                       TextSource_GetFilename(pLINEINFO->pTextSource), \
                                        pLINEINFO->lineNumber, \
                                        __VA_ARGS__)
 
