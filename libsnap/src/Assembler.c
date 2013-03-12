@@ -37,7 +37,7 @@ static void updateInstructionEntry(OpCodeEntry* pEntryToUpdate, const OpCodeEntr
 static void initParameterVariablesTo0(Assembler* pThis);
 static void initParameterVariableTo0(Assembler* pThis, const char* pVariableName);
 static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned short orgAddress);
-__throws Assembler* Assembler_CreateFromString(char* pText, const AssemblerInitParams* pParams)
+__throws Assembler* Assembler_CreateFromString(const char* pText, const AssemblerInitParams* pParams)
 {
     Assembler* pThis = NULL;
     
@@ -341,26 +341,27 @@ static void freeInstructionSets(Assembler* pThis)
     }
 }
 
+
 static void firstPass(Assembler* pThis);
-static int getNextSourceLine(Assembler* pThis, SizedString* pLineString);
+static int getNextSourceLine(Assembler* pThis, SizedString* pLine);
 static int attemptToPopTextFileAndGetNextLine(Assembler* pThis, SizedString* pLine);
-static int isProcessingTextFromPutFile(Assembler* pThis);
 static void parseLine(Assembler* pThis, const SizedString* pLine);
-static void prepareLineInfoForThisLine(Assembler* pThis, const SizedString* pLine);
-static void rememberLabel(Assembler* pThis);
-static int doesLineContainALabel(Assembler* pThis);
 static int shouldSkipSourceLines(Assembler* pThis);
-static void validateLabelFormat(Assembler* pThis, SizedString* pLabel);
+static void prepareLineInfoForThisLine(Assembler* pThis, const SizedString* pLine);
+static void rememberLabelIfGlobal(Assembler* pThis);
+static int doesLineContainALabel(Assembler* pThis);
 static int isGlobalLabelName(SizedString* pLabelName);
 static int isLocalLabelName(SizedString* pLabelName);
-static int seenGlobalLabel(Assembler* pThis);
+static int isVariableLabelName(SizedString* pLabelName);
+static void addUnhandledLabel(Assembler* pThis);
+static int hasLabelAlreadyBeenDefined(Assembler* pThis);
 static Symbol* attemptToAddSymbol(Assembler* pThis, SizedString* pLabelName, Expression* pExpression);
 static SizedString initGlobalLabelString(Assembler* pThis, SizedString* pLabelName);
 static SizedString initLocalLabelString(SizedString* pLabelName);
+static void validateLabelFormat(Assembler* pThis, SizedString* pLabel);
+static int seenGlobalLabel(Assembler* pThis);
 static int isSymbolAlreadyDefined(Symbol* pSymbol, LineInfo* pThisLine);
-static int isVariableLabelName(SizedString* pLabelName);
 static void flagSymbolAsDefined(Symbol* pSymbol, LineInfo* pThisLine);
-static void rememberGlobalLabel(Assembler* pThis);
 static void firstPassAssembleLine(Assembler* pThis);
 static int compareInstructionSetEntryToOperatorSizedString(const void* pvKey, const void* pvEntry);
 static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry);
@@ -414,10 +415,10 @@ static void resetLineInfoAsNotProcessingForwardReference(LineInfo* pLineInfo);
 static void handleInvalidOperator(Assembler* pThis);
 static SizedString fullOperandStringWithSpaces(Assembler* pThis);
 static void reverseMachineCode(LineInfo* pLineInfo);
-static void validateNoOperandWasProvided(Assembler* pThis);
 static Expression getAbsoluteExpression(Assembler* pThis, SizedString* pOperands);
 static int isTypeAbsolute(Expression* pExpression);
 static int isAlreadyInDUMSection(Assembler* pThis);
+static void validateNoOperandWasProvided(Assembler* pThis);
 static Expression getCountExpression(Assembler* pThis, SizedString* pString);
 static Expression getBytesLeftInPage(Assembler* pThis);
 static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount, unsigned char fillValue);
@@ -425,8 +426,9 @@ static unsigned char getNextHexByte(SizedString* pString, const char** ppCurr);
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
 static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString* pFilename);
-static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments);
+static int isProcessingTextFromPutFile(Assembler* pThis);
 static SizedString removeDirectoryAndSuffixFromFullFilename(SizedString* pFullFilename);
+static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments);
 static int isUpdatingForwardReference(Assembler* pThis);
 static void validateExpressionContainsNoForwardReferences(Assembler* pThis, Expression* pExpression);
 static int doesExpressionEqualZeroIndicatingToSkipSourceLines(Expression* pExpression);
@@ -483,12 +485,22 @@ static int attemptToPopTextFileAndGetNextLine(Assembler* pThis, SizedString* pLi
 
 static void parseLine(Assembler* pThis, const SizedString* pLine)
 {
+    int shouldSkipLabelDefinition = shouldSkipSourceLines(pThis);
     prepareLineInfoForThisLine(pThis, pLine);
     ParseLine(&pThis->parsedLine, pLine);
-    rememberLabel(pThis);
+    rememberLabelIfGlobal(pThis);
     firstPassAssembleLine(pThis);
+    if (!shouldSkipLabelDefinition)
+        addUnhandledLabel(pThis);
     pThis->programCounter += pThis->pLineInfo->machineCodeSize;
-    updateLinesWhichForwardReferencedThisLabel(pThis, pThis->pLineInfo->pSymbol);
+}
+
+static int shouldSkipSourceLines(Assembler* pThis)
+{
+    if (!pThis->pConditionals)
+        return FALSE;
+        
+    return (int)(pThis->pConditionals->flags & CONDITIONAL_SKIP_STATES_MASK);
 }
 
 static void prepareLineInfoForThisLine(Assembler* pThis, const SizedString* pLine)
@@ -504,25 +516,12 @@ static void prepareLineInfoForThisLine(Assembler* pThis, const SizedString* pLin
     pThis->pLineInfo = pLineInfo;
 }
 
-static void rememberLabel(Assembler* pThis)
+static void rememberLabelIfGlobal(Assembler* pThis)
 {
-    if (!doesLineContainALabel(pThis) || shouldSkipSourceLines(pThis))
+    if (!doesLineContainALabel(pThis) || shouldSkipSourceLines(pThis) || !isGlobalLabelName(&pThis->parsedLine.label))
         return;
-
-    __try
-    {
-        Symbol*     pSymbol = NULL;
-        Expression  expression;
-    
-        validateLabelFormat(pThis, &pThis->parsedLine.label);
-        expression = ExpressionEval_CreateAbsoluteExpression(pThis->programCounter);
-        rememberGlobalLabel(pThis);
-        pSymbol = attemptToAddSymbol(pThis, &pThis->parsedLine.label, &expression);
-    }
-    __catch
-    {
-        __nothrow;
-    }
+        
+    pThis->globalLabel = pThis->parsedLine.label;
 }
 
 static int doesLineContainALabel(Assembler* pThis)
@@ -530,12 +529,92 @@ static int doesLineContainALabel(Assembler* pThis)
     return SizedString_strlen(&pThis->parsedLine.label) > 0;
 }
 
-static int shouldSkipSourceLines(Assembler* pThis)
+static int isGlobalLabelName(SizedString* pLabelName)
 {
-    if (!pThis->pConditionals)
-        return FALSE;
-        
-    return (int)(pThis->pConditionals->flags & CONDITIONAL_SKIP_STATES_MASK);
+    return !isLocalLabelName(pLabelName) && !isVariableLabelName(pLabelName);
+}
+
+static int isLocalLabelName(SizedString* pLabelName)
+{
+    return pLabelName->pString && pLabelName->pString[0] == ':';
+}
+
+static int isVariableLabelName(SizedString* pLabelName)
+{
+    return pLabelName->pString && pLabelName->pString[0] == ']';
+}
+
+static void addUnhandledLabel(Assembler* pThis)
+{
+    Expression  expression;
+
+    if (!doesLineContainALabel(pThis) || hasLabelAlreadyBeenDefined(pThis))
+        return;
+
+    __try
+    {
+        expression = ExpressionEval_CreateAbsoluteExpression(pThis->programCounter);
+        attemptToAddSymbol(pThis, &pThis->parsedLine.label, &expression);
+    }
+    __catch
+    {
+        __nothrow;
+    }
+}
+
+static int hasLabelAlreadyBeenDefined(Assembler* pThis)
+{
+    return pThis->pLineInfo->flags & LINEINFO_FLAG_WAS_EQU;
+}
+
+static Symbol* attemptToAddSymbol(Assembler* pThis, SizedString* pLabelName, Expression* pExpression)
+{
+    SizedString globalLabel = initGlobalLabelString(pThis, pLabelName);
+    SizedString localLabel = initLocalLabelString(pLabelName);
+    
+    validateLabelFormat(pThis, &pThis->parsedLine.label);
+    Symbol* pSymbol = SymbolTable_Find(pThis->pSymbols, &globalLabel, &localLabel);
+    if (pSymbol && (isSymbolAlreadyDefined(pSymbol, pThis->pLineInfo) && !isVariableLabelName(pLabelName)))
+    {
+        LOG_ERROR(pThis, "'%.*s%.*s' symbol has already been defined.", 
+                  pThis->globalLabel.stringLength, pThis->globalLabel.pString,
+                  localLabel.stringLength, localLabel.pString);
+        __throw(invalidArgumentException);
+    }
+    if (!pSymbol)
+    {
+        __try
+        {
+            pSymbol = SymbolTable_Add(pThis->pSymbols, &globalLabel, &localLabel);
+        }
+        __catch
+        {
+            LOG_ERROR(pThis, "Failed to allocate space for '%.*s%.*s' symbol.",
+                      pThis->globalLabel.stringLength, pThis->globalLabel.pString,
+                      localLabel.stringLength, localLabel.pString);
+            __rethrow;
+        }
+    }
+    flagSymbolAsDefined(pSymbol, pThis->pLineInfo);
+    pSymbol->expression = *pExpression;
+    updateLinesWhichForwardReferencedThisLabel(pThis, pSymbol);
+
+    return pSymbol;
+}
+
+static SizedString initGlobalLabelString(Assembler* pThis, SizedString* pLabelName)
+{
+    if (isLocalLabelName(pLabelName))
+        return pThis->globalLabel;
+
+    return *pLabelName;
+}
+
+static SizedString initLocalLabelString(SizedString* pLabelName)
+{
+    if (isLocalLabelName(pLabelName))
+        return *pLabelName;
+    return SizedString_InitFromString(NULL);
 }
 
 static void validateLabelFormat(Assembler* pThis, SizedString* pLabel)
@@ -570,85 +649,14 @@ static void validateLabelFormat(Assembler* pThis, SizedString* pLabel)
     }
 }
 
-static int isLocalLabelName(SizedString* pLabelName)
-{
-    return pLabelName->pString && pLabelName->pString[0] == ':';
-}
-
 static int seenGlobalLabel(Assembler* pThis)
 {
     return SizedString_strlen(&pThis->globalLabel) > 0;
 }
 
-static void rememberGlobalLabel(Assembler* pThis)
-{
-    if (!isGlobalLabelName(&pThis->parsedLine.label))
-        return;
-        
-    pThis->globalLabel = pThis->parsedLine.label;
-}
-
-static int isGlobalLabelName(SizedString* pLabelName)
-{
-    return !isLocalLabelName(pLabelName) && !isVariableLabelName(pLabelName);
-}
-
-static Symbol* attemptToAddSymbol(Assembler* pThis, SizedString* pLabelName, Expression* pExpression)
-{
-    SizedString globalLabel = initGlobalLabelString(pThis, pLabelName);
-    SizedString localLabel = initLocalLabelString(pLabelName);
-    
-    Symbol* pSymbol = SymbolTable_Find(pThis->pSymbols, &globalLabel, &localLabel);
-    if (pSymbol && (isSymbolAlreadyDefined(pSymbol, pThis->pLineInfo) && !isVariableLabelName(pLabelName)))
-    {
-        LOG_ERROR(pThis, "'%.*s%.*s' symbol has already been defined.", 
-                  pThis->globalLabel.stringLength, pThis->globalLabel.pString,
-                  localLabel.stringLength, localLabel.pString);
-        __throw(invalidArgumentException);
-    }
-    if (!pSymbol)
-    {
-        __try
-        {
-            pSymbol = SymbolTable_Add(pThis->pSymbols, &globalLabel, &localLabel);
-        }
-        __catch
-        {
-            LOG_ERROR(pThis, "Failed to allocate space for '%.*s%.*s' symbol.",
-                      pThis->globalLabel.stringLength, pThis->globalLabel.pString,
-                      localLabel.stringLength, localLabel.pString);
-            __rethrow;
-        }
-    }
-    flagSymbolAsDefined(pSymbol, pThis->pLineInfo);
-    pSymbol->expression = *pExpression;
-
-    return pSymbol;
-}
-
-static SizedString initGlobalLabelString(Assembler* pThis, SizedString* pLabelName)
-{
-    if (isLocalLabelName(pLabelName))
-        return pThis->globalLabel;
-
-    return *pLabelName;
-}
-
-static SizedString initLocalLabelString(SizedString* pLabelName)
-{
-    if (isLocalLabelName(pLabelName))
-        return *pLabelName;
-    return SizedString_InitFromString(NULL);
-}
-
 static int isSymbolAlreadyDefined(Symbol* pSymbol, LineInfo* pThisLine)
 {
     return pSymbol->pDefinedLine != NULL && pSymbol->pDefinedLine != pThisLine;
-}
-
-static int isVariableLabelName(SizedString* pLabelName)
-{
-    return pLabelName->pString && pLabelName->pString[0] == ']';
 }
 
 static void flagSymbolAsDefined(Symbol* pSymbol, LineInfo* pThisLine)
@@ -954,21 +962,14 @@ static void handleEQU(Assembler* pThis)
 {
     __try
     {
-        Symbol*     pSymbol = pThis->pLineInfo->pSymbol;
         Expression  expression;
         
         validateOperandWasProvided(pThis);
         expression = ExpressionEval(pThis, &pThis->parsedLine.operands);
         validateEQULabelFormat(pThis);
-        if (pSymbol)
-        {
-            /* pSymbol would only be NULL if out of memory was encountered earlier but continued assembly process to
-               find and report as many syntax errors as possible to user. */
-            pSymbol->expression = expression;
-            pThis->pLineInfo->flags |= LINEINFO_FLAG_WAS_EQU;
-            pThis->pLineInfo->equValue = expression.value;
-            updateLinesWhichForwardReferencedThisLabel(pThis, pSymbol);
-        }
+        pThis->pLineInfo->flags |= LINEINFO_FLAG_WAS_EQU;
+        pThis->pLineInfo->equValue = expression.value;
+        attemptToAddSymbol(pThis, &pThis->parsedLine.label, &expression);
     }
     __catch
     {
