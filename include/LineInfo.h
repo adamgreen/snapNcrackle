@@ -18,7 +18,7 @@
 
 #define LINEINFO_FLAG_WAS_EQU           1
 #define LINEINFO_FLAG_FORWARD_REFERENCE 2
-
+#define LINEINFO_FLAG_DISALLOW_FORWARD  4
 
 typedef struct Symbol Symbol;
 

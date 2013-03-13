@@ -430,7 +430,7 @@ static int isProcessingTextFromPutFile(Assembler* pThis);
 static SizedString removeDirectoryAndSuffixFromFullFilename(SizedString* pFullFilename);
 static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments);
 static int isUpdatingForwardReference(Assembler* pThis);
-static void validateExpressionContainsNoForwardReferences(Assembler* pThis, Expression* pExpression);
+static void disallowForwardReferences(Assembler* pThis);
 static int doesExpressionEqualZeroIndicatingToSkipSourceLines(Expression* pExpression);
 static void pushConditional(Assembler* pThis, int skipSourceLines);
 static unsigned int determineInheritedConditionalSkipSourceLineState(Assembler* pThis);
@@ -441,6 +441,11 @@ static void validateElseNotAlreadySeen(Assembler* pThis);
 static int seenElseAlready(Conditional* pConditional);
 static void rememberThatConditionalHasSeenElse(Conditional* pConditional);
 static void popConditional(Assembler* pThis);
+static void flagThatLupDirectiveHasBeenSeen(Assembler* pThis);
+static void validateLupExpressionInRange(Assembler* pThis, Expression* pExpression);
+static void validateThatLupEndWasFound(Assembler* pThis, ParsedLine* pParsedLine);
+static int haveSeenLupDirective(Assembler* pThis);
+static void clearLupDirectiveFlag(Assembler* pThis);
 static void checkForUndefinedSymbols(Assembler* pThis);
 static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol* pSymbol);
 static void checkForOpenConditionals(Assembler* pThis);
@@ -1596,8 +1601,8 @@ static void handleDO(Assembler* pThis)
         Expression  expression;
 
         validateOperandWasProvided(pThis);
+        disallowForwardReferences(pThis);
         expression = ExpressionEval(pThis, &pThis->parsedLine.operands);
-        validateExpressionContainsNoForwardReferences(pThis, &expression);
         pushConditional(pThis, doesExpressionEqualZeroIndicatingToSkipSourceLines(&expression));
     }
     __catch
@@ -1611,14 +1616,9 @@ static int isUpdatingForwardReference(Assembler* pThis)
     return pThis->pLineInfo->flags & LINEINFO_FLAG_FORWARD_REFERENCE;
 }
 
-static void validateExpressionContainsNoForwardReferences(Assembler* pThis, Expression* pExpression)
+static void disallowForwardReferences(Assembler* pThis)
 {
-    if (!expressionContainsForwardReference(pExpression))
-        return;
-
-    LOG_ERROR(pThis, "%.*s directive can't forward reference labels.", 
-              pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
-    __throw(invalidArgumentException);
+    pThis->pLineInfo->flags |= LINEINFO_FLAG_DISALLOW_FORWARD;
 }
 
 static int doesExpressionEqualZeroIndicatingToSkipSourceLines(Expression* pExpression)
@@ -1744,9 +1744,11 @@ static void handleLUP(Assembler* pThis)
         SizedString    nextLine;
         ParsedLine     parsedLine;
 
-        //validateOperandWasProvided(pThis);
+        disallowForwardReferences(pThis);
+        flagThatLupDirectiveHasBeenSeen(pThis);
+        validateOperandWasProvided(pThis);
         expression = ExpressionEval(pThis, &pThis->parsedLine.operands);
-        //validateExpressionContainsNoForwardReferences(pThis, &expression);
+        validateLupExpressionInRange(pThis, &expression);
         
         pLoopTextFile = TextFile_CreateFromTextFile(pBaseTextFile);
         while (!TextFile_IsEndOfFile(pLoopTextFile))
@@ -1756,7 +1758,8 @@ static void handleLUP(Assembler* pThis)
             if (0 == SizedString_strcmp(&parsedLine.op, "--^"))
                 break;
         }
-        // UNDONE: Check for missing --^
+
+        validateThatLupEndWasFound(pThis, &parsedLine);
         TextFile_SetEndOfFile(pLoopTextFile);
         TextFile_AdvanceTo(pBaseTextFile, pLoopTextFile);
 
@@ -1764,23 +1767,67 @@ static void handleLUP(Assembler* pThis)
         pTextSource = LupSource_Create(pLoopTextFile, expression.value);
         pLoopTextFile = NULL;
         TextSource_StackPush(&pThis->pTextSourceStack, pTextSource);
-        pThis->flags |= ASSEMBLER_LUP;
     }
     __catch
     {
         TextFile_Free(pLoopTextFile);
-        clearExceptionCode();
+        if (getExceptionCode() == outOfMemoryException)
+            LOG_ERROR(pThis, "Failed to allocate memory for %s directive.", "LUP");
+        __nothrow;
     }
+}
+
+static void flagThatLupDirectiveHasBeenSeen(Assembler* pThis)
+{
+    pThis->flags |= ASSEMBLER_LUP;
+}
+
+static void validateLupExpressionInRange(Assembler* pThis, Expression* pExpression)
+{
+    unsigned short value = pExpression->value;
+    if (value >= 1 && value <= 0x8000)
+        return;
+        
+    LOG_WARNING(pThis, "LUP directive count of %u doesn't fall in valid range of 1 to 32768.", value);
+    __throw(invalidArgumentException);
+}
+
+static void validateThatLupEndWasFound(Assembler* pThis, ParsedLine* pParsedLine)
+{
+    if (0 == SizedString_strcmp(&pParsedLine->op, "--^"))
+        return;
+    
+    LOG_ERROR(pThis, "%s directive is missing matching --^ directive.", "LUP");
+    __throw(invalidArgumentException);
 }
 
 static void handleLUPend(Assembler* pThis)
 {
-    if (pThis->flags & ASSEMBLER_LUP)
+    if (!haveSeenLupDirective(pThis))
     {
-        pThis->flags &= ~ASSEMBLER_LUP;
+        LOG_ERROR(pThis, "%s directive without corresponding LUP directive.", "--^");
         return;
     }
-    LOG_ERROR(pThis, "%s directive without corresponding LUP directive.", "--^");
+    
+    __try
+    {
+        clearLupDirectiveFlag(pThis);
+        validateNoOperandWasProvided(pThis);
+    }
+    __catch
+    {
+        __nothrow;
+    }
+}
+
+static int haveSeenLupDirective(Assembler* pThis)
+{
+    return pThis->flags & ASSEMBLER_LUP;
+}
+
+static void clearLupDirectiveFlag(Assembler* pThis)
+{
+    pThis->flags &= ~ASSEMBLER_LUP;
 }
 
 static void checkForUndefinedSymbols(Assembler* pThis)
@@ -1855,6 +1902,8 @@ unsigned int Assembler_GetWarningCount(Assembler* pThis)
 }
 
 
+static void throwIfForwardReferencesAreDisallowed(Assembler* pThis);
+static int areForwardReferencesDisallowed(Assembler* pThis);
 __throws Symbol* Assembler_FindLabel(Assembler* pThis, SizedString* pLabelName)
 {
     Symbol*     pSymbol = NULL;
@@ -1865,9 +1914,27 @@ __throws Symbol* Assembler_FindLabel(Assembler* pThis, SizedString* pLabelName)
     validateLabelFormat(pThis, pLabelName);
     pSymbol = SymbolTable_Find(pThis->pSymbols, &globalLabel, &localLabel);
     if (!pSymbol)
+    {
+        throwIfForwardReferencesAreDisallowed(pThis);
         pSymbol = SymbolTable_Add(pThis->pSymbols, &globalLabel, &localLabel);
+    }
     if (!isSymbolAlreadyDefined(pSymbol, NULL))
         Symbol_LineReferenceAdd(pSymbol, pThis->pLineInfo);
 
     return pSymbol;
+}
+
+static void throwIfForwardReferencesAreDisallowed(Assembler* pThis)
+{
+    if (!areForwardReferencesDisallowed(pThis))
+        return;
+
+    LOG_ERROR(pThis, "%.*s directive can't forward reference labels.", 
+              pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
+    __throw(invalidArgumentException);
+}
+
+static int areForwardReferencesDisallowed(Assembler* pThis)
+{
+    return pThis->pLineInfo->flags & LINEINFO_FLAG_DISALLOW_FORWARD;
 }

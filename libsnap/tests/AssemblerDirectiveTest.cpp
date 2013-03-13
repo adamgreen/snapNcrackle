@@ -1198,6 +1198,34 @@ TEST(AssemblerDirectives, LUP_DirectiveWith2IterationsAndContinueAssemblyProcess
                                                    "8002: 00           4  hex 00\n", 5);
 }
 
+TEST(AssemblerDirectives, LUP_DirectiveWith8000Iterations)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0\n"
+                                                   " lup $8000\n"
+                                                   " hex ff\n"
+                                                   " --^\n"), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("7FFF: FF               3  hex ff\n",
+                                                   "    :              4  --^\n", 0x8000 + 3);
+}
+
+TEST(AssemblerDirectives, LUP_DirectiveWithInvalidIterationCountOf8001)
+{
+    m_pAssembler = Assembler_CreateFromString(" org $0\n"
+                                              " lup $8001\n"
+                                              " hex ff\n", NULL);
+    runAssemblerAndValidateWarning("filename:2: warning: LUP directive count of 32769 doesn't fall in valid range of 1 to 32768.\n", 
+                                   "0000: FF           3  hex ff\n", 4);
+}
+
+TEST(AssemblerDirectives, LUP_DirectiveWithInvalidIterationCountOf0)
+{
+    m_pAssembler = Assembler_CreateFromString(" org $0\n"
+                                              " lup 0\n"
+                                              " hex ff\n", NULL);
+    runAssemblerAndValidateWarning("filename:2: warning: LUP directive count of 0 doesn't fall in valid range of 1 to 32768.\n", 
+                                   "0000: FF           3  hex ff\n", 4);
+}
+
 TEST(AssemblerDirectives, LUP_DirectiveFailByTerminatingTwice)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" lup 1\n"
@@ -1208,11 +1236,56 @@ TEST(AssemblerDirectives, LUP_DirectiveFailByTerminatingTwice)
                                    "    :              4  --^\n", 5);
 }
 
-// $8000 iterations - check last line.
-// $8001 and 0 should output nothing.
-// Fail to allocate TextFile
-// Fail with no operands in lup call.
-// Fail with immediate operand.
-// Fail with operands in --^.
-// 26 iterations with @ in labelname.
-// 27 iterations with @ should error out.
+TEST(AssemblerDirectives, LUP_DirectiveFailByMissingTerminatingDirective)
+{
+    m_pAssembler = Assembler_CreateFromString(" lup 1\n"
+                                              " hex ff\n", NULL);
+    runAssemblerAndValidateFailure("filename:1: error: LUP directive is missing matching --^ directive.\n", 
+                                   "8000: FF           2  hex ff\n", 3);
+}
+
+TEST(AssemblerDirectives, LUP_DirectiveFailWithNoExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lup\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: lup directive requires operand.\n", 
+                                   "    :              1  lup\n", 2);
+}
+
+TEST(AssemblerDirectives, LUPend_DirectiveFailWithExpression)
+{
+    m_pAssembler = Assembler_CreateFromString(" lup 1\n"
+                                              " hex ff\n"
+                                              " --^ 1\n", NULL);
+    runAssemblerAndValidateFailure("filename:3: error: --^ directive doesn't require operand.\n", 
+                                   "    :              3  --^ 1\n", 4);
+}
+
+TEST(AssemblerDirectives, LUP_DirectiveFailExpressionThatContainsForwardReferences)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" lup forward\n"
+                                                   " hex ff\n"
+                                                   " --^\n"
+                                                   "forward equ 5\n"), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: lup directive can't forward reference labels.\n", 
+                                   "    :    =0005     4 forward equ 5\n", 5);
+}
+
+TEST(AssemblerDirectives, LUP_FailTextFileAllocation)
+{
+    m_pAssembler = Assembler_CreateFromString(" lup 1\n"
+                                              " hex ff\n"
+                                              " --^\n", NULL);
+    MallocFailureInject_FailAllocation(2);
+    runAssemblerAndValidateFailure("filename:1: error: Failed to allocate memory for LUP directive.\n", 
+                                   "    :              3  --^\n", 4);
+}
+
+TEST(AssemblerDirectives, LUP_FailLupSourceAllocation)
+{
+    m_pAssembler = Assembler_CreateFromString(" lup 1\n"
+                                              " hex ff\n"
+                                              " --^\n", NULL);
+    MallocFailureInject_FailAllocation(3);
+    runAssemblerAndValidateFailure("filename:1: error: Failed to allocate memory for LUP directive.\n", 
+                                   "    :              3  --^\n", 3);
+}
