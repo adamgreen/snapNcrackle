@@ -330,6 +330,12 @@ TEST(ExpressionEval, EvaluateAND)
     validateExpression(TYPE_ZEROPAGE, 0xaf&0xf0);
 }
 
+TEST(ExpressionEval, AdditionOfTwoZeroPageValuesThatShouldBeAbsolute)
+{
+    m_expression = ExpressionEval(m_pAssembler, toSizedString("255+1"));
+    validateExpression(TYPE_ABSOLUTE, 255+1);
+}
+
 TEST(ExpressionEval, ForwardLabelReference)
 {
     static const char labelName[] = "fwd_label";

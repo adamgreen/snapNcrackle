@@ -245,6 +245,8 @@ static void combineExpressionTypeAndFlags(Expression* pLeftExpression, Expressio
     pLeftExpression->flags |= pRightExpression->flags;
     if (pRightExpression->type < pLeftExpression->type)
         pLeftExpression->type = pRightExpression->type;
+    if (pLeftExpression->type == TYPE_ZEROPAGE && pLeftExpression->value > 0xFF)
+        pLeftExpression->type = TYPE_ABSOLUTE;
 }
 
 static void flagEvaluationAsCompleteOnEncounteringComment(ExpressionEvaluation* pEval)
