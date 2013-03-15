@@ -23,10 +23,10 @@ static int containsLabel(const SizedString* pLine, const char* pCurr);
 static void findNextWhitespace(const SizedString* pLine, const char** ppCurr);
 static void extractOperator(ParsedLine* pObject, const SizedString* pLine, const char** ppCurr);
 static void extractOperands(ParsedLine* pObject, const SizedString* pLine, const char** ppCurr);
-static void extractField(SizedString* pField, const SizedString* pLine, const char** ppCurr);
 static void skipOverWhitespace(const SizedString* pLine, const char** ppCurr);
 static int isEndOfLineOrComment(const SizedString* pLine, const char* pCurr);
 static int isStartOfComment(const SizedString* pLine, const char* pCurr);
+static void findEndOfLineOrComment(const SizedString* pLine, const char** ppCurr);
 void ParseLine(ParsedLine* pObject, const SizedString* pLine)
 {
     const char* pCurr;
@@ -80,22 +80,12 @@ static void findNextWhitespace(const SizedString* pLine, const char** ppCurr)
 
 static void extractOperator(ParsedLine* pObject, const SizedString* pLine, const char** ppCurr)
 {
-    extractField(&pObject->op, pLine, ppCurr);
-}
-
-static void extractOperands(ParsedLine* pObject, const SizedString* pLine, const char** ppCurr)
-{
-    extractField(&pObject->operands, pLine, ppCurr);
-}
-
-static void extractField(SizedString* pField, const SizedString* pLine, const char** ppCurr)
-{
     skipOverWhitespace(pLine, ppCurr);
     if (!isEndOfLineOrComment(pLine, *ppCurr))
     {
         const char* pStart = *ppCurr;
         findNextWhitespace(pLine, ppCurr);
-        *pField = SizedString_Init(pStart, *ppCurr - pStart);
+        pObject->op = SizedString_Init(pStart, *ppCurr - pStart);
     }
 }
 
@@ -113,4 +103,21 @@ static int isEndOfLineOrComment(const SizedString* pLine, const char* pCurr)
 static int isStartOfComment(const SizedString* pLine, const char* pCurr)
 {
     return SizedString_EnumCurr(pLine, pCurr) == ';';
+}
+
+static void extractOperands(ParsedLine* pObject, const SizedString* pLine, const char** ppCurr)
+{
+    skipOverWhitespace(pLine, ppCurr);
+    if (!isEndOfLineOrComment(pLine, *ppCurr))
+    {
+        const char* pStart = *ppCurr;
+        findEndOfLineOrComment(pLine, ppCurr);
+        pObject->operands = SizedString_Init(pStart, *ppCurr - pStart);
+    }
+}
+
+static void findEndOfLineOrComment(const SizedString* pLine, const char** ppCurr)
+{
+    while (SizedString_EnumRemaining(pLine, *ppCurr) && !isEndOfLineOrComment(pLine, *ppCurr))
+        SizedString_EnumNext(pLine, ppCurr);
 }

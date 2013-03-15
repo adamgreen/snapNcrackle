@@ -10,6 +10,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
+#include <ctype.h>
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -418,7 +419,7 @@ static void reverseMachineCode(LineInfo* pLineInfo);
 static Expression getAbsoluteExpression(Assembler* pThis, SizedString* pOperands);
 static int isTypeAbsolute(Expression* pExpression);
 static int isAlreadyInDUMSection(Assembler* pThis);
-static void validateNoOperandWasProvided(Assembler* pThis);
+static void warnIfNoOperandWasProvided(Assembler* pThis);
 static Expression getCountExpression(Assembler* pThis, SizedString* pString);
 static Expression getBytesLeftInPage(Assembler* pThis);
 static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount, unsigned char fillValue);
@@ -1188,7 +1189,7 @@ static void handleDEND(Assembler* pThis)
 {
     __try
     {
-        validateNoOperandWasProvided(pThis);
+        warnIfNoOperandWasProvided(pThis);
         if (!isAlreadyInDUMSection(pThis))
         {
             LOG_ERROR(pThis, "%.*s isn't allowed without a preceding DUM directive.", 
@@ -1205,14 +1206,13 @@ static void handleDEND(Assembler* pThis)
     }
 }
 
-static void validateNoOperandWasProvided(Assembler* pThis)
+static void warnIfNoOperandWasProvided(Assembler* pThis)
 {
     if (SizedString_strlen(&pThis->parsedLine.operands) == 0)
         return;
 
-    LOG_ERROR(pThis, "%.*s directive doesn't require operand.", 
-              pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
-    __throw(invalidArgumentException);
+    LOG_WARNING(pThis, "%.*s directive ignoring operand as comment.", 
+                pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
 }
 
 static void handleDS(Assembler* pThis)
@@ -1299,6 +1299,8 @@ static void handleHEX(Assembler* pThis)
     }
     __catch
     {
+        if (getExceptionCode() == encounteredCommentException)
+            __nothrow;
         logHexParseError(pThis);
         reallocLineInfoMachineCodeBytes(pThis, 0);
         __nothrow;
@@ -1326,6 +1328,8 @@ static unsigned char hexCharToNibble(char value)
         return value - 'a' + 10;
     if (value >= 'A' && value <= 'F')
         return value - 'A' + 10;
+    if (isspace(value))
+        __throw(encounteredCommentException);
     __throw(invalidHexDigitException);
 }
 
@@ -1658,7 +1662,7 @@ static void handleELSE(Assembler* pThis)
 {
     __try
     {
-        validateNoOperandWasProvided(pThis);
+        warnIfNoOperandWasProvided(pThis);
         flipTopConditionalState(pThis);
     }
     __catch
@@ -1713,7 +1717,7 @@ static void handleFIN(Assembler* pThis)
 {
     __try
     {
-        validateNoOperandWasProvided(pThis);
+        warnIfNoOperandWasProvided(pThis);
         popConditional(pThis);
     }
     __catch
@@ -1812,7 +1816,7 @@ static void handleLUPend(Assembler* pThis)
     __try
     {
         clearLupDirectiveFlag(pThis);
-        validateNoOperandWasProvided(pThis);
+        warnIfNoOperandWasProvided(pThis);
     }
     __catch
     {

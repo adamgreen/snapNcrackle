@@ -133,13 +133,25 @@ TEST(LineParser, LabelOperatorAndOperands)
 TEST(LineParser, OperatorOperandsComments)
 {
     ParseLine(&m_parsedLine, dupe(" ORG $C00 Program should start here"));
-    validateParsedLine(NULL, "ORG", "$C00");
+    validateParsedLine(NULL, "ORG", "$C00 Program should start here");
 }
 
 TEST(LineParser, LabelOperatorOperandsComments)
 {
     ParseLine(&m_parsedLine, dupe("org EQU $C00 Program should start here"));
-    validateParsedLine("org", "EQU", "$C00");
+    validateParsedLine("org", "EQU", "$C00 Program should start here");
+}
+
+TEST(LineParser, OperatorOperandsSemicolonComment)
+{
+    ParseLine(&m_parsedLine, dupe(" ORG $C00 ; Program should start here"));
+    validateParsedLine(NULL, "ORG", "$C00 ");
+}
+
+TEST(LineParser, LabelOperatorOperandsSemicolonComment)
+{
+    ParseLine(&m_parsedLine, dupe("org EQU $C00 ; Program should start here"));
+    validateParsedLine("org", "EQU", "$C00 ");
 }
 
 TEST(LineParser, LabelComments)
@@ -176,4 +188,28 @@ TEST(LineParser, TabForWhitespace)
 {
     ParseLine(&m_parsedLine, dupe("\tBIT\t$F0"));
     validateParsedLine(NULL, "BIT", "$F0");
+}
+
+TEST(LineParser, SpaceBetweenSingleQuotesInOperand)
+{
+    ParseLine(&m_parsedLine, dupe(" LDA #' '"));
+    validateParsedLine(NULL, "LDA", "#' '");
+}
+
+TEST(LineParser, SpaceBetweenDoubleQuoteInOperand)
+{
+    ParseLine(&m_parsedLine, dupe(" LDA #\" \""));
+    validateParsedLine(NULL, "LDA", "#\" \"");
+}
+
+TEST(LineParser, SpaceAfterSingleQuotesInOperand)
+{
+    ParseLine(&m_parsedLine, dupe(" LDA #' +1"));
+    validateParsedLine(NULL, "LDA", "#' +1");
+}
+
+TEST(LineParser, SpaceAfterDoubleQuoteInOperand)
+{
+    ParseLine(&m_parsedLine, dupe(" LDA #\" +1"));
+    validateParsedLine(NULL, "LDA", "#\" +1");
 }

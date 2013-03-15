@@ -44,6 +44,7 @@ static void xorHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, E
 static void orHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
 static void andHandler(Assembler* pAssembler, ExpressionEvaluation* pEvalLeft, ExpressionEvaluation* pEvalRight);
 static void combineExpressionTypeAndFlags(Expression* pLeftExpression, Expression* pRightExpression);
+static void flagEvaluationAsCompleteOnEncounteringComment(ExpressionEvaluation* pEval);
 static int isHexPrefix(char prefixChar);
 static void parseHexValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static unsigned short parseHexDigit(char digit);
@@ -157,14 +158,24 @@ static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval
 
 static void evaluateOperation(Assembler* pAssembler, ExpressionEvaluation* pEval)
 {
-    operatorHandler handleOperator = determineHandlerForOperator(pAssembler, SizedString_EnumCurr(pEval->pString, pEval->pCurrent));
-    ExpressionEvaluation rightEval = *pEval;
-    SizedString_EnumNext(rightEval.pString, &rightEval.pCurrent);
-    evaluatePrimitive(pAssembler, &rightEval);
-    handleOperator(pAssembler, pEval, &rightEval);
-    combineExpressionTypeAndFlags(&pEval->expression, &rightEval.expression);
-    pEval->pCurrent = rightEval.pNext;
-    pEval->pNext = rightEval.pNext;
+    __try
+    {
+        operatorHandler handleOperator = determineHandlerForOperator(pAssembler, SizedString_EnumCurr(pEval->pString, pEval->pCurrent));
+        ExpressionEvaluation rightEval = *pEval;
+        SizedString_EnumNext(rightEval.pString, &rightEval.pCurrent);
+        evaluatePrimitive(pAssembler, &rightEval);
+        handleOperator(pAssembler, pEval, &rightEval);
+        combineExpressionTypeAndFlags(&pEval->expression, &rightEval.expression);
+        pEval->pCurrent = rightEval.pNext;
+        pEval->pNext = rightEval.pNext;
+    }
+    __catch
+    {
+        if (getExceptionCode() != encounteredCommentException)
+            __rethrow;
+        flagEvaluationAsCompleteOnEncounteringComment(pEval);
+        __nothrow;
+    }
 }
 
 static operatorHandler determineHandlerForOperator(Assembler* pAssembler, char operatorChar)
@@ -185,6 +196,9 @@ static operatorHandler determineHandlerForOperator(Assembler* pAssembler, char o
         return orHandler;
     case '&':
         return andHandler;
+    case ' ':
+    case '\t':
+        __throw(encounteredCommentException);
     default:
         LOG_ERROR(pAssembler, "'%c' is unexpected operator.", operatorChar);
         __throw(invalidArgumentException);
@@ -231,6 +245,12 @@ static void combineExpressionTypeAndFlags(Expression* pLeftExpression, Expressio
     pLeftExpression->flags |= pRightExpression->flags;
     if (pRightExpression->type < pLeftExpression->type)
         pLeftExpression->type = pRightExpression->type;
+}
+
+static void flagEvaluationAsCompleteOnEncounteringComment(ExpressionEvaluation* pEval)
+{
+    pEval->pCurrent = pEval->pString->pString + pEval->pString->stringLength;
+    pEval->pNext = pEval->pCurrent;
 }
 
 static int isHexPrefix(char prefixChar)

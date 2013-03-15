@@ -10,6 +10,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 */
+#include <ctype.h>
 #include <string.h>
 #include "AddressingMode.h"
 #include "AddressingModeTest.h"
@@ -20,7 +21,6 @@
 typedef struct CharLocations
 {
     const char* pStart;
-    const char* pEnd;
     const char* pComma;
     const char* pOpenParen;
     const char* pCloseParen;
@@ -35,12 +35,12 @@ static AddressingMode impliedAddressing(void);
 static int usesIndexedIndirectAddressing(CharLocations* pLocations);
 static int hasParensAndComma(CharLocations* pLocations);
 static int hasOpeningParenAtBeginning(CharLocations* pLocations);
-static int hasClosingParenAtEnding(CharLocations* pLocations);
 static int isCommaAfterOpeningParen(CharLocations* pLocations);
 static int isClosingParenAfterComma(CharLocations* pLocations);
 static AddressingMode indexedIndirectAddressing(Assembler* pAssembler, SizedString* pOperandsString);
 static int usesIndirectIndexedAddressing(CharLocations* pLocations);
 static int isCommaAfterClosingParen(CharLocations* pLocations);
+static void truncateAtFirstWhitespace(SizedString* pString);
 static AddressingMode indirectIndexedAddressing(Assembler* pAssembler, SizedString* pOperandsString);
 static int usesIndirectAddressing(CharLocations* pLocations);
 static int hasParensAndNoComma(CharLocations* pLocations);
@@ -93,7 +93,6 @@ static CharLocations initCharLocations(SizedString* pOperandsString)
     CharLocations locations;
 
     locations.pStart = pOperandsString->pString;
-    locations.pEnd = pOperandsString->pString + pOperandsString->stringLength - 1;
     locations.pComma = SizedString_strchr(pOperandsString, ',');
     locations.pOpenParen = SizedString_strchr(pOperandsString, '(');
     locations.pCloseParen = SizedString_strchr(pOperandsString, ')');
@@ -123,8 +122,9 @@ static AddressingMode impliedAddressing(void)
 static int usesIndexedIndirectAddressing(CharLocations* pLocations)
 {
     return hasParensAndComma(pLocations) && 
-           hasOpeningParenAtBeginning(pLocations) && hasClosingParenAtEnding(pLocations) &&
-           isCommaAfterOpeningParen(pLocations) && isClosingParenAfterComma(pLocations);
+           hasOpeningParenAtBeginning(pLocations) &&
+           isCommaAfterOpeningParen(pLocations) && 
+           isClosingParenAfterComma(pLocations);
 }
 
 static int hasParensAndComma(CharLocations* pLocations)
@@ -135,11 +135,6 @@ static int hasParensAndComma(CharLocations* pLocations)
 static int hasOpeningParenAtBeginning(CharLocations* pLocations)
 {
     return pLocations->pOpenParen == pLocations->pStart;
-}
-
-static int hasClosingParenAtEnding(CharLocations* pLocations)
-{
-    return pLocations->pCloseParen == pLocations->pEnd;
 }
 
 static int isCommaAfterOpeningParen(CharLocations* pLocations)
@@ -197,6 +192,7 @@ static AddressingMode indirectIndexedAddressing(Assembler* pAssembler, SizedStri
     SizedString_SplitString(pOperandsString, '(', &beforeOpenParen, &afterOpenParen);
     SizedString_SplitString(&afterOpenParen, ')', &beforeCloseParen, &afterCloseParen);
     SizedString_SplitString(&afterCloseParen, ',', &beforeComma, &indexRegister);
+    truncateAtFirstWhitespace(&indexRegister);
     if (0 != SizedString_strcasecmp(&indexRegister, "Y"))
         reportAndThrowOnInvalidIndexRegister(pAssembler, &indexRegister);
         
@@ -211,10 +207,20 @@ static AddressingMode indirectIndexedAddressing(Assembler* pAssembler, SizedStri
     return addressingMode;
 }
 
+static void truncateAtFirstWhitespace(SizedString* pString)
+{
+    const char* pCurr;
+
+    SizedString_EnumStart(pString, &pCurr);
+    while (SizedString_EnumRemaining(pString, pCurr) > 0 && !isspace(SizedString_EnumCurr(pString, pCurr)))
+        SizedString_EnumNext(pString, &pCurr);
+    pString->stringLength = pCurr - pString->pString;
+}
+
 static int usesIndirectAddressing(CharLocations* pLocations)
 {
     return hasParensAndNoComma(pLocations) && 
-           hasOpeningParenAtBeginning(pLocations) && hasClosingParenAtEnding(pLocations);
+           hasOpeningParenAtBeginning(pLocations);
 }
 
 static int hasParensAndNoComma(CharLocations* pLocations)
@@ -257,6 +263,8 @@ static AddressingMode indexedAddressing(Assembler* pAssembler, SizedString* pOpe
     __try
     {
         SizedString_SplitString(pOperandsString, ',', &beforeComma, &afterComma);
+        truncateAtFirstWhitespace(&afterComma);
+
         if (0 == SizedString_strcasecmp(&afterComma, "X"))
             addressingMode.mode = ADDRESSING_MODE_ABSOLUTE_INDEXED_X;
         else if (0 == SizedString_strcasecmp(&afterComma, "Y"))

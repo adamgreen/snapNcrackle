@@ -273,9 +273,10 @@ TEST(AssemblerDirectives, DUMDirectiveMissingOperand)
 
 TEST(AssemblerDirectives, DENDDirectiveWithOperandWhenNotExpected)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" dend $100\n"), NULL);
-    runAssemblerAndValidateFailure("filename:1: error: dend directive doesn't require operand.\n",
-                                   "    :              1  dend $100\n", 2);
+    m_pAssembler = Assembler_CreateFromString(dupe(" dum 0\n"
+                                                   " dend $100\n"), NULL);
+    runAssemblerAndValidateWarning("filename:2: warning: dend directive ignoring operand as comment.\n",
+                                   "    :              2  dend $100\n", 3);
 }
 
 TEST(AssemblerDirectives, DS_DirectiveWithSmallRepeatValue)
@@ -399,6 +400,12 @@ TEST(AssemblerDirectives, REV_DirectiveInSingleQuotes)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" rev 'Tst'\n"), NULL);
     runAssemblerAndValidateOutputIs("8000: 74 73 54     1  rev 'Tst'\n");
+}
+
+TEST(AssemblerDirectives, REV_DirectiveWithComment)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" rev 'Tst' Comment\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: 74 73 54     1  rev 'Tst' Comment\n");
 }
 
 TEST(AssemblerDirectives, REV_DirectiveWithNoEndingDelimiter)
@@ -1108,20 +1115,19 @@ TEST(AssemblerDirectives, ELSE_DirectiveWithExpressionIsInvalid)
                                                    " else 0\n"
                                                    " hex 01\n"
                                                    " fin\n"), NULL);
-    runAssemblerAndValidateFailure("filename:3: error: else directive doesn't require operand.\n", 
+    runAssemblerAndValidateWarning("filename:3: warning: else directive ignoring operand as comment.\n", 
                                    "    :              5  fin\n", 6);
 }
 
-TEST(AssemblerDirectives, FIN_DirectiveWithExpressionIsInvalid)
+TEST(AssemblerDirectives, FIN_DirectiveWarningForExpression)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" do 1\n"
                                                    " hex 00\n"
                                                    " else\n"
                                                    " hex 01\n"
-                                                   " fin 1\n"
-                                                   " fin\n"), NULL);
-    runAssemblerAndValidateFailure("filename:5: error: fin directive doesn't require operand.\n", 
-                                    "    :              6  fin\n", 7);
+                                                   " fin 1\n"), NULL);
+    runAssemblerAndValidateWarning("filename:5: warning: fin directive ignoring operand as comment.\n", 
+                                    "    :              5  fin 1\n", 6);
 }
 
 TEST(AssemblerDirectives, DO_DirectiveWithNoMatchingFIN)
@@ -1251,13 +1257,22 @@ TEST(AssemblerDirectives, LUP_DirectiveFailWithNoExpression)
                                    "    :              1  lup\n", 2);
 }
 
-TEST(AssemblerDirectives, LUPend_DirectiveFailWithExpression)
+TEST(AssemblerDirectives, LUPend_DirectiveWarningWithExpression)
 {
     m_pAssembler = Assembler_CreateFromString(" lup 1\n"
                                               " hex ff\n"
                                               " --^ 1\n", NULL);
-    runAssemblerAndValidateFailure("filename:3: error: --^ directive doesn't require operand.\n", 
+    runAssemblerAndValidateWarning("filename:3: warning: --^ directive ignoring operand as comment.\n", 
                                    "    :              3  --^ 1\n", 4);
+}
+
+TEST(AssemblerDirectives, LUPend_DirectiveWarningWithComment)
+{
+    m_pAssembler = Assembler_CreateFromString(" lup 1\n"
+                                              " hex ff\n"
+                                              " --^ ; Comment\n", NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: FF               2  hex ff\n",
+                                                   "    :              3  --^ ; Comment\n", 3);
 }
 
 TEST(AssemblerDirectives, LUP_DirectiveFailExpressionThatContainsForwardReferences)

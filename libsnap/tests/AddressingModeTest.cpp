@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -97,9 +97,21 @@ TEST(AddressingMode, ImmediateModeValueFor16BitValue)
     validateAddressingMode(ADDRESSING_MODE_IMMEDIATE, TYPE_IMMEDIATE, 256);
 }
 
+TEST(AddressingMode, ImmediateModeWithComment)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("#1 Comment"));
+    validateAddressingMode(ADDRESSING_MODE_IMMEDIATE, TYPE_IMMEDIATE, 1);
+}
+
 TEST(AddressingMode, AbsoluteMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("65535"));
+    validateAddressingMode(ADDRESSING_MODE_ABSOLUTE, TYPE_ABSOLUTE, 65535);
+}
+
+TEST(AddressingMode, AbsoluteModeWithComment)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("65535 Comment"));
     validateAddressingMode(ADDRESSING_MODE_ABSOLUTE, TYPE_ABSOLUTE, 65535);
 }
 
@@ -112,6 +124,12 @@ TEST(AddressingMode, InvalidAbsoluteModeValue)
 TEST(AddressingMode, ZeroPageAbsoluteMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("255"));
+    validateAddressingMode(ADDRESSING_MODE_ABSOLUTE, TYPE_ZEROPAGE, 255);
+}
+
+TEST(AddressingMode, ZeroPageAbsoluteModeWithComment)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("255 Comment"));
     validateAddressingMode(ADDRESSING_MODE_ABSOLUTE, TYPE_ZEROPAGE, 255);
 }
 
@@ -133,9 +151,21 @@ TEST(AddressingMode, AbsoluteIndexedXModeWithLowercase)
     validateAddressingMode(ADDRESSING_MODE_ABSOLUTE_INDEXED_X, TYPE_ABSOLUTE, 256);
 }
 
+TEST(AddressingMode, AbsoluteIndexedXModeWithComment)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("256,x Comment"));
+    validateAddressingMode(ADDRESSING_MODE_ABSOLUTE_INDEXED_X, TYPE_ABSOLUTE, 256);
+}
+
 TEST(AddressingMode, ZeroPageAbsoluteIndexedXMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("255,x"));
+    validateAddressingMode(ADDRESSING_MODE_ABSOLUTE_INDEXED_X, TYPE_ZEROPAGE, 255);
+}
+
+TEST(AddressingMode, ZeroPageAbsoluteIndexedXModeWithComment)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("255,x Comment"));
     validateAddressingMode(ADDRESSING_MODE_ABSOLUTE_INDEXED_X, TYPE_ZEROPAGE, 255);
 }
 
@@ -157,9 +187,21 @@ TEST(AddressingMode, AbsoluteIndexedYModeWithLowercase)
     validateAddressingMode(ADDRESSING_MODE_ABSOLUTE_INDEXED_Y, TYPE_ABSOLUTE, 256);
 }
 
+TEST(AddressingMode, AbsoluteIndexedYModeWithComment)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("256,y Comment"));
+    validateAddressingMode(ADDRESSING_MODE_ABSOLUTE_INDEXED_Y, TYPE_ABSOLUTE, 256);
+}
+
 TEST(AddressingMode, ZeroPageAbsoluteIndexedYMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("255,y"));
+    validateAddressingMode(ADDRESSING_MODE_ABSOLUTE_INDEXED_Y, TYPE_ZEROPAGE, 255);
+}
+
+TEST(AddressingMode, ZeroPageAbsoluteIndexedYModeWithComment)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("255,y Comment"));
     validateAddressingMode(ADDRESSING_MODE_ABSOLUTE_INDEXED_Y, TYPE_ZEROPAGE, 255);
 }
 
@@ -187,6 +229,12 @@ TEST(AddressingMode, ZeroPageIndexedIndirectModeLowerCase)
     validateAddressingMode(ADDRESSING_MODE_INDEXED_INDIRECT, TYPE_ZEROPAGE, 0);
 }
 
+TEST(AddressingMode, ZeroPageIndexedIndirectModeWithComment)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(0,x) Comment"));
+    validateAddressingMode(ADDRESSING_MODE_INDEXED_INDIRECT, TYPE_ZEROPAGE, 0);
+}
+
 TEST(AddressingMode, AbsoluteIndexedIndirectMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(256,X)"));
@@ -196,6 +244,12 @@ TEST(AddressingMode, AbsoluteIndexedIndirectMode)
 TEST(AddressingMode, AbsoluteIndexedIndirectModeLowerCase)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(65535,x)"));
+    validateAddressingMode(ADDRESSING_MODE_INDEXED_INDIRECT, TYPE_ABSOLUTE, 65535);
+}
+
+TEST(AddressingMode, AbsoluteIndexedIndirectModeWithComment)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(65535,x) Comment"));
     validateAddressingMode(ADDRESSING_MODE_INDEXED_INDIRECT, TYPE_ABSOLUTE, 65535);
 }
 
@@ -223,6 +277,12 @@ TEST(AddressingMode, IndirectIndexedMode)
     validateAddressingMode(ADDRESSING_MODE_INDIRECT_INDEXED, TYPE_ZEROPAGE, 0);
 }
 
+TEST(AddressingMode, IndirectIndexedModeWithComment)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(0),Y Comment"));
+    validateAddressingMode(ADDRESSING_MODE_INDIRECT_INDEXED, TYPE_ZEROPAGE, 0);
+}
+
 TEST(AddressingMode, InvalidIndirectIndexedModeValue)
 {
     __try_and_catch( m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(+0),Y")) );
@@ -247,9 +307,21 @@ TEST(AddressingMode, ZeroPageIndirectMode)
     validateAddressingMode(ADDRESSING_MODE_INDIRECT, TYPE_ZEROPAGE, 255);
 }
 
+TEST(AddressingMode, ZeroPageIndirectModeWithComment)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(255) Comment"));
+    validateAddressingMode(ADDRESSING_MODE_INDIRECT, TYPE_ZEROPAGE, 255);
+}
+
 TEST(AddressingMode, AbsolutePageIndirectMode)
 {
     m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(256)"));
+    validateAddressingMode(ADDRESSING_MODE_INDIRECT, TYPE_ABSOLUTE, 256);
+}
+
+TEST(AddressingMode, AbsolutePageIndirectModeWithComment)
+{
+    m_addressingMode = AddressingMode_Eval(m_pAssembler, toSizedString("(256) Comment"));
     validateAddressingMode(ADDRESSING_MODE_INDIRECT, TYPE_ABSOLUTE, 256);
 }
 

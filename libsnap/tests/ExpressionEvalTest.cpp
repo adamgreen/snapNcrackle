@@ -227,6 +227,42 @@ TEST(ExpressionEval, EvaluateDoubleQuotedPrefixOnlyASCII)
     validateExpression(TYPE_IMMEDIATE, ('a' | 0x80)+1);
 }
 
+TEST(ExpressionEval, EvaluateSingleQuotedASCIISpace)
+{
+    m_expression = ExpressionEval(m_pAssembler, toSizedString("#' '"));
+    validateExpression(TYPE_IMMEDIATE, ' ');
+}
+
+TEST(ExpressionEval, EvaluateDoubleQuotedASCIISpace)
+{
+    m_expression = ExpressionEval(m_pAssembler, toSizedString("#\" \""));
+    validateExpression(TYPE_IMMEDIATE, ' ' | 0x80);
+}
+
+TEST(ExpressionEval, EvaluateSingleQuotedPrefixOnlyASCIISpace)
+{
+    m_expression = ExpressionEval(m_pAssembler, toSizedString("#' +1"));
+    validateExpression(TYPE_IMMEDIATE, ' '+1);
+}
+
+TEST(ExpressionEval, EvaluateImmediateWithComment)
+{
+    m_expression = ExpressionEval(m_pAssembler, toSizedString("#255 Comment"));
+    validateExpression(TYPE_IMMEDIATE, 255);
+}
+
+TEST(ExpressionEval, EvaluateAbsoluteWithComment)
+{
+    m_expression = ExpressionEval(m_pAssembler, toSizedString("256 Comment"));
+    validateExpression(TYPE_ABSOLUTE, 256);
+}
+
+TEST(ExpressionEval, EvaluateBinaryOperatorWithComment)
+{
+    m_expression = ExpressionEval(m_pAssembler, toSizedString("254+1 Comment"));
+    validateExpression(TYPE_ZEROPAGE, 255);
+}
+
 TEST(ExpressionEval, AsteriskInExpression)
 {
     setupAssemblerModule(" org $800\n");
