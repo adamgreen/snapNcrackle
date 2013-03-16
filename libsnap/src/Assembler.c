@@ -491,22 +491,18 @@ static int attemptToPopTextFileAndGetNextLine(Assembler* pThis, SizedString* pLi
 
 static void parseLine(Assembler* pThis, const SizedString* pLine)
 {
-    int shouldSkipLabelDefinition = shouldSkipSourceLines(pThis);
     prepareLineInfoForThisLine(pThis, pLine);
     ParseLine(&pThis->parsedLine, pLine);
     rememberLabelIfGlobal(pThis);
     firstPassAssembleLine(pThis);
-    if (!shouldSkipLabelDefinition)
+    if (!shouldSkipSourceLines(pThis))
         addUnhandledLabel(pThis);
     pThis->programCounter += pThis->pLineInfo->machineCodeSize;
 }
 
 static int shouldSkipSourceLines(Assembler* pThis)
 {
-    if (!pThis->pConditionals)
-        return FALSE;
-        
-    return (int)(pThis->pConditionals->flags & CONDITIONAL_SKIP_STATES_MASK);
+    return (int)(pThis->pLineInfo->flags & CONDITIONAL_SKIP_STATES_MASK);
 }
 
 static void prepareLineInfoForThisLine(Assembler* pThis, const SizedString* pLine)
@@ -518,6 +514,7 @@ static void prepareLineInfoForThisLine(Assembler* pThis, const SizedString* pLin
     pLineInfo->address = pThis->programCounter;
     pLineInfo->instructionSet = pThis->instructionSet;
     pLineInfo->indentation = (TextSource_StackDepth(pThis->pTextSourceStack)-1) * 4;
+    pLineInfo->flags = pThis->pConditionals ? pThis->pConditionals->flags & CONDITIONAL_SKIP_STATES_MASK : 0;
     pThis->pLineInfo->pNext = pLineInfo;
     pThis->pLineInfo = pLineInfo;
 }
@@ -702,7 +699,6 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
 {
     AddressingMode addressingMode;
 
-    /* UNDONE: This skip state should be in line info structure. */
     if (shouldSkipSourceLines(pThis) && isOpcodeSkippable(pOpcodeEntry))
         return;
         

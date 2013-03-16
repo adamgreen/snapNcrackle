@@ -16,9 +16,13 @@
 #include "Symbol.h"
 #include "TextSource.h"
 
-#define LINEINFO_FLAG_WAS_EQU           1
-#define LINEINFO_FLAG_FORWARD_REFERENCE 2
-#define LINEINFO_FLAG_DISALLOW_FORWARD  4
+/* Bits used in LineInfo::flags */
+/* NOTE: First 2 flags match the conditional flags in Assembler_Priv.h */
+#define LINEINFO_CONDITIONAL_SKIP_SOURCE            1
+#define LINEINFO_CONDITIONAL_INHERITED_SKIP_SOURCE  2
+#define LINEINFO_FLAG_WAS_EQU                       4
+#define LINEINFO_FLAG_FORWARD_REFERENCE             8
+#define LINEINFO_FLAG_DISALLOW_FORWARD              16
 
 typedef struct Symbol Symbol;
 

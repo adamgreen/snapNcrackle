@@ -366,8 +366,7 @@ TEST(AssemblerLabel, STAZeroPageAbsoluteViaLabel)
     runAssemblerAndValidateLastLineIs("0002: 85 00        3  sta entry\n", 3);
 }
 
-
-TEST(AssemblerLabel, ForwardReferenceLocalLabelOnLineWithDo0)
+TEST(AssemblerLabel, BackReferenceLocalLabelOnLineWithDo0)
 {
     m_pAssembler = Assembler_CreateFromString("global\n"
                                               ":local do 0\n"
@@ -376,4 +375,15 @@ TEST(AssemblerLabel, ForwardReferenceLocalLabelOnLineWithDo0)
     
     runAssemblerAndValidateLastTwoLinesOfOutputAre("    :              3  fin\n",
                                                    "8000: 4C 00 80     4  jmp :local\n", 4);
+}
+
+TEST(AssemblerLabel, ForwardReferenceLocalLabelOnLineWithDo0)
+{
+    m_pAssembler = Assembler_CreateFromString("global beq :local\n"
+                                              " hex ff\n"
+                                              ":local do 0\n"
+                                              " fin\n"
+                                              " sav AssemblerTest.sav\n", NULL);
+    Assembler_Run(m_pAssembler);
+    validateObjectFileContains(0x8000, "\xf0\x01\xff", 3);
 }
