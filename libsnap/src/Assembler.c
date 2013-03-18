@@ -423,7 +423,8 @@ static void warnIfNoOperandWasProvided(Assembler* pThis);
 static Expression getCountExpression(Assembler* pThis, SizedString* pString);
 static Expression getBytesLeftInPage(Assembler* pThis);
 static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount, unsigned char fillValue);
-static unsigned char getNextHexByte(SizedString* pString, const char** ppCurr);
+static void parseHexData(Assembler* pThis, const SizedString* pOperands, const char** ppCurr, int alreadyAllocated, size_t i);
+static unsigned char getNextHexByte(const SizedString* pString, const char** ppCurr);
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
 static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString* pFilename);
@@ -1102,6 +1103,8 @@ static void handleASC(Assembler* pThis)
             LOG_ERROR(pThis, "%.*s didn't end with the expected %c delimiter.", 
                       operands.stringLength, operands.pString,
                       delimiter);
+        
+        parseHexData(pThis, &operands, &pCurr, alreadyAllocated, i);
     }
     __catch
     {
@@ -1269,26 +1272,17 @@ static void handleHEX(Assembler* pThis)
     __try
     {
         SizedString* pOperands = &pThis->parsedLine.operands;
-        size_t       i = 0;
         int          alreadyAllocated = isMachineCodeAlreadyAllocatedFromForwardReference(pThis);
         const char*  pCurr;
         
         validateOperandWasProvided(pThis);
 
         SizedString_EnumStart(pOperands, &pCurr);
-        while (SizedString_EnumCurr(pOperands, pCurr) != '\0' && i < 32)
-        {
-            unsigned int   byte;
-
-            byte = getNextHexByte(pOperands, &pCurr);
-            if (!alreadyAllocated)
-                reallocLineInfoMachineCodeBytes(pThis, i+1);
-            pThis->pLineInfo->pMachineCode[i++] = byte;
-        }
-        assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
+        parseHexData(pThis, pOperands, &pCurr, alreadyAllocated, 0);
     
-        if (SizedString_EnumCurr(pOperands, pCurr) != '\0')
+        if (pThis->pLineInfo->machineCodeSize > 32)
         {
+            reallocLineInfoMachineCodeBytes(pThis, 32);
             LOG_ERROR(pThis, "'%.*s' contains more than 32 values.", 
                       pThis->parsedLine.operands.stringLength, pThis->parsedLine.operands.pString);
         }
@@ -1303,15 +1297,40 @@ static void handleHEX(Assembler* pThis)
     }
 }
 
-static unsigned char getNextHexByte(SizedString* pString, const char** ppCurr)
+static void parseHexData(Assembler* pThis, const SizedString* pOperands, const char** ppCurr, int alreadyAllocated, size_t i)
 {
-    unsigned char value = hexCharToNibble(SizedString_EnumNext(pString, ppCurr)) << 4;
+    __try
+    {
+        while (SizedString_EnumCurr(pOperands, *ppCurr) != '\0')
+        {
+            unsigned int   byte;
+
+            byte = getNextHexByte(pOperands, ppCurr);
+            if (!alreadyAllocated)
+                reallocLineInfoMachineCodeBytes(pThis, i+1);
+            pThis->pLineInfo->pMachineCode[i++] = byte;
+        }
+    }
+    __catch
+    {
+        if (getExceptionCode() != encounteredCommentException)
+            __rethrow;
+        clearExceptionCode();
+    }
+    assert ( !alreadyAllocated || i == pThis->pLineInfo->machineCodeSize );
+}
+
+static unsigned char getNextHexByte(const SizedString* pString, const char** ppCurr)
+{
+    unsigned char value = 0;
+    
+    if (SizedString_EnumCurr(pString, *ppCurr) == ',')
+        SizedString_EnumNext(pString, ppCurr);
+    
+    value = hexCharToNibble(SizedString_EnumNext(pString, ppCurr)) << 4;
     if (SizedString_EnumCurr(pString, *ppCurr) == '\0')
         __throw(invalidArgumentException);
     value |= hexCharToNibble(SizedString_EnumNext(pString, ppCurr));
-
-    if (SizedString_EnumCurr(pString, *ppCurr) == ',')
-        SizedString_EnumNext(pString, ppCurr);
 
     return value;
 }

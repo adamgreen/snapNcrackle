@@ -368,6 +368,19 @@ TEST(AssemblerDirectives, ASC_DirectiveWithSpaceBetweenQuotes)
     runAssemblerAndValidateOutputIs("8000: 61 20 62     1  asc 'a b'\n");
 }
 
+TEST(AssemblerDirectives, ASC_DirectiveWithHexSuffix)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'T',00ff\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: 54 00 FF     1  asc 'T',00ff\n");
+}
+
+TEST(AssemblerDirectives, ASC_DirectiveWithHexSuffixContainingCommas)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" asc 'T',00,FF\n"), NULL);
+    runAssemblerAndValidateOutputIs("8000: 54 00 FF     1  asc 'T',00,FF\n");
+}
+
+
 TEST(AssemblerDirectives, ASC_DirectiveWithNoEndingDelimiter)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" asc 'Tst\n"), NULL);
