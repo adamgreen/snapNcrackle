@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -29,6 +29,7 @@ __throws BlockDiskImage* BlockDiskImage_Create(unsigned int blockCount);
 __throws void            BlockDiskImage_ProcessScriptFile(BlockDiskImage* pThis, const char* pScriptFilename);
 __throws void            BlockDiskImage_ProcessScript(BlockDiskImage* pThis, char* pScriptText);
 __throws void            BlockDiskImage_ReadObjectFile(BlockDiskImage* pThis, const char* pFilename);
+__throws void            BlockDiskImage_UpdateImageTableFile(BlockDiskImage* pThis, unsigned short newImageTableAddress);
 __throws void            BlockDiskImage_InsertObjectFile(BlockDiskImage* pThis, DiskImageInsert* pInsert);
 __throws void            BlockDiskImage_InsertData(BlockDiskImage*      pThis, 
                                                    const unsigned char* pData, 

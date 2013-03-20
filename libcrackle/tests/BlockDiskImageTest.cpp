@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -11,6 +11,8 @@
     GNU General Public License for more details.
 */
 #include <assert.h>
+#include <stdarg.h>
+
 // Include headers from C modules under test.
 extern "C"
 {
@@ -24,10 +26,11 @@ extern "C"
 // Include C++ headers for test harness.
 #include "CppUTest/TestHarness.h"
 
-static const char* g_imageFilename = "BlockDiskImageTest.2mg";
+static const char* g_imageFilename = "BlockDiskImageTest.hdv";
 static const char* g_savFilenameAllZeroes = "BlockDiskImageTestZeroes.sav";
 static const char* g_savFilenameAllOnes = "BlockDiskImageTestOnes.sav";
 static const char* g_usrFilenameAllOnes = "BlockDiskImageTestOnes.usr";
+static const char* g_imgTableFilename = "BlockDiskImageTest.img";
 static const char* g_scriptFilename = "BlockDiskImageTest.script";
 
 
@@ -60,6 +63,7 @@ TEST_GROUP(BlockDiskImage)
         remove(g_savFilenameAllOnes);
         remove(g_savFilenameAllZeroes);
         remove(g_usrFilenameAllOnes);
+        remove(g_imgTableFilename);
         remove(g_scriptFilename);
     }
     
@@ -339,7 +343,7 @@ TEST_GROUP(BlockDiskImage)
         createBlockRawObjectFile(g_savFilenameAllOnes, blockData, sizeof(blockData));
     }
 
-    void createBlockRawObjectFile(const char* pFilename, unsigned char* pBlockData, size_t blockDataSize)
+    void createBlockRawObjectFile(const char* pFilename, const unsigned char* pBlockData, size_t blockDataSize)
     {
         FILE* pFile = fopen(pFilename, "w");
         fwrite(pBlockData, 1, blockDataSize, pFile);
@@ -351,6 +355,72 @@ TEST_GROUP(BlockDiskImage)
         FILE* pFile = fopen(pFilename, "w");
         fwrite(pText, 1, strlen(pText), pFile);
         fclose(pFile);
+    }
+    
+    unsigned short createImageTable(unsigned char imageCount, ...)
+    {
+        va_list argList;
+        
+        FILE* pFile = fopen(g_imgTableFilename, "w");
+        fwrite(&imageCount, 1, sizeof(imageCount), pFile);
+        va_start(argList, imageCount);
+        
+        /* Header has one byte for imageCount, 2 byte address for each image, and a 2 byte address for end of table. */
+        unsigned short firstImageAddress = 0x6000 + 1 + (imageCount + 1) * 2;
+        unsigned short address = firstImageAddress;
+        for (unsigned char i = 0 ; i < imageCount ; i++)
+        {
+            fwrite(&address, 1, 2, pFile);
+            unsigned short imageSize = va_arg(argList, unsigned int);
+            address += imageSize;
+        }
+        va_end(argList);
+        fwrite(&address, 1, 2, pFile);
+        
+        unsigned short totalImageDataSize = address - firstImageAddress;
+        char* pData = (char*)malloc(totalImageDataSize);
+        memset(pData, 0xFF, totalImageDataSize);
+        fwrite(pData, 1, totalImageDataSize, pFile);
+        unsigned short fileSize = (unsigned short)ftell(pFile);
+
+        free(pData);
+        fclose(pFile);
+        
+        return fileSize;
+    }
+
+    void validateUpdatedImageTable(const unsigned char* pImage, 
+                                   unsigned int         startBlock,
+                                   unsigned short       newAddress,
+                                   unsigned char        imageCount, ...)
+    {
+        va_list argList;
+
+        va_start(argList, imageCount);
+        pImage += startBlock * DISK_IMAGE_BLOCK_SIZE;
+        
+        LONGS_EQUAL(imageCount, *pImage);
+        pImage++;
+        
+        unsigned short firstImageAddress = newAddress + 1 + (imageCount + 1) * 2;
+        unsigned short address = firstImageAddress;
+        for (unsigned char i = 0 ; i < imageCount ; i++)
+        {
+            LONGS_EQUAL(address, *(unsigned short*)pImage);
+            pImage += sizeof(unsigned short);
+            unsigned short imageSize = va_arg(argList, unsigned int);
+            address += imageSize;
+        }
+        va_end(argList);
+        LONGS_EQUAL(address, *(unsigned short*)pImage);
+        pImage += sizeof(unsigned short);
+
+        unsigned short totalImageDataSize = address - firstImageAddress;
+        char* pData = (char*)malloc(totalImageDataSize);
+        memset(pData, 0xFF, totalImageDataSize);
+        CHECK(0 == memcmp(pImage, pData, totalImageDataSize));
+        pImage += totalImageDataSize;
+        free(pData);
     }
 };
 
@@ -523,6 +593,13 @@ TEST(BlockDiskImage, ReadUSRObjectFile)
     BlockDiskImage_ReadObjectFile(m_pDiskImage, g_usrFilenameAllOnes);
 }
 
+TEST(BlockDiskImage, ReadImageTableFile)
+{
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createImageTable(1, 16);
+    BlockDiskImage_ReadObjectFile(m_pDiskImage, g_imgTableFilename);
+}
+
 TEST(BlockDiskImage, FailSecondHeaderReadInReadUSRObjectFile)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
@@ -613,6 +690,63 @@ TEST(BlockDiskImage, ReadRawObjectFileAndWriteToImage)
     const unsigned char* pImage = readDiskImageIntoMemory();
     validateBlocksAreZeroes(pImage, 1, BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT - 1);
     validateBlocksAreOnes(pImage, 0, 0);
+}
+
+TEST(BlockDiskImage, UpdateImageTableFileAndWriteToImage)
+{
+    static const unsigned short newStartAddress = 0x9F00;
+    static const unsigned int   startBlock = 0;
+    #define IMAGE_SIZES 0x66, 0x92, 0x92, 0x92, 0x62, 0xB0, 0xB0, 0x92
+    
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    unsigned short imageTableFileSize = createImageTable(8, IMAGE_SIZES);
+    BlockDiskImage_ReadObjectFile(m_pDiskImage, g_imgTableFilename);
+    BlockDiskImage_UpdateImageTableFile(m_pDiskImage, newStartAddress);
+
+    DiskImageInsert insert;
+    insert.sourceOffset = 0;
+    insert.length = imageTableFileSize;
+    insert.type = DISK_IMAGE_INSERTION_BLOCK;
+    insert.block = startBlock;
+    insert.intraBlockOffset = 0;
+    BlockDiskImage_InsertObjectFile(m_pDiskImage, &insert);
+    
+    BlockDiskImage_WriteImage(m_pDiskImage, g_imageFilename);
+    const unsigned char* pImage = readDiskImageIntoMemory();
+    validateUpdatedImageTable(pImage, startBlock, newStartAddress, 8, IMAGE_SIZES);
+}
+
+TEST(BlockDiskImage, FailToUpdateImageTableFileWithTruncatedHeader)
+{
+    static const unsigned short newStartAddress = 0x9F00;
+    
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createBlockRawObjectFile(g_imgTableFilename, (const unsigned char*)"\x00\x00", 2);
+    BlockDiskImage_ReadObjectFile(m_pDiskImage, g_imgTableFilename);
+    __try_and_catch( BlockDiskImage_UpdateImageTableFile(m_pDiskImage, newStartAddress) );
+    validateExceptionThrown(fileException);
+}
+
+TEST(BlockDiskImage, FailToUpdateImageTableFileWithInvalidAddressForFirstImage)
+{
+    static const unsigned short newStartAddress = 0x9F00;
+    
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createBlockRawObjectFile(g_imgTableFilename, (const unsigned char*)"\x08\x05\x60", 3);
+    BlockDiskImage_ReadObjectFile(m_pDiskImage, g_imgTableFilename);
+    __try_and_catch( BlockDiskImage_UpdateImageTableFile(m_pDiskImage, newStartAddress) );
+    validateExceptionThrown(fileException);
+}
+
+TEST(BlockDiskImage, FailToUpdateImageTableFileWithTruncatedAddressList)
+{
+    static const unsigned short newStartAddress = 0x9F00;
+    
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createBlockRawObjectFile(g_imgTableFilename, (const unsigned char*)"\x01\x05\x60", 3);
+    BlockDiskImage_ReadObjectFile(m_pDiskImage, g_imgTableFilename);
+    __try_and_catch( BlockDiskImage_UpdateImageTableFile(m_pDiskImage, newStartAddress) );
+    validateExceptionThrown(fileException);
 }
 
 TEST(BlockDiskImage, InvalidTypeForInsertObjectFile)
@@ -854,6 +988,38 @@ TEST(BlockDiskImage, ProcessOneRW18LineTextScriptWithOverridesForAllFileHeaderFi
                                          DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17);
 }
 
+TEST(BlockDiskImage, ProcessOneRW18LineTextScriptWithImageTableUpdate)
+{
+    static const unsigned short newStartAddress = 0x9F00;
+    static const unsigned int   startBlock = 16; // Goes after first 16 ProDOS blocks.
+    #define IMAGE_SIZES 0x66, 0x92, 0x92, 0x92, 0x62, 0xB0, 0xB0, 0x92
+    
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createImageTable(8, IMAGE_SIZES);
+
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTest.img,0,*,0xa9,0,0,0,0x9F00\n"));
+
+    const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
+    validateUpdatedImageTable(pImage, startBlock, newStartAddress, 8, IMAGE_SIZES);
+}
+
+TEST(BlockDiskImage, UpdateImageTableFileThatShouldBeTruncatedAndWriteToImage)
+{
+    static const unsigned short newStartAddress = 0x9F00;
+    static const unsigned int   startBlock = 16;
+    
+    m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
+    createBlockRawObjectFile(g_imgTableFilename, (const unsigned char*)"\x01\x05\x60\x05\x60\xcd", 6);
+
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTest.img,0,*,0xa9,0,0,0,0x9F00\n"));
+
+    const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
+    // Validate table headers were updated.
+    validateUpdatedImageTable(pImage, startBlock, newStartAddress, 1, 0);
+    // Validate padding at end of image table was truncated before writing to disk image.
+    LONGS_EQUAL(0x00, *(pImage + startBlock * DISK_IMAGE_BLOCK_SIZE + 5));
+}
+
 TEST(BlockDiskImage, FailTextFileCreateInProcessScript)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
@@ -950,7 +1116,7 @@ TEST(BlockDiskImage, PassTooFewRWTS18TokensToProcessScript)
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
     BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0\n"));
-    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset\n",
+    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset[,imageTableAddress]\n",
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -959,8 +1125,8 @@ TEST(BlockDiskImage, PassTooManyRWTS18TokensToProcessScript)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,0,0\n"));
-    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset\n",
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,0,0,0\n"));
+    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset[,imageTableAddress]\n",
                  printfSpy_GetLastErrorOutput());
 }
 

@@ -33,9 +33,9 @@ static void displayUsage(void)
            "       scriptFilename is the name of the input script to be used\n"
            "         for placing data in the image file.  Each line should meet\n"
            "         one of these formats:\n"
-           "           BLOCK,objectFilename,startOffset,length,block,[intraBlockOffset]\n"
+           "           BLOCK,objectFilename,startOffset,length,block[,intraBlockOffset]\n"
            "           RWTS16,objectFilename,startOffset,length,track,sector\n"
-           "           RWTS18,objectFilename,startOffset,length,side,track,sector,intraSectorOffset\n"
+           "           RWTS18,objectFilename,startOffset,length,side,track,sector,intraSectorOffset[,imageTableAddress]\n"
            "       outputImageFilename is the name of the image to be created by\n"
            "           this tool.\n\n");
 }

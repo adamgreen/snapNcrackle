@@ -18,6 +18,8 @@
 #include "util.h"
 
 
+#define IMAGE_TABLE_DEFAULT_ADDRESS 0x6000
+
 static void DiskImageScriptEngine_Init(DiskImageScriptEngine* pThis);
 __throws void DiskImage_Init(DiskImage* pThis, DiskImageVTable* pVTable, unsigned int imageSize)
 {
@@ -90,6 +92,8 @@ static void setBlockInsertFieldsBaseOnScriptFields(DiskImageScriptEngine* pThis,
 static void rememberLastInsertionInformation(DiskImageScriptEngine* pThis);
 static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields);
 static void processRWTS18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields);
+static void processImageTableUpdates(DiskImageScriptEngine* pThis, unsigned short newImageTableAddress);
+static unsigned short getImageTableObjectSize(DiskImage* pDiskImage, unsigned short startImageTableAddress);
 static void reportScriptLineException(DiskImageScriptEngine* pThis);
 __throws void DiskImage_ProcessScriptFile(DiskImage* pThis, const char* pScriptFilename)
 {
@@ -280,11 +284,11 @@ static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCo
 
 static void processRWTS18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields)
 {
-    if (fieldCount != 8)
+    if (fieldCount < 8 || fieldCount > 9)
     {
         LOG_ERROR(pThis, 
                   "%s doesn't contain correct fields: "
-                    "RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset",
+                    "RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset[,imageTableAddress]",
                   "Line");
         __throw(invalidArgumentException);
     }
@@ -301,7 +305,34 @@ static void processRWTS18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCo
                                                                          pThis->pDiskImage->insert.sector);
     pThis->insert.intraSectorOffset = parseFieldWhichSupportsAsteriskForDefaulValue(pThis, &pFields[7], 
                                                                        pThis->pDiskImage->insert.intraSectorOffset);
+    if (fieldCount > 8)
+        processImageTableUpdates(pThis, SizedString_strtoul(&pFields[8], NULL, 0));
+
     DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert);
+}
+
+static void processImageTableUpdates(DiskImageScriptEngine* pThis, unsigned short newImageTableAddress)
+{
+    unsigned short imageTableSize;
+
+    DiskImage_UpdateImageTableFile(pThis->pDiskImage, newImageTableAddress);
+    imageTableSize = getImageTableObjectSize(pThis->pDiskImage, newImageTableAddress);
+    if (pThis->insert.length > imageTableSize)
+        pThis->insert.length = imageTableSize;
+}
+
+static unsigned short getImageTableObjectSize(DiskImage* pDiskImage, unsigned short startImageTableAddress)
+{
+    unsigned char* pObject = pDiskImage->object.pBuffer;
+    unsigned char  imageCount;
+    unsigned short lastImageTableAddress;
+    
+    imageCount = *pObject++;
+    pObject += (imageCount * 2);
+    lastImageTableAddress = (unsigned short)*pObject++;
+    lastImageTableAddress |= ((unsigned short)*pObject++) << 8;
+    
+    return (lastImageTableAddress - startImageTableAddress);
 }
 
 static void reportScriptLineException(DiskImageScriptEngine* pThis)
@@ -474,6 +505,62 @@ static long getFileSize(FILE* pFile)
 static unsigned int roundUpLengthToBlockSize(unsigned int length)
 {
     return (length + (DISK_IMAGE_BLOCK_SIZE - 1)) & ~(DISK_IMAGE_BLOCK_SIZE - 1);
+}
+
+
+static void validateObjectFileHasValidImageTableHeader(DiskImage* pThis);
+static void updateImageTableAddresses(DiskImage* pThis, unsigned short newImageTableAddress);
+__throws void DiskImage_UpdateImageTableFile(DiskImage* pThis, unsigned short newImageTableAddress)
+{
+    validateObjectFileHasValidImageTableHeader(pThis);
+    updateImageTableAddresses(pThis, newImageTableAddress);
+}
+
+static void validateObjectFileHasValidImageTableHeader(DiskImage* pThis)
+{
+    unsigned char* pObject = pThis->object.pBuffer;
+    unsigned char  imageCount;
+    unsigned short expectedStartAddress;
+    unsigned short actualStartAddress;
+    
+    if (pThis->objectFileLength < 3)
+        __throw(fileException);
+    
+    imageCount = *pObject++;
+    actualStartAddress = (unsigned short)*pObject++;
+    actualStartAddress |= ((unsigned short)*pObject++) << 8;
+    expectedStartAddress = IMAGE_TABLE_DEFAULT_ADDRESS + 1 + (imageCount + 1) * 2;
+    if (actualStartAddress != expectedStartAddress)
+        __throw(fileException);
+}
+
+static void updateImageTableAddresses(DiskImage* pThis, unsigned short newImageTableAddress)
+{
+    unsigned char* pObject = pThis->object.pBuffer;
+    unsigned int   bytesLeft = pThis->objectFileLength;
+    unsigned char  imageCount;
+    unsigned char  i;
+    
+    imageCount = *pObject++;
+    bytesLeft--;
+    
+    for (i = 0 ; i < imageCount + 1 ; i++)
+    {
+        unsigned short currAddress;
+        
+        if (bytesLeft < 2)
+            __throw(fileException);
+        
+        currAddress = (unsigned short)pObject[0];
+        currAddress |= ((unsigned short)pObject[1]) << 8;
+        currAddress -= IMAGE_TABLE_DEFAULT_ADDRESS;
+        currAddress += newImageTableAddress;
+        pObject[0] = currAddress & 0xFF;
+        pObject[1] = currAddress >> 8;
+        
+        pObject += 2;
+        bytesLeft -= 2;
+    }
 }
 
 

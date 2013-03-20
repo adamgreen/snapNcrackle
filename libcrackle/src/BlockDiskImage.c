@@ -77,6 +77,12 @@ __throws void BlockDiskImage_ReadObjectFile(BlockDiskImage* pThis, const char* p
 }
 
 
+__throws void BlockDiskImage_UpdateImageTableFile(BlockDiskImage* pThis, unsigned short newImageTableAddress)
+{
+    DiskImage_UpdateImageTableFile(&pThis->super, newImageTableAddress);
+}
+
+
 __throws void BlockDiskImage_InsertObjectFile(BlockDiskImage* pThis, DiskImageInsert* pInsert)
 {
     DiskImage_InsertObjectFile(&pThis->super, pInsert);

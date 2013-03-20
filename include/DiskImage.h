@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -68,6 +68,7 @@ __throws void      DiskImage_ProcessScriptFile(DiskImage* pThis, const char*  pS
 __throws void      DiskImage_ProcessScript(DiskImage* pThis, char* pScriptText);
 
 __throws void      DiskImage_ReadObjectFile(DiskImage* pThis, const char* pFilename);
+__throws void      DiskImage_UpdateImageTableFile(DiskImage* pThis, unsigned short newImageTableAddress);
 __throws void      DiskImage_InsertObjectFile(DiskImage* pThis, DiskImageInsert* pInsert);
 
 __throws void      DiskImage_WriteImage(DiskImage* pThis, const char* pImageFilename);
