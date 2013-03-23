@@ -18,7 +18,7 @@
 
 static const char* g_putFilename = "AssemblerTestPut.S";
 static const char* g_putFilename2 = "AssemblerTestPut2.S";
-static const char* g_usrFilename = "AssemblerTest.usr";
+static const char* g_usrFilename = "AssemblerTest";
 
 
 TEST_GROUP_BASE(AssemblerDirectives, AssemblerBase)
@@ -903,7 +903,7 @@ TEST(AssemblerDirectives, USR_DirectiveFailsBinaryBufferWriteQueueingOperation)
                                                    " usr $a9,1,$a80,*-$800\n"), NULL);
     MallocFailureInject_FailAllocation(4);
     __try_and_catch( Assembler_Run(m_pAssembler) );
-    validateFailureOutput("filename:3: error: Failed to queue up USR save to 'filename.usr'.\n", 
+    validateFailureOutput("filename:3: error: Failed to queue up USR save to 'filename'.\n", 
                           "    :              3  usr $a9,1,$a80,*-$800\n", 4);
 }
 

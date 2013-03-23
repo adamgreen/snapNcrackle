@@ -1568,7 +1568,7 @@ static void handleUSR(Assembler* pThis)
         BinaryBuffer_QueueRW18WriteToFile(pThis->pObjectBuffer, 
                                           pThis->pInitParams ? pThis->pInitParams->pOutputDirectory : NULL, 
                                           &filename,
-                                          ".usr",
+                                          NULL,
                                           side, track, offset);
     }
     __catch
@@ -1577,7 +1577,7 @@ static void handleUSR(Assembler* pThis)
             LOG_ERROR(pThis, "'%.*s' doesn't contain the 4 arguments required for USR directive.",
                       pThis->parsedLine.operands.stringLength, pThis->parsedLine.operands.pString);
         else if (getExceptionCode() != missingOperandException)
-            LOG_ERROR(pThis, "Failed to queue up USR save to '%.*s.usr'.", 
+            LOG_ERROR(pThis, "Failed to queue up USR save to '%.*s'.", 
                       filename.stringLength, filename.pString);
         __nothrow;
     }
