@@ -45,9 +45,7 @@ static void displayErrorCountIfAnyWereEncountered(Assembler* pAssembler)
     unsigned int warningCount = Assembler_GetWarningCount(pAssembler);
     
     if (errorCount || warningCount)
-        printf(LINE_ENDING "Encountered %d %s and %d %s during assembly." LINE_ENDING,
+        printf("Encountered %d %s and %d %s during assembly." LINE_ENDING,
                errorCount, errorCount != 1 ? "errors" : "error",
                warningCount, warningCount != 1 ? "warnings" : "warning");
-    else
-        printf(LINE_ENDING "Assembly completed successfully." LINE_ENDING);
 }

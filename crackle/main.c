@@ -31,7 +31,6 @@ int main(int argc, const char** argv)
         pDiskImage = allocateDiskImageObject(&commandLine);
         DiskImage_ProcessScriptFile(pDiskImage, commandLine.pScriptFilename);
         DiskImage_WriteImage(pDiskImage, commandLine.pOutputImageFilename);
-        printf("%s image built successfully.\n", commandLine.pOutputImageFilename);
     }
     __catch
     {
