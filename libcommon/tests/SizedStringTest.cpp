@@ -81,6 +81,25 @@ TEST_GROUP(SizedString)
         m_bufferString = SizedString_InitFromString(pString);
         return &m_bufferString;
     }
+    
+    void strcmpValidate(const char* p1, const char* p2, int actualResult)
+    {
+        LONGS_EQUAL(constrainResult(strcmp(p1, p2)), constrainResult(actualResult));
+    }
+    
+    void strcasecmpValidate(const char* p1, const char* p2, int actualResult)
+    {
+        LONGS_EQUAL(constrainResult(strcasecmp(p1, p2)), constrainResult(actualResult));
+    }
+    
+    int constrainResult(int result)
+    {
+        if (result < 0)
+            return -1;
+        if (result > 0)
+            return 1;
+        return 0;
+    }
 };
 
 
@@ -212,91 +231,91 @@ TEST(SizedString, strrchrPastLastCharInTruncatedString)
 TEST(SizedString, strcmpMatchWholeString)
 {
     testSizedStringInit("Test String");
-    LONGS_EQUAL(strcmp("Test String", "Test String"), SizedString_strcmp(&m_sizedString, "Test String"));
+    strcmpValidate("Test String", "Test String", SizedString_strcmp(&m_sizedString, "Test String"));
 }
 
 TEST(SizedString, strcmpMatchWholeTruncatedString)
 {
     testSizedStringInit("Test String", 4);
-    LONGS_EQUAL(strcmp("Test", "Test"), SizedString_strcmp(&m_sizedString, "Test"));
+    strcmpValidate("Test", "Test", SizedString_strcmp(&m_sizedString, "Test"));
 }
 
 TEST(SizedString, strcmpFailMatchDueToCaseSensitivity)
 {
     testSizedStringInit("Test string");
-    LONGS_EQUAL(strcmp("Test string", "Test String"), SizedString_strcmp(&m_sizedString, "Test String"));
+    strcmpValidate("Test string", "Test String", SizedString_strcmp(&m_sizedString, "Test String"));
 }
 
 TEST(SizedString, strcmpFailMatchDueToSearchStringBeingTooShort)
 {
     testSizedStringInit("Test string");
-    LONGS_EQUAL(strcmp("Test string", "Test"), SizedString_strcmp(&m_sizedString, "Test"));
+    strcmpValidate("Test string", "Test", SizedString_strcmp(&m_sizedString, "Test"));
 }
 
 TEST(SizedString, strcmpFailMatchDueToSizedStringBeingTooShort)
 {
     testSizedStringInit("Test string", 4);
-    LONGS_EQUAL(strcmp("Test", "Test string"), SizedString_strcmp(&m_sizedString, "Test string"));
+    strcmpValidate("Test", "Test string", SizedString_strcmp(&m_sizedString, "Test string"));
 }
 
 TEST(SizedString, strcasecmpMatchWholeStringWithDifferentCase)
 {
     testSizedStringInit("Test String");
-    LONGS_EQUAL(strcasecmp("Test String", "tEST sTRING"), SizedString_strcasecmp(&m_sizedString, "tEST sTRING"));
+    strcasecmpValidate("Test String", "tEST sTRING", SizedString_strcasecmp(&m_sizedString, "tEST sTRING"));
 }
 
 TEST(SizedString, strcasecmpMatchWholeTruncatedString)
 {
     testSizedStringInit("Test String", 4);
-    LONGS_EQUAL(strcasecmp("Test", "tEST"), SizedString_strcasecmp(&m_sizedString, "tEST"));
+    strcasecmpValidate("Test", "tEST", SizedString_strcasecmp(&m_sizedString, "tEST"));
 }
 
 TEST(SizedString, strcasecmpFailMatch)
 {
     testSizedStringInit("Test string");
-    LONGS_EQUAL(strcasecmp("Test string", "Tst"), SizedString_strcasecmp(&m_sizedString, "Tst"));
+    strcasecmpValidate("Test string", "Tst", SizedString_strcasecmp(&m_sizedString, "Tst"));
 }
 
 TEST(SizedString, strcasecmpFailMatchDueToSearchStringBeingTooShort)
 {
     testSizedStringInit("Test string");
-    LONGS_EQUAL(strcasecmp("Test string", "Test"), SizedString_strcasecmp(&m_sizedString, "Test"));
+    strcasecmpValidate("Test string", "Test", SizedString_strcasecmp(&m_sizedString, "Test"));
 }
 
 TEST(SizedString, strcasecmpFailMatchDueToSizedStringBeingTooShort)
 {
     testSizedStringInit("Test string", 4);
-    LONGS_EQUAL(strcasecmp("Test", "Test string"), SizedString_strcasecmp(&m_sizedString, "Test string"));
+    strcasecmpValidate("Test", "Test string", SizedString_strcasecmp(&m_sizedString, "Test string"));
 }
 
 TEST(SizedString, CompareMatchWholeString)
 {
     testSizedStringInit("Test String");
-    LONGS_EQUAL(strcmp("Test String", "Test String"), SizedString_Compare(&m_sizedString, toSizedString("Test String")));
+    strcmpValidate("Test String", "Test String", SizedString_Compare(&m_sizedString, toSizedString("Test String")));
 }
 
 TEST(SizedString, CompareMatchWholeTruncatedString)
 {
     testSizedStringInit("Test String", 4);
-    LONGS_EQUAL(strcmp("Test", "Test"), SizedString_Compare(&m_sizedString, toSizedString("Test")));
+    strcmpValidate("Test", "Test", SizedString_Compare(&m_sizedString, toSizedString("Test")));
 }
 
 TEST(SizedString, CompareFailMatchDueToCaseSensitivity)
 {
     testSizedStringInit("Test string");
-    LONGS_EQUAL(strcmp("Test string", "Test String"), SizedString_Compare(&m_sizedString, toSizedString("Test String")));
+    strcmpValidate("Test string", "Test String", SizedString_Compare(&m_sizedString, toSizedString("Test String")));
 }
 
 TEST(SizedString, CompareFailMatchDueToSearchStringBeingTooShort)
 {
     testSizedStringInit("Test string");
-    LONGS_EQUAL(strcmp("Test string", "Test"), SizedString_Compare(&m_sizedString, toSizedString("Test")));
+    strcmpValidate("Test string", "Test", SizedString_Compare(&m_sizedString, toSizedString("Test")));
 }
 
 TEST(SizedString, CompareFailMatchDueToSizedStringBeingTooShort)
 {
     testSizedStringInit("Test string", 4);
-    LONGS_EQUAL(strcmp("Test", "Test string"), SizedString_Compare(&m_sizedString, toSizedString("Test string")));
+    strcmpValidate("Test", "Test string", SizedString_Compare(&m_sizedString, toSizedString("Test string")));
 }
 
 TEST(SizedString, strdupEmptyString)
