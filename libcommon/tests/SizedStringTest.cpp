@@ -429,7 +429,7 @@ TEST(SizedString, strtoulOnOneNoBase)
 TEST(SizedString, strtoulOnLargeNumberNoBase)
 {
     testSizedStringInit("4294967295");
-    LONGS_EQUAL(4294967295, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
+    LONGS_EQUAL(4294967295U, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
     POINTERS_EQUAL(m_sizedString.pString + 10, m_pEndPtr);
 }
 
@@ -520,14 +520,14 @@ TEST(SizedString, strtoulOnDecimalWithCharacterTerminator)
 TEST(SizedString, strtoulOnDecimalOverflow)
 {
     testSizedStringInit("4294967296");
-    LONGS_EQUAL(4294967295, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
+    LONGS_EQUAL(4294967295U, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
     POINTERS_EQUAL(m_sizedString.pString + 10, m_pEndPtr);
 }
 
 TEST(SizedString, strtoulOnVeryLongDecimalWhichOverflows)
 {
     testSizedStringInit("12345678901234567890");
-    LONGS_EQUAL(4294967295, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
+    LONGS_EQUAL(4294967295U, SizedString_strtoul(&m_sizedString, &m_pEndPtr, 0));
     POINTERS_EQUAL(m_sizedString.pString + 20, m_pEndPtr);
 }
 
