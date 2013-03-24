@@ -114,7 +114,8 @@ __throws TextFile* TextFile_CreateFromFile(const SizedString* pDirectory,
     __catch
     {
         TextFile_Free(pThis);
-        fclose(pFile);
+        if (pFile)
+            fclose(pFile);
         __rethrow;
     }
     

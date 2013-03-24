@@ -1,4 +1,4 @@
-/*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+/*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -14,7 +14,7 @@
 #define _NIBBLE_DISK_IMAGE_H_
 
 #include "try_catch.h"
-#include "diskimage.h"
+#include "DiskImage.h"
 
 #define NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR 416
 #define NIBBLE_DISK_IMAGE_RWTS16_SECTORS_PER_TRACK  16

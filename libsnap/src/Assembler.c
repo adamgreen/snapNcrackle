@@ -12,6 +12,7 @@
 */
 #include <ctype.h>
 #include <string.h>
+#include <strings.h>
 #include <assert.h>
 #include <stdlib.h>
 #include "AssemblerPriv.h"
@@ -725,6 +726,7 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
     {
     /* Invalid mode gets caught in try/catch block above but placing here silences compiler warning and keeps 
        100% code coverage. */
+    default:
     case ADDRESSING_MODE_INVALID:
     case ADDRESSING_MODE_ABSOLUTE:
         handleZeroPageAbsoluteOrRelativeAddressingMode(pThis, &addressingMode, pOpcodeEntry);

@@ -35,10 +35,10 @@ CDEFINES:=$(CDEFINES) -D_DEBUG -D_DBG=1
 WARNING_FLAGS:=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-missing-field-initializers
 WARNING_OBJC_FLAGS:=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-missing-field-initializers
 OPTIMIZATIONFLAGS:=-O0 -fno-inline
-CFLAGS:=-I. -fmessage-length=0 -pipe -fasm-blocks -g
-CPPFLAGS:=-I. -fmessage-length=0 -pipe -fasm-blocks -fvisibility-inlines-hidden -g -fno-rtti -Wno-non-virtual-dtor
-MFLAGS:=-I. -fmessage-length=0 -pipe -fasm-blocks -g
-MMFLAGS:=-I. -fmessage-length=0 -pipe -fasm-blocks -fvisibility-inlines-hidden -g
+CFLAGS:=-I. -fmessage-length=0 -pipe -g3
+CPPFLAGS:=-I. -fmessage-length=0 -pipe -fvisibility-inlines-hidden -g3 -Wno-non-virtual-dtor
+MFLAGS:=-I. -fmessage-length=0 -pipe -g3
+MMFLAGS:=-I. -fmessage-length=0 -pipe -fvisibility-inlines-hidden -g3
 OUTDIR:=./Debug
 LINKFLAGS:=
 LIBFLAGS:=
@@ -49,8 +49,10 @@ CDEFINES:=$(CDEFINES) -DNDEBUG -D_DBG=0
 WARNING_FLAGS:=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-missing-field-initializers
 WARNING_OBJC_FLAGS:=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-missing-field-initializers
 OPTIMIZATIONFLAGS:=-O2
-CFLAGS:=-I. -g
-CPPFLAGS:=-I. -g -Wno-non-virtual-dtor
+CFLAGS:=-I. -fmessage-length=0 -pipe -g3
+CPPFLAGS:=-I. -fmessage-length=0 -pipe -fvisibility-inlines-hidden -g3 -Wno-non-virtual-dtor
+MFLAGS:=-I. -fmessage-length=0 -pipe -g3
+MMFLAGS:=-I. -fmessage-length=0 -pipe -fvisibility-inlines-hidden -g3
 OUTDIR:=./Release
 LINKFLAGS:= 
 LIBFLAGS:=

@@ -591,7 +591,8 @@ __throws void DiskImage_WriteImage(DiskImage* pThis, const char* pImageFilename)
     }
     __catch
     {
-        fclose(pFile);
+        if (pFile)
+            fclose(pFile);
         __rethrow;
     }
     

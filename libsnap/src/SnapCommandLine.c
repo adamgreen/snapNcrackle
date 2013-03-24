@@ -84,11 +84,11 @@ static int hasDoubleDashPrefix(const char* pArgument)
 
 static int parseFlagArgument(SnapCommandLine* pThis, int argc, const char** ppArgs)
 {
-    struct
+    static struct
     {
         const char* pFlag;
         int         destStringOffsetInThis;
-    } static const flagArguments[] =
+    } const flagArguments[] =
     {
         { "--list",    offsetof(SnapCommandLine, assemblerInitParams) + offsetof(AssemblerInitParams, pListFilename) },
         { "--putdirs", offsetof(SnapCommandLine, assemblerInitParams) + offsetof(AssemblerInitParams, pPutDirectories) },

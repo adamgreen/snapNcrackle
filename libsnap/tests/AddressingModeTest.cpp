@@ -11,6 +11,7 @@
     GNU General Public License for more details.
 */
 
+#include <string.h>
 // Include headers from C modules under test.
 extern "C"
 {

@@ -12,6 +12,7 @@
 */
 #include <assert.h>
 #include <stdarg.h>
+#include <string.h>
 
 // Include headers from C modules under test.
 extern "C"
@@ -173,9 +174,10 @@ TEST_GROUP(BlockDiskImage)
             return 1;
         case 0x79:
             return 2;
+        default:
+            assert ( 0 );
+            return 0xFFFF;
         }
-        assert ( 0 );
-        return 0xFFFF;
     }
     
     size_t startOffsetForSide(unsigned short side)
