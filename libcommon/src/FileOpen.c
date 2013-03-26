@@ -18,10 +18,9 @@
 
 typedef struct
 {
+    char*  pFilename;
     size_t filenameLength;
-    char directoryName[PATH_LENGTH];
-    char filename[PATH_LENGTH];
-    char actualFilename[PATH_LENGTH];
+    char   fullFilename[PATH_LENGTH];
 } FilenameParts;
 
 typedef struct
@@ -39,7 +38,7 @@ typedef struct
 } FilenameInfo;
 
 
-static FilenameParts initFilenameParts(const char* pFilename);
+static void initFilenameParts(FilenameParts* pParts, const char* pFilename);
 static FilenameInfo determineFilenameInfo(const char* pFilename);
 static FilenamePointers findLastSlashAndEndOfFilename(const char* pFilename);
 static void throwIfLengthTooLong(int length, int limit);
@@ -49,7 +48,7 @@ __throws FILE* FileOpen(const char* pFilename, const char* pMode)
     FilenameParts filenameParts;
     __try
     {
-        filenameParts = initFilenameParts(pFilename);
+        initFilenameParts(&filenameParts, pFilename);
     }
     __catch
     {
@@ -59,22 +58,19 @@ __throws FILE* FileOpen(const char* pFilename, const char* pMode)
     return fopen(findFilenameCaseInsensitive(&filenameParts), pMode);
 }
 
-static FilenameParts initFilenameParts(const char* pFilename)
+static void initFilenameParts(FilenameParts* pParts, const char* pFilename)
 {
-    FilenameParts    filenameParts = { 0, "", "", "" };
-    
     FilenameInfo filenameInfo = determineFilenameInfo(pFilename);
+    memset(pParts, 0, sizeof(*pParts));
     
-    throwIfLengthTooLong(filenameInfo.filenameLength, sizeof(filenameParts.filename));
-    throwIfLengthTooLong(filenameInfo.directoryNameLength, sizeof(filenameParts.directoryName));
+    throwIfLengthTooLong(filenameInfo.directoryNameLength + 1 + filenameInfo.filenameLength + 1, 
+                         sizeof(pParts->fullFilename));
     
-    memcpy(filenameParts.directoryName, filenameInfo.pDirectoryName, filenameInfo.directoryNameLength);
-    filenameParts.directoryName[filenameInfo.directoryNameLength] = '\0';
-    memcpy(filenameParts.filename, filenameInfo.pFilename, filenameInfo.filenameLength + 1);
-    filenameParts.filenameLength = filenameInfo.filenameLength;
-    memcpy(filenameParts.actualFilename, filenameInfo.pFilename, filenameInfo.filenameLength + 1);
-
-    return filenameParts;
+    memcpy(pParts->fullFilename, filenameInfo.pDirectoryName, filenameInfo.directoryNameLength);
+    pParts->fullFilename[filenameInfo.directoryNameLength] = PATH_SEPARATOR;
+    pParts->pFilename = pParts->fullFilename + filenameInfo.directoryNameLength + 1;
+    memcpy(pParts->pFilename, filenameInfo.pFilename, filenameInfo.filenameLength + 1);
+    pParts->filenameLength = filenameInfo.filenameLength;
 }
 
 static FilenameInfo determineFilenameInfo(const char* pFilename)
@@ -107,7 +103,7 @@ static FilenamePointers findLastSlashAndEndOfFilename(const char* pFilename)
     filenamePointers.pLastSlash = pFilename - 1;
     while (*pFilename)
     {
-        if (*pFilename == '/')
+        if (*pFilename == PATH_SEPARATOR)
             filenamePointers.pLastSlash = pFilename;
         pFilename++;
     }
@@ -125,20 +121,23 @@ static const char* findFilenameCaseInsensitive(FilenameParts* pThis)
 {
     size_t         filenameLength = pThis->filenameLength;
     struct dirent* pNextEntry;
+    DIR*           pDir;
     
-    DIR* pDir = opendir(pThis->directoryName);
+    pThis->pFilename[-1] = '\0';
+    pDir = opendir(pThis->fullFilename);
+    pThis->pFilename[-1] = PATH_SEPARATOR;
     if (!pDir)
-        return pThis->actualFilename;
+        return pThis->fullFilename;
 
     while (NULL != (pNextEntry = readdir(pDir)))
     {
-        if (filenameLength == pNextEntry->d_namlen && 0 == strcasecmp(pNextEntry->d_name, pThis->filename))
+        if (filenameLength == pNextEntry->d_namlen && 0 == strcasecmp(pNextEntry->d_name, pThis->pFilename))
         {
-            memcpy(pThis->actualFilename, pNextEntry->d_name, pNextEntry->d_namlen+1);
+            memcpy(pThis->pFilename, pNextEntry->d_name, pNextEntry->d_namlen+1);
             break;
         }
     }
     closedir(pDir);
     
-    return pThis->actualFilename;
+    return pThis->fullFilename;
 }
