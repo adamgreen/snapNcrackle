@@ -15,7 +15,7 @@
 #include "Assembler.h"
 #include "util.h"
 
-static void displayErrorCountIfAnyWereEncountered(Assembler* pAssembler);
+static int displayAndReturnErrorCountIfAnyWereEncountered(Assembler* pAssembler);
 int main(int argc, const char** argv)
 {
     int                 returnValue = 0;
@@ -27,7 +27,7 @@ int main(int argc, const char** argv)
         SnapCommandLine_Init(&commandLine, argc-1, argv+1);
         pAssembler = Assembler_CreateFromFile(commandLine.pSourceFilename, &commandLine.assemblerInitParams);
         Assembler_Run(pAssembler);
-        displayErrorCountIfAnyWereEncountered(pAssembler);
+        returnValue = displayAndReturnErrorCountIfAnyWereEncountered(pAssembler);
     }
     __catch
     {
@@ -39,7 +39,7 @@ int main(int argc, const char** argv)
     return returnValue;
 }
 
-static void displayErrorCountIfAnyWereEncountered(Assembler* pAssembler)
+static int displayAndReturnErrorCountIfAnyWereEncountered(Assembler* pAssembler)
 {
     unsigned int errorCount = Assembler_GetErrorCount(pAssembler);
     unsigned int warningCount = Assembler_GetWarningCount(pAssembler);
@@ -48,4 +48,5 @@ static void displayErrorCountIfAnyWereEncountered(Assembler* pAssembler)
         printf("Encountered %d %s and %d %s during assembly." LINE_ENDING,
                errorCount, errorCount != 1 ? "errors" : "error",
                warningCount, warningCount != 1 ? "warnings" : "warning");
+    return (int)errorCount;
 }
