@@ -31,6 +31,8 @@ int main(int argc, const char** argv)
     }
     __catch
     {
+        if (fileNotFoundException == getExceptionCode())
+            fprintf(stderr, "Failed to open %s" LINE_ENDING, commandLine.pSourceFilename);
         returnValue = 1;
     }
     
