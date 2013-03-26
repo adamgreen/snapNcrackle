@@ -1,6 +1,13 @@
+VERBOSE=1
 TARGET=snap
 APPTYPE=EXE
 
 SOURCES=main.c MockDefaults.c
 INCLUDES=../include
 LIBS=../lib/libsnap.a ../lib/libcommon.a
+
+# Determine if this OS is case sensitive for filenames.
+MAKEFILE_REALPATH=$(realpath MAKEFILE)
+ifeq "$(MAKEFILE_REALPATH)" ""
+CDEFINES:=$(CDEFINES) -DFOPEN_IS_CASE_SENSITIVE
+endif
