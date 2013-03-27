@@ -120,7 +120,6 @@ static void throwIfLengthTooLong(int length, int limit)
 
 static const char* findFilenameCaseInsensitive(FilenameParts* pThis)
 {
-    size_t         filenameLength = pThis->filenameLength;
     struct dirent* pNextEntry;
     DIR*           pDir;
     
@@ -132,9 +131,9 @@ static const char* findFilenameCaseInsensitive(FilenameParts* pThis)
 
     while (NULL != (pNextEntry = readdir(pDir)))
     {
-        if (filenameLength == pNextEntry->d_namlen && 0 == strcasecmp(pNextEntry->d_name, pThis->pFilename))
+        if (0 == strcasecmp(pNextEntry->d_name, pThis->pFilename))
         {
-            memcpy(pThis->pFilename, pNextEntry->d_name, pNextEntry->d_namlen+1);
+            memcpy(pThis->pFilename, pNextEntry->d_name, pThis->filenameLength + 1);
             break;
         }
     }
