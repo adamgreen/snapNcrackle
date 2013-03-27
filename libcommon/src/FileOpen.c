@@ -14,6 +14,7 @@
 #include "FileOpen.h"
 #include "FileOpenTest.h"
 #include "string.h"
+#include "strings.h"
 #include "util.h"
 
 typedef struct
