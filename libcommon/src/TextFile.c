@@ -127,7 +127,7 @@ static FILE* openFile(const char* pFilename)
 {
     FILE* pFile = NULL;
     
-    pFile = fopen(pFilename, "r");
+    pFile = fopen(pFilename, "rb");
     if (!pFile)
         __throw(fileNotFoundException);
     return pFile;

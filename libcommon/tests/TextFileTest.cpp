@@ -109,7 +109,7 @@ TEST(TextFile, FailAllInitAllocation)
     }
 
     MallocFailureInject_FailAllocation(allocationsToFail + 1);
-    m_pTextFile = m_pTextFile = TextFile_CreateFromString("");
+    m_pTextFile = TextFile_CreateFromString("");
     CHECK_TRUE(m_pTextFile != NULL);
 }
 
