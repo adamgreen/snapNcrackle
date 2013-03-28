@@ -205,7 +205,7 @@ TEST(ByteBuffer, FailReadFromFile)
 
 TEST(ByteBuffer, ReadPartialFromFileAndRestShouldBeZeroFilled)
 {
-    static const char testData[5] = { 0xa5, 0xa5, 0xa5, 0xa5, 0xa5 };
+    static const char testData[5] = { 0x5a, 0x5a, 0x5a, 0x5a, 0x5a };
     createTestFile(testData, sizeof(testData));
 
     ByteBuffer_Allocate(&m_buffer, sizeof(testData));

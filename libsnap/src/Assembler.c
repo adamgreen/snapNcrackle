@@ -1554,7 +1554,6 @@ static void handleUSR(Assembler* pThis)
         unsigned short side;
         unsigned short track;
         unsigned short offset;
-        unsigned short length;
         
         validateOperandWasProvided(pThis);
         
@@ -1563,7 +1562,8 @@ static void handleUSR(Assembler* pThis)
         side = getNextCommaSeparatedArgument(pThis, &remainingArguments);
         track = getNextCommaSeparatedArgument(pThis, &remainingArguments);
         offset = getNextCommaSeparatedArgument(pThis, &remainingArguments);
-        length = getNextCommaSeparatedArgument(pThis, &remainingArguments);
+        /* Last field is length but not required for queueing API as it knows the actual size. */
+        getNextCommaSeparatedArgument(pThis, &remainingArguments);
         if (SizedString_strlen(&remainingArguments) != 0)
             __throw(invalidArgumentCountException);
 

@@ -20,6 +20,7 @@ extern "C"
     #include "MallocFailureInject.h"
     #include "FileFailureInject.h"
     #include "printfSpy.h"
+    #include "util.h"
 }
 
 // Include C++ headers for test harness.
@@ -654,7 +655,7 @@ TEST(NibbleDiskImage, ProcessOneLineTextScriptWithAsteriskForLength)
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     createZeroSectorObjectFile();
 
-    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,*,0,0\n"));
+    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,*,0,0" LINE_ENDING));
 
     const unsigned char* pImage = NibbleDiskImage_GetImagePointer(m_pNibbleDiskImage);
     validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 15);
@@ -690,8 +691,8 @@ TEST(NibbleDiskImage, ProcessTwoLineTextScript)
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     createZeroSectorObjectFile();
 
-    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0,0\n"
-                                                           "RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,34,15\n"));
+    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0,0" LINE_ENDING
+                                                           "RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,34,15" LINE_ENDING));
 
     const unsigned char* pImage = NibbleDiskImage_GetImagePointer(m_pNibbleDiskImage);
     validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 14);
@@ -705,7 +706,7 @@ TEST(NibbleDiskImage, FailTextFileCreateInProcessScript)
     createZeroSectorObjectFile();
 
     MallocFailureInject_FailAllocation(1);
-    __try_and_catch( NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0,0\n")) );
+    __try_and_catch( NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0,0" LINE_ENDING)) );
     validateOutOfMemoryExceptionThrown();
 }
 
@@ -714,8 +715,8 @@ TEST(NibbleDiskImage, PassInvalidEmptyLineToProcessScript)
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     createZeroSectorObjectFile();
 
-    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("\n"));
-    STRCMP_EQUAL("<null>:1: error: Script line cannot be blank.\n",
+    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: Script line cannot be blank." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 TEST(NibbleDiskImage, PassInvalidScriptInsertionTypeToProcessScript)
@@ -724,7 +725,7 @@ TEST(NibbleDiskImage, PassInvalidScriptInsertionTypeToProcessScript)
     createZeroSectorObjectFile();
 
     NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("foo.bar"));
-    STRCMP_EQUAL("<null>:1: error: foo.bar isn't a recognized image insertion type of BLOCK or RWTS16.\n",
+    STRCMP_EQUAL("<null>:1: error: foo.bar isn't a recognized image insertion type of BLOCK or RWTS16." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -734,7 +735,7 @@ TEST(NibbleDiskImage, PassUnsupportedScriptInsertionTypeToProcessScript)
     createZeroSectorObjectFile();
 
     NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("BLOCK,NibbleDiskImageTestAllZeroes.sav,0,256,0"));
-    STRCMP_EQUAL("<null>:1: error: BLOCK insertion type isn't supported for this output image type.\n",
+    STRCMP_EQUAL("<null>:1: error: BLOCK insertion type isn't supported for this output image type." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -744,7 +745,7 @@ TEST(NibbleDiskImage, PassTooFewParametersToProcessScript)
     createZeroSectorObjectFile();
 
     NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0"));
-    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS16,objectFilename,objectStartOffset,insertionLength,track,sector\n",
+    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS16,objectFilename,objectStartOffset,insertionLength,track,sector" LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -753,8 +754,8 @@ TEST(NibbleDiskImage, PassInvalidFilenameToProcessScript)
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     createZeroSectorObjectFile();
 
-    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,InvalidFilename.sav,0,256,0,0\n"));
-    STRCMP_EQUAL("<null>:1: error: Failed to read 'InvalidFilename.sav' object file.\n",
+    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,InvalidFilename.sav,0,256,0,0" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: Failed to read 'InvalidFilename.sav' object file." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -763,8 +764,8 @@ TEST(NibbleDiskImage, PassInvalidSectorToProcessScript)
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     createZeroSectorObjectFile();
 
-    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0,16\n"));
-    STRCMP_EQUAL("<null>:1: error: 16 specifies an invalid sector.  Must be 0 - 15.\n",
+    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0,16" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: 16 specifies an invalid sector.  Must be 0 - 15." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -773,8 +774,8 @@ TEST(NibbleDiskImage, PassInvalidTrackToProcessScript)
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     createZeroSectorObjectFile();
 
-    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,35,0\n"));
-    STRCMP_EQUAL("<null>:1: error: Write starting at track/sector 35/0 won't fit in output image file.\n",
+    NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,35,0" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: Write starting at track/sector 35/0 won't fit in output image file." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -782,8 +783,8 @@ TEST(NibbleDiskImage, ProcessTwoLineScriptFile)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     createZeroSectorObjectFile();
-    createTextFile(g_scriptFilename, "RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0,0\n"
-                                     "RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,34,15\n");
+    createTextFile(g_scriptFilename, "RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0,0" LINE_ENDING
+                                     "RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,34,15" LINE_ENDING);
 
     NibbleDiskImage_ProcessScriptFile(m_pNibbleDiskImage, g_scriptFilename);
 
@@ -797,8 +798,8 @@ TEST(NibbleDiskImage, FailToAllocateTextFileInProcessScriptFile)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     createZeroSectorObjectFile();
-    createTextFile(g_scriptFilename, "RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0,0\n"
-                                     "RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,34,15\n");
+    createTextFile(g_scriptFilename, "RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,0,0" LINE_ENDING
+                                     "RWTS16,NibbleDiskImageTestAllZeroes.sav,0,256,34,15" LINE_ENDING);
 
     MallocFailureInject_FailAllocation(1);
     __try_and_catch( NibbleDiskImage_ProcessScriptFile(m_pNibbleDiskImage, g_scriptFilename) );

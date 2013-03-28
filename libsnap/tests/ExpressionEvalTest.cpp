@@ -19,6 +19,7 @@ extern "C"
     #include "../src/AssemblerPriv.h"
     #include "printfSpy.h"
     #include "MallocFailureInject.h"
+    #include "util.h"
 }
 
 // Include C++ headers for test harness.
@@ -92,13 +93,13 @@ TEST(ExpressionEval, EvaluateHexLiteral)
 TEST(ExpressionEval, EvaluateInvalidHexDigit)
 {
     __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString("$AG")) );
-    validateFailureMessageAndThrownException("filename:0: error: 'G' is unexpected operator.\n", invalidArgumentException);
+    validateFailureMessageAndThrownException("filename:0: error: 'G' is unexpected operator." LINE_ENDING, invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateHexValueTooLong)
 {
     __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString("$12345")) );
-    validateFailureMessageAndThrownException("filename:0: error: Hexadecimal number '$12345' doesn't fit in 16-bits.\n", invalidArgumentException);
+    validateFailureMessageAndThrownException("filename:0: error: Hexadecimal number '$12345' doesn't fit in 16-bits." LINE_ENDING, invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateHexImmediate)
@@ -116,13 +117,13 @@ TEST(ExpressionEval, EvaluateBinaryLiteral)
 TEST(ExpressionEval, EvaluateInvalidBinaryDigit)
 {
     __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString("%12")) );
-    validateFailureMessageAndThrownException("filename:0: error: '2' is unexpected operator.\n", invalidArgumentException);
+    validateFailureMessageAndThrownException("filename:0: error: '2' is unexpected operator." LINE_ENDING, invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateBinaryValueTooLong)
 {
     __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString("%11110000111100001")) );
-    validateFailureMessageAndThrownException("filename:0: error: Binary number '%11110000111100001' doesn't fit in 16-bits.\n", invalidArgumentException);
+    validateFailureMessageAndThrownException("filename:0: error: Binary number '%11110000111100001' doesn't fit in 16-bits." LINE_ENDING, invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateBinaryImmediate)
@@ -140,13 +141,13 @@ TEST(ExpressionEval, EvaluateDecimalLiteral)
 TEST(ExpressionEval, EvaluateInvalidDecimalDigit)
 {
     __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString("1f")) );
-    validateFailureMessageAndThrownException("filename:0: error: 'f' is unexpected operator.\n", invalidArgumentException);
+    validateFailureMessageAndThrownException("filename:0: error: 'f' is unexpected operator." LINE_ENDING, invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateDecimalValueTooLong)
 {
     __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString("65536")) );
-    validateFailureMessageAndThrownException("filename:0: error: Decimal number '65536' doesn't fit in 16-bits.\n", invalidArgumentException);
+    validateFailureMessageAndThrownException("filename:0: error: Decimal number '65536' doesn't fit in 16-bits." LINE_ENDING, invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateDecimalImmediate)
@@ -265,7 +266,7 @@ TEST(ExpressionEval, EvaluateBinaryOperatorWithComment)
 
 TEST(ExpressionEval, AsteriskInExpression)
 {
-    setupAssemblerModule(" org $800\n");
+    setupAssemblerModule(" org $800" LINE_ENDING);
     m_expression = ExpressionEval(m_pAssembler, toSizedString("*"));
     validateExpression(TYPE_ABSOLUTE, 0x800);
 }
@@ -369,7 +370,7 @@ TEST(ExpressionEval, ForwardLabelReferenceAsSecondTerm)
 TEST(ExpressionEval, BackwardLabelReference)
 {
     static const char labelName[] = "backLabel";
-    setupAssemblerModule("backLabel equ $a55a\n");
+    setupAssemblerModule("backLabel equ $a55a" LINE_ENDING);
     m_expression = ExpressionEval(m_pAssembler, toSizedString(labelName));
     validateExpression(TYPE_ABSOLUTE, 0xa55a);
     CHECK_FALSE(m_expression.flags & EXPRESSION_FLAG_FORWARD_REFERENCE);

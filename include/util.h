@@ -22,9 +22,17 @@
 #define TRUE  1
 #define FALSE 0
 
+#ifdef WIN32
+#define PATH_LENGTH    257
+#define LINE_ENDING    "\r\n"
+#define PATH_SEPARATOR '\\'
+#define SLASH_STR      "\\"
+#else
 #define PATH_LENGTH    257
 #define LINE_ENDING    "\n"
 #define PATH_SEPARATOR '/'
+#define SLASH_STR      "/"
+#endif /* WIN32 */
 
 #define LO_BYTE(X) ((X) & 0xFF)
 #define HI_BYTE(X) (((X) >> 8) &0xFF)

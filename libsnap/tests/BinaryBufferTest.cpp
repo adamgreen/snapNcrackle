@@ -183,9 +183,8 @@ TEST(BinaryBuffer, Allocate2Items)
 
 TEST(BinaryBuffer, FailToAllocateItem)
 {
-    unsigned char* pAlloc;
     m_pBinaryBuffer = BinaryBuffer_Create(1);
-    __try_and_catch( pAlloc = BinaryBuffer_Alloc(m_pBinaryBuffer, 2) );
+    __try_and_catch( BinaryBuffer_Alloc(m_pBinaryBuffer, 2) );
     validateExceptionThrown(outOfMemoryException);
 }
 

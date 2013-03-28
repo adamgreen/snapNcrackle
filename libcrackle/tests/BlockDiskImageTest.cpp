@@ -22,6 +22,7 @@ extern "C"
     #include "MallocFailureInject.h"
     #include "FileFailureInject.h"
     #include "printfSpy.h"
+    #include "util.h"
 }
 
 // Include C++ headers for test harness.
@@ -879,7 +880,7 @@ TEST(BlockDiskImage, ProcessOneLineTextScriptWithAsteriskForLength)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,*,0\n"));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,*,0" LINE_ENDING));
 
     const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
     validateBlocksAreZeroes(pImage, 1, BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT - 1);
@@ -941,8 +942,8 @@ TEST(BlockDiskImage, ProcessTwoLineTextScript)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,0\n"
-                                                    "BLOCK,BlockDiskImageTestOnes.sav,0,512,1599\n"));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,0" LINE_ENDING
+                                                    "BLOCK,BlockDiskImageTestOnes.sav,0,512,1599" LINE_ENDING));
 
     const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
     validateBlocksAreZeroes(pImage, 1, BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT - 2);
@@ -955,8 +956,8 @@ TEST(BlockDiskImage, ProcessTwoLineTextScriptUsingAsteriskToStartFromLastInserti
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,255,*\n"
-                                                    "BLOCK,BlockDiskImageTestOnes.sav,0,257,*\n"));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,255,*" LINE_ENDING
+                                                    "BLOCK,BlockDiskImageTestOnes.sav,0,257,*" LINE_ENDING));
 
     const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
     validateBlocksAreZeroes(pImage, 1, BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT - 1);
@@ -968,7 +969,7 @@ TEST(BlockDiskImage, ProcessOneRW18LineTextScriptWithAsteriskForAllFieldsSoThatF
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,*,*,*,*\n"));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,*,*,*,*" LINE_ENDING));
 
     const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
     validateRW18SectorsAreZeroes(pImage, DISK_IMAGE_RW18_SIDE_0, 0, 0, 
@@ -982,7 +983,7 @@ TEST(BlockDiskImage, ProcessOneRW18LineTextScriptWithOverridesForAllFileHeaderFi
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,0\n"));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,0" LINE_ENDING));
 
     const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
     validateRW18SectorsAreOnes(pImage, DISK_IMAGE_RW18_SIDE_0, 0, 0, DISK_IMAGE_RW18_SIDE_0, 0, 0);
@@ -999,7 +1000,7 @@ TEST(BlockDiskImage, ProcessOneRW18LineTextScriptWithImageTableUpdate)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createImageTable(8, IMAGE_SIZES);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTest.img,0,*,0xa9,0,0,0,0x9F00\n"));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTest.img,0,*,0xa9,0,0,0,0x9F00" LINE_ENDING));
 
     const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
     validateUpdatedImageTable(pImage, startBlock, newStartAddress, 8, IMAGE_SIZES);
@@ -1013,7 +1014,7 @@ TEST(BlockDiskImage, UpdateImageTableFileThatShouldBeTruncatedAndWriteToImage)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createBlockRawObjectFile(g_imgTableFilename, (const unsigned char*)"\x01\x05\x60\x05\x60\xcd", 6);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTest.img,0,*,0xa9,0,0,0,0x9F00\n"));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTest.img,0,*,0xa9,0,0,0,0x9F00" LINE_ENDING));
 
     const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
     // Validate table headers were updated.
@@ -1028,7 +1029,7 @@ TEST(BlockDiskImage, FailTextFileCreateInProcessScript)
     createOnesBlockObjectFile();
 
     MallocFailureInject_FailAllocation(1);
-    __try_and_catch( BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,0\n")) );
+    __try_and_catch( BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,0" LINE_ENDING)) );
     validateOutOfMemoryExceptionThrown();
 }
 
@@ -1037,8 +1038,8 @@ TEST(BlockDiskImage, PassInvalidBlankLineToProcessScript)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("\n"));
-    STRCMP_EQUAL("<null>:1: error: Script line cannot be blank.\n",
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: Script line cannot be blank." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -1048,7 +1049,7 @@ TEST(BlockDiskImage, PassInvalidScriptInsertionTokenToProcessScript)
     createOnesBlockObjectFile();
 
     BlockDiskImage_ProcessScript(m_pDiskImage, copy("foo.bar"));
-    STRCMP_EQUAL("<null>:1: error: foo.bar isn't a recognized image insertion type of BLOCK or RWTS16.\n",
+    STRCMP_EQUAL("<null>:1: error: foo.bar isn't a recognized image insertion type of BLOCK or RWTS16." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -1057,8 +1058,8 @@ TEST(BlockDiskImage, PassTooFewBlockTokensToProcessScript)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512\n"));
-    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: BLOCK,objectFilename,objectStartOffset,insertionLength,block[,intraBlockOffset]\n",
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: BLOCK,objectFilename,objectStartOffset,insertionLength,block[,intraBlockOffset]" LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -1067,8 +1068,8 @@ TEST(BlockDiskImage, PassTooManyTokensToProcessScript)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,0,0,0\n"));
-    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: BLOCK,objectFilename,objectStartOffset,insertionLength,block[,intraBlockOffset]\n",
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,0,0,0" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: BLOCK,objectFilename,objectStartOffset,insertionLength,block[,intraBlockOffset]" LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -1077,8 +1078,8 @@ TEST(BlockDiskImage, PassInvalidFilenameToProcessScript)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,InvalidFilename.sav,0,512,0\n"));
-    STRCMP_EQUAL("<null>:1: error: Failed to read 'InvalidFilename.sav' object file.\n",
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,InvalidFilename.sav,0,512,0" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: Failed to read 'InvalidFilename.sav' object file." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -1087,8 +1088,8 @@ TEST(BlockDiskImage, PassInvalidBlockToProcessScript)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,1600\n"));
-    STRCMP_EQUAL("<null>:1: error: Write starting at block 1600 offset 0 won't fit in output image file.\n",
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,1600" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: Write starting at block 1600 offset 0 won't fit in output image file." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -1097,8 +1098,8 @@ TEST(BlockDiskImage, PassInvalidIntraBlockOffsetToProcessScript)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,0,512\n"));
-    STRCMP_EQUAL("<null>:1: error: 512 specifies an invalid intra block offset.  Must be 0 - 511.\n",
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,512,0,512" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: 512 specifies an invalid intra block offset.  Must be 0 - 511." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -1107,8 +1108,8 @@ TEST(BlockDiskImage, PassInvalidInsertionTypeToProcessScript)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS16,BlockDiskImageTestOnes.sav,0,512,0,0\n"));
-    STRCMP_EQUAL("<null>:1: error: RWTS16 insertion type isn't supported for this output image type.\n",
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS16,BlockDiskImageTestOnes.sav,0,512,0,0" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: RWTS16 insertion type isn't supported for this output image type." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -1117,8 +1118,8 @@ TEST(BlockDiskImage, PassTooFewRWTS18TokensToProcessScript)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0\n"));
-    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset[,imageTableAddress]\n",
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset[,imageTableAddress]" LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -1127,8 +1128,8 @@ TEST(BlockDiskImage, PassTooManyRWTS18TokensToProcessScript)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,0,0,0\n"));
-    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset[,imageTableAddress]\n",
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,0,0,0" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset[,imageTableAddress]" LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -1137,8 +1138,8 @@ TEST(BlockDiskImage, PassInvalidRWTS18FilenameToProcessScript)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,InvalidFilename.usr,0,*,0xa9,0,0,0\n"));
-    STRCMP_EQUAL("<null>:1: error: Failed to read 'InvalidFilename.usr' object file.\n",
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,InvalidFilename.usr,0,*,0xa9,0,0,0" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: Failed to read 'InvalidFilename.usr' object file." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -1147,8 +1148,8 @@ TEST(BlockDiskImage, PassInvalidRWTS18SectorOffsetToProcessScript)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,256\n"));
-    STRCMP_EQUAL("<null>:1: error: 256 specifies an invalid intra sector offset.  Must be 0 - 255.\n",
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,256" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: 256 specifies an invalid intra sector offset.  Must be 0 - 255." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -1157,8 +1158,8 @@ TEST(BlockDiskImage, PassInvalidRWTS18SideToProcessScript)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0,0,0,0\n"));
-    STRCMP_EQUAL("<null>:1: error: 0x0 specifies an invalid side.  Must be 0xa9, 0xad, 0x79.\n",
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0,0,0,0" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: 0x0 specifies an invalid side.  Must be 0xa9, 0xad, 0x79." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
@@ -1166,8 +1167,8 @@ TEST(BlockDiskImage, ProcessTwoLineScriptFile)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
-    createTextFile(g_scriptFilename, "BLOCK,BlockDiskImageTestOnes.sav,0,512,0\n"
-                                     "BLOCK,BlockDiskImageTestOnes.sav,0,512,1599\n");
+    createTextFile(g_scriptFilename, "BLOCK,BlockDiskImageTestOnes.sav,0,512,0" LINE_ENDING
+                                     "BLOCK,BlockDiskImageTestOnes.sav,0,512,1599" LINE_ENDING);
 
     BlockDiskImage_ProcessScriptFile(m_pDiskImage, g_scriptFilename);
 
@@ -1181,8 +1182,8 @@ TEST(BlockDiskImage, FailToAllocateTextFileInProcessScriptFile)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesBlockObjectFile();
-    createTextFile(g_scriptFilename, "BLOCK,BlockDiskImageTestOnes.sav,0,512,0\n"
-                                     "BLOCK,BlockDiskImageTestOnes.sav,0,512,1599\n");
+    createTextFile(g_scriptFilename, "BLOCK,BlockDiskImageTestOnes.sav,0,512,0" LINE_ENDING
+                                     "BLOCK,BlockDiskImageTestOnes.sav,0,512,1599" LINE_ENDING);
 
     MallocFailureInject_FailAllocation(1);
     __try_and_catch( BlockDiskImage_ProcessScriptFile(m_pDiskImage, g_scriptFilename) );

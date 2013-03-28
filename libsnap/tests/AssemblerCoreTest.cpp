@@ -62,7 +62,7 @@ TEST(AssemblerCore, InitFromNonExistantFile)
 TEST(AssemblerCore, FailAllAllocationsDuringFileInit)
 {
     static const int allocationsToFail = 27;
-    createSourceFile(" ORG $800\r\n");
+    createSourceFile(" ORG $800\r" LINE_ENDING);
     m_initParams.pListFilename = g_listFilename;
     m_initParams.pPutDirectories = ".";
 
@@ -81,9 +81,9 @@ TEST(AssemblerCore, FailAllAllocationsDuringFileInit)
 
 TEST(AssemblerCore, InitAndRunFromShortFile)
 {
-    createSourceFile("* Symbols\n"
-                     "SYM1 = $1\n"
-                     "SYM2 EQU $2\n");
+    createSourceFile("* Symbols" LINE_ENDING
+                     "SYM1 = $1" LINE_ENDING
+                     "SYM2 EQU $2" LINE_ENDING);
     m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(3, printfSpy_GetCallCount());
@@ -91,8 +91,8 @@ TEST(AssemblerCore, InitAndRunFromShortFile)
 
 TEST(AssemblerCore, InitAndCreateActualListFileNotSentToStdOut)
 {
-    static const char expectedListOutput[] = "    :    =0001     1 SYM1 EQU $1\n";
-    createSourceFile("SYM1 EQU $1\n");
+    static const char expectedListOutput[] = "    :    =0001     1 SYM1 EQU $1" LINE_ENDING;
+    createSourceFile("SYM1 EQU $1" LINE_ENDING);
     m_initParams.pListFilename = g_listFilename;
 
     printfSpy_Unhook();
@@ -137,76 +137,76 @@ TEST(AssemblerCore, RunOnLongLine)
 
 TEST(AssemblerCore, CommentLine)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe("*  boot\n"), NULL);
-    runAssemblerAndValidateOutputIs("    :              1 *  boot\n");
+    m_pAssembler = Assembler_CreateFromString(dupe("*  boot" LINE_ENDING), NULL);
+    runAssemblerAndValidateOutputIs("    :              1 *  boot" LINE_ENDING);
 }
 
 TEST(AssemblerCore, InvalidOperatorFromStringSource)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" foo bar\n"), NULL);
-    runAssemblerAndValidateFailure("filename:1: error: 'foo' is not a recognized mnemonic or macro.\n", 
-                                   "    :              1  foo bar\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" foo bar" LINE_ENDING), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: 'foo' is not a recognized mnemonic or macro." LINE_ENDING, 
+                                   "    :              1  foo bar" LINE_ENDING);
 }
 
 TEST(AssemblerCore, InvalidOperatorFromFileSource)
 {
-    createSourceFile(" foo bar\n");
+    createSourceFile(" foo bar" LINE_ENDING);
     m_pAssembler = Assembler_CreateFromFile(g_sourceFilename, NULL);
-    runAssemblerAndValidateFailure("AssemblerTest.S:1: error: 'foo' is not a recognized mnemonic or macro.\n", 
-                                   "    :              1  foo bar\n");
+    runAssemblerAndValidateFailure("AssemblerTest.S:1: error: 'foo' is not a recognized mnemonic or macro." LINE_ENDING, 
+                                   "    :              1  foo bar" LINE_ENDING);
 }
 
 TEST(AssemblerCore, Immediate16BitValueTruncatedToLower8BitByDefault)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda #$100\n"), NULL);
-    runAssemblerAndValidateOutputIs("8000: A9 00        1  lda #$100\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #$100" LINE_ENDING), NULL);
+    runAssemblerAndValidateOutputIs("8000: A9 00        1  lda #$100" LINE_ENDING);
 }
 
 TEST(AssemblerCore, Immediate16BitValueTruncatedToLower8BitByLessThanPrefix)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda #<$100\n"), NULL);
-    runAssemblerAndValidateOutputIs("8000: A9 00        1  lda #<$100\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #<$100" LINE_ENDING), NULL);
+    runAssemblerAndValidateOutputIs("8000: A9 00        1  lda #<$100" LINE_ENDING);
 }
 
 TEST(AssemblerCore, Immediate16BitValueWithGreaterThanPrefixToObtainHighByte)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda #>$100\n"), NULL);
-    runAssemblerAndValidateOutputIs("8000: A9 01        1  lda #>$100\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #>$100" LINE_ENDING), NULL);
+    runAssemblerAndValidateOutputIs("8000: A9 01        1  lda #>$100" LINE_ENDING);
 }
 
 TEST(AssemblerCore, Immediate16BitValueWithCaretPrefixToObtainHighByte)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda #^$100\n"), NULL);
-    runAssemblerAndValidateOutputIs("8000: A9 01        1  lda #^$100\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #^$100" LINE_ENDING), NULL);
+    runAssemblerAndValidateOutputIs("8000: A9 01        1  lda #^$100" LINE_ENDING);
 }
 
 TEST(AssemblerCore, FailWithInvalidExpression)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" sta +ff\n"), NULL);
-    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression.\n",
-                                   "    :              1  sta +ff\n");
+    m_pAssembler = Assembler_CreateFromString(dupe(" sta +ff" LINE_ENDING), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: Unexpected prefix in '+ff' expression." LINE_ENDING,
+                                   "    :              1  sta +ff" LINE_ENDING);
 }
 
 TEST(AssemblerCore, FailBinaryBufferAllocationOnEmitSingleByteInstruction)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" clc\n"), NULL);
+    m_pAssembler = Assembler_CreateFromString(dupe(" clc" LINE_ENDING), NULL);
     BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
-    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
-                                   "    :              1  clc\n");
+    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file." LINE_ENDING,
+                                   "    :              1  clc" LINE_ENDING);
 }
 
 TEST(AssemblerCore, FailBinaryBufferAllocationOnEmitTwoByteInstruction)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda #1\n"), NULL);
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda #1" LINE_ENDING), NULL);
     BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
-    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
-                                   "    :              1  lda #1\n");
+    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file." LINE_ENDING,
+                                   "    :              1  lda #1" LINE_ENDING);
 }
 
 TEST(AssemblerCore, FailBinaryBufferAllocationOnEmitThreeByteInstruction)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" lda $800\n"), NULL);
+    m_pAssembler = Assembler_CreateFromString(dupe(" lda $800" LINE_ENDING), NULL);
     BinaryBuffer_FailAllocation(m_pAssembler->pCurrentBuffer, 1);
-    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file.\n",
-                                   "    :              1  lda $800\n");
+    runAssemblerAndValidateFailure("filename:1: error: Exceeded the 65536 allowed bytes in the object file." LINE_ENDING,
+                                   "    :              1  lda $800" LINE_ENDING);
 }

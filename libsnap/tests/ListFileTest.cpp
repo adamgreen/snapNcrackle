@@ -18,6 +18,7 @@ extern "C"
     #include "ListFile.h"
     #include "MallocFailureInject.h"
     #include "printfSpy.h"
+    #include "util.h"
 }
 
 // Include C++ headers for test harness.
@@ -70,7 +71,7 @@ TEST(ListFile, OutputLineWithOnlyLineNumberAndText)
     ListFile_OutputLine(m_pListFile, &m_lineInfo);
 
     POINTERS_EQUAL(stdout, printfSpy_GetLastFile());
-    STRCMP_EQUAL("    :              1 * Full line comment.\n", printfSpy_GetLastOutput());
+    STRCMP_EQUAL("    :              1 * Full line comment." LINE_ENDING, printfSpy_GetLastOutput());
 }
 
 TEST(ListFile, OutputLineWithOnlyLineNumberAndTextToStderr)
@@ -83,7 +84,7 @@ TEST(ListFile, OutputLineWithOnlyLineNumberAndTextToStderr)
     ListFile_OutputLine(m_pListFile, &m_lineInfo);
 
     POINTERS_EQUAL(stderr, printfSpy_GetLastFile());
-    STRCMP_EQUAL("    :              1 * Full line comment.\n", printfSpy_GetLastOutput());
+    STRCMP_EQUAL("    :              1 * Full line comment." LINE_ENDING, printfSpy_GetLastOutput());
 }
 
 TEST(ListFile, OutputLineWithSymbol)
@@ -94,7 +95,7 @@ TEST(ListFile, OutputLineWithSymbol)
     m_lineInfo.equValue = 0xFFFF;
     ListFile_OutputLine(m_pListFile, &m_lineInfo);
 
-    STRCMP_EQUAL("    :    =FFFF     2 LABEL EQU $FFFF\n", printfSpy_GetLastOutput());
+    STRCMP_EQUAL("    :    =FFFF     2 LABEL EQU $FFFF" LINE_ENDING, printfSpy_GetLastOutput());
 }
 
 TEST(ListFile, OutputLineWithAddressAndOneMachineCodeByte)
@@ -106,7 +107,7 @@ TEST(ListFile, OutputLineWithAddressAndOneMachineCodeByte)
     m_lineInfo.pMachineCode[0] = 0xCA;
     ListFile_OutputLine(m_pListFile, &m_lineInfo);
 
-    STRCMP_EQUAL("0800: CA           3  DEX\n", printfSpy_GetLastOutput());
+    STRCMP_EQUAL("0800: CA           3  DEX" LINE_ENDING, printfSpy_GetLastOutput());
 }
 
 TEST(ListFile, OutputLineWithAddressAndTwoMachineCodeBytes)
@@ -119,7 +120,7 @@ TEST(ListFile, OutputLineWithAddressAndTwoMachineCodeBytes)
     m_lineInfo.pMachineCode[1] = 0x2C;
     ListFile_OutputLine(m_pListFile, &m_lineInfo);
 
-    STRCMP_EQUAL("0801: A5 2C        4  LDA $2C\n", printfSpy_GetLastOutput());
+    STRCMP_EQUAL("0801: A5 2C        4  LDA $2C" LINE_ENDING, printfSpy_GetLastOutput());
 }
 
 TEST(ListFile, OutputLineWithAddressAndThreeMachineCodeBytes)
@@ -133,7 +134,7 @@ TEST(ListFile, OutputLineWithAddressAndThreeMachineCodeBytes)
     m_lineInfo.pMachineCode[2] = 0x08;
     ListFile_OutputLine(m_pListFile, &m_lineInfo);
 
-    STRCMP_EQUAL("0803: AD C0 08     5  LDA $C008\n", printfSpy_GetLastOutput());
+    STRCMP_EQUAL("0803: AD C0 08     5  LDA $C008" LINE_ENDING, printfSpy_GetLastOutput());
 }
 
 TEST(ListFile, OutputLineWithAddressAndFourMachineCodeBytes)
@@ -148,8 +149,8 @@ TEST(ListFile, OutputLineWithAddressAndFourMachineCodeBytes)
     m_lineInfo.pMachineCode[3] = 0x00;
     ListFile_OutputLine(m_pListFile, &m_lineInfo);
 
-    STRCMP_EQUAL("0800: 00 00 00     1  DS 4\n", printfSpy_GetPreviousOutput());
-    STRCMP_EQUAL("0803: 00      \n", printfSpy_GetLastOutput());
+    STRCMP_EQUAL("0800: 00 00 00     1  DS 4" LINE_ENDING, printfSpy_GetPreviousOutput());
+    STRCMP_EQUAL("0803: 00      " LINE_ENDING, printfSpy_GetLastOutput());
 }
 
 TEST(ListFile, OutputLineWithIndentation)
@@ -162,5 +163,5 @@ TEST(ListFile, OutputLineWithIndentation)
     m_lineInfo.pMachineCode[0] = 0xCA;
     ListFile_OutputLine(m_pListFile, &m_lineInfo);
 
-    STRCMP_EQUAL("0800: CA               3  DEX\n", printfSpy_GetLastOutput());
+    STRCMP_EQUAL("0800: CA               3  DEX" LINE_ENDING, printfSpy_GetLastOutput());
 }

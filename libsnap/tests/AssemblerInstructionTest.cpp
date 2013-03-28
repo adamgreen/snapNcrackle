@@ -35,11 +35,11 @@ TEST_GROUP_BASE(AssemblerInstructions, AssemblerBase)
         char               expectedListOutput[128];
         char               expectedErrorOutput[128];
 
-        sprintf(testString, " %s *+129\n", pInstruction);
+        sprintf(testString, " %s *+129" LINE_ENDING, pInstruction);
         runAssembler(testString);
         if (m_isInvalidInstruction)
         {
-            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", pInstruction);
+            sprintf(expectedErrorOutput, "filename:1: error: '%s' is not a recognized mnemonic or macro." LINE_ENDING, pInstruction);
             sprintf(expectedListOutput, "    :              1 %s", testString);
             validateFailureOutput(expectedErrorOutput, expectedListOutput);
             return;
@@ -181,12 +181,12 @@ TEST_GROUP_BASE(AssemblerInstructions, AssemblerBase)
 
         assert ( pAddressingModeStrings->pSuccessfulAbsoluteOperandMachineCode || !m_isZeroPageTreatedAsAbsolute );
         
-        sprintf(testString, " %s %s\n", pInstruction, pAddressingModeStrings->pTestOperand);
+        sprintf(testString, " %s %s" LINE_ENDING, pInstruction, pAddressingModeStrings->pTestOperand);
         runAssembler(testString);
         if (m_isInvalidInstruction)
         {
             sprintf(expectedErrorOutput, 
-                    "filename:1: error: '%s' is not a recognized mnemonic or macro.\n", 
+                    "filename:1: error: '%s' is not a recognized mnemonic or macro." LINE_ENDING, 
                     pInstruction);
             sprintf(expectedListOutput, "    :              1 %s", testString);
             validateFailureOutput(expectedErrorOutput, expectedListOutput);
@@ -204,7 +204,7 @@ TEST_GROUP_BASE(AssemblerInstructions, AssemblerBase)
         else
         {
             sprintf(expectedErrorOutput, 
-                    "filename:1: error: Addressing mode of '%s' is not supported for '%s' instruction.\n", 
+                    "filename:1: error: Addressing mode of '%s' is not supported for '%s' instruction." LINE_ENDING, 
                     pAddressingModeStrings->pTestOperand,
                     pInstruction);
             sprintf(expectedListOutput, "    :              1 %s", testString);
@@ -281,7 +281,7 @@ TEST_GROUP_BASE(AssemblerInstructions, AssemblerBase)
         if (m_isInvalidMode || m_isInvalidInstruction)
             return;
         
-        sprintf(testString, " %s *\n", pInstruction);
+        sprintf(testString, " %s *" LINE_ENDING, pInstruction);
         runAssembler(testString);
         sprintf(expectedListOutput, "8000: %02X FE        1 %s", m_expectedOpcode, testString);
         validateSuccessfulOutput(expectedListOutput);
@@ -326,48 +326,48 @@ TEST_GROUP_BASE(AssemblerInstructions, AssemblerBase)
 
 TEST(AssemblerInstructions, BEQ_ZeroPageMaxNegativeTarget)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" org $0090\n"
-                                                   " beq *-126\n"), NULL);
-    runAssemblerAndValidateLastLineIs("0090: F0 80        2  beq *-126\n", 2);
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0090" LINE_ENDING
+                                                   " beq *-126" LINE_ENDING), NULL);
+    runAssemblerAndValidateLastLineIs("0090: F0 80        2  beq *-126" LINE_ENDING, 2);
 }
 
 TEST(AssemblerInstructions, BEQ_ZeroPageMaxPositiveTarget)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
-                                                   " beq *+129\n"), NULL);
-    runAssemblerAndValidateLastLineIs("0000: F0 7F        2  beq *+129\n", 2);
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0000" LINE_ENDING
+                                                   " beq *+129" LINE_ENDING), NULL);
+    runAssemblerAndValidateLastLineIs("0000: F0 7F        2  beq *+129" LINE_ENDING, 2);
 }
 
 TEST(AssemblerInstructions, BEQ_ZeroPageInvalidNegativeTarget)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" org $0090\n"
-                                                   " beq *-127\n"), NULL);
-    runAssemblerAndValidateFailure("filename:2: error: Relative offset of '*-127' exceeds the allowed -128 to 127 range.\n",
-                                   "    :              2  beq *-127\n", 3);
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0090" LINE_ENDING
+                                                   " beq *-127" LINE_ENDING), NULL);
+    runAssemblerAndValidateFailure("filename:2: error: Relative offset of '*-127' exceeds the allowed -128 to 127 range." LINE_ENDING,
+                                   "    :              2  beq *-127" LINE_ENDING, 3);
 }
 
 TEST(AssemblerInstructions, BEQ_ZeroPageInvalidPositiveTarget)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" org $0000\n"
-                                                   " beq *+130\n"), NULL);
-    runAssemblerAndValidateFailure("filename:2: error: Relative offset of '*+130' exceeds the allowed -128 to 127 range.\n",
-                                   "    :              2  beq *+130\n", 3);
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0000" LINE_ENDING
+                                                   " beq *+130" LINE_ENDING), NULL);
+    runAssemblerAndValidateFailure("filename:2: error: Relative offset of '*+130' exceeds the allowed -128 to 127 range." LINE_ENDING,
+                                   "    :              2  beq *+130" LINE_ENDING, 3);
 }
 
 TEST(AssemblerInstructions, BEQ_AbsoluteTarget)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" org $0800\n"
-                                                   " beq *+2\n"), NULL);
-    runAssemblerAndValidateLastLineIs("0800: F0 00        2  beq *+2\n", 2);
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0800" LINE_ENDING
+                                                   " beq *+2" LINE_ENDING), NULL);
+    runAssemblerAndValidateLastLineIs("0800: F0 00        2  beq *+2" LINE_ENDING, 2);
 }
 
 TEST(AssemblerInstructions, BEQ_ForwardLabelReference)
 {
-    m_pAssembler = Assembler_CreateFromString(dupe(" org $0800\n"
-                                                   " beq label\n"
-                                                   "label\n"), NULL);
-    runAssemblerAndValidateLastTwoLinesOfOutputAre("0800: F0 00        2  beq label\n",
-                                                   "    :              3 label\n", 3);
+    m_pAssembler = Assembler_CreateFromString(dupe(" org $0800" LINE_ENDING
+                                                   " beq label" LINE_ENDING
+                                                   "label" LINE_ENDING), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("0800: F0 00        2  beq label" LINE_ENDING,
+                                                   "    :              3 label" LINE_ENDING, 3);
 }
 
 
