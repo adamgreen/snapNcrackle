@@ -35,12 +35,12 @@ CDEFINES:=$(CDEFINES) -D_DEBUG -D_DBG=1
 WARNING_FLAGS:=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-missing-field-initializers
 WARNING_OBJC_FLAGS:=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-missing-field-initializers
 OPTIMIZATIONFLAGS:=-O0 -fno-inline
-CFLAGS:=-I. -fmessage-length=0 -pipe -g3
-CPPFLAGS:=-I. -fmessage-length=0 -pipe -fvisibility-inlines-hidden -g3 -Wno-non-virtual-dtor
+CFLAGS:=$(ARCH_OVERRIDE) -I. -fmessage-length=0 -pipe -g3
+CPPFLAGS:=$(ARCH_OVERRIDE) -I. -fmessage-length=0 -pipe -fvisibility-inlines-hidden -g3 -Wno-non-virtual-dtor
 MFLAGS:=-I. -fmessage-length=0 -pipe -g3
 MMFLAGS:=-I. -fmessage-length=0 -pipe -fvisibility-inlines-hidden -g3
 OUTDIR:=./Debug
-LINKFLAGS:=
+LINKFLAGS:=$(ARCH_OVERRIDE)
 LIBFLAGS:=
 ASFLAGS:=-gstabs
 
@@ -49,12 +49,12 @@ CDEFINES:=$(CDEFINES) -DNDEBUG -D_DBG=0
 WARNING_FLAGS:=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-missing-field-initializers
 WARNING_OBJC_FLAGS:=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-missing-field-initializers
 OPTIMIZATIONFLAGS:=-O2
-CFLAGS:=-I. -fmessage-length=0 -pipe -g3
-CPPFLAGS:=-I. -fmessage-length=0 -pipe -fvisibility-inlines-hidden -g3 -Wno-non-virtual-dtor
+CFLAGS:=$(ARCH_OVERRIDE) -I. -fmessage-length=0 -pipe -g3
+CPPFLAGS:=$(ARCH_OVERRIDE) -I. -fmessage-length=0 -pipe -fvisibility-inlines-hidden -g3 -Wno-non-virtual-dtor
 MFLAGS:=-I. -fmessage-length=0 -pipe -g3
 MMFLAGS:=-I. -fmessage-length=0 -pipe -fvisibility-inlines-hidden -g3
 OUTDIR:=./Release
-LINKFLAGS:= 
+LINKFLAGS:=$(ARCH_OVERRIDE)
 LIBFLAGS:=
 ASFLAGS:=-gstabs
 
