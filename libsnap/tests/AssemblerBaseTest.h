@@ -87,7 +87,7 @@ TEST_BASE(AssemblerBase)
 
     void createThisSourceFile(const char* pFilename, const char* pString)
     {
-        FILE* pFile = fopen(pFilename, "w");
+        FILE* pFile = fopen(pFilename, "wb");
         fwrite(pString, 1, strlen(pString), pFile);
         fclose(pFile);
     }
@@ -176,7 +176,7 @@ TEST_BASE(AssemblerBase)
     {
         SavFileHeader header;
         
-        m_pFile = fopen(g_objectFilename, "r");
+        m_pFile = fopen(g_objectFilename, "rb");
         CHECK(m_pFile != NULL);
         LONGS_EQUAL(expectedContentSize + sizeof(header), getFileSize(m_pFile));
         
@@ -205,7 +205,7 @@ TEST_BASE(AssemblerBase)
     {
         RW18SavFileHeader header;
         
-        m_pFile = fopen(pFilename, "r");
+        m_pFile = fopen(pFilename, "rb");
         CHECK(m_pFile != NULL);
         LONGS_EQUAL(expectedContentSize + sizeof(header), getFileSize(m_pFile));
         
@@ -228,7 +228,7 @@ TEST_BASE(AssemblerBase)
     
     void validateListFileContains(const char* pExpectedContent, long expectedContentSize)
     {
-        m_pFile = fopen(g_listFilename, "r");
+        m_pFile = fopen(g_listFilename, "rb");
         CHECK(m_pFile != NULL);
         LONGS_EQUAL(expectedContentSize, getFileSize(m_pFile));
         

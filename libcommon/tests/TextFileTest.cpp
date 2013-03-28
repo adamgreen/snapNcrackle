@@ -81,7 +81,7 @@ TEST_GROUP(TextFile)
     
     void createTestFile(const char* pTestText)
     {
-        FILE* pFile = fopen(tempFilename, "w");
+        FILE* pFile = fopen(tempFilename, "wb");
         CHECK(pFile != NULL);
         LONGS_EQUAL(strlen(pTestText), fwrite(pTestText, 1, strlen(pTestText), pFile));
         fclose(pFile);

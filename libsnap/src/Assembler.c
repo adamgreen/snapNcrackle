@@ -95,7 +95,7 @@ static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, const AssemblerI
     if (!pParams || !pParams->pListFilename)
         return stdout;
         
-    pThis->pFileForListing = fopen(pParams->pListFilename, "w");
+    pThis->pFileForListing = fopen(pParams->pListFilename, "wb");
     if (!pThis->pFileForListing)
         __throw(fileNotFoundException);
     return pThis->pFileForListing;

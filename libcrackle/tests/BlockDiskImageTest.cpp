@@ -234,7 +234,7 @@ TEST_GROUP(BlockDiskImage)
     
     const unsigned char* readDiskImageIntoMemory(void)
     {
-        m_pFile = fopen(g_imageFilename, "r");
+        m_pFile = fopen(g_imageFilename, "rb");
         CHECK(m_pFile != NULL);
         LONGS_EQUAL(BLOCK_DISK_IMAGE_3_5_DISK_SIZE, getFileSize(m_pFile));
         
@@ -299,7 +299,7 @@ TEST_GROUP(BlockDiskImage)
         header.address = 0;
         header.length = blockDataSize;
     
-        FILE* pFile = fopen(pFilename, "w");
+        FILE* pFile = fopen(pFilename, "wb");
         fwrite(&header, 1, sizeof(header), pFile);
         fwrite(pBlockData, 1, blockDataSize, pFile);
         fclose(pFile);
@@ -332,7 +332,7 @@ TEST_GROUP(BlockDiskImage)
         header.offset = DISK_IMAGE_BYTES_PER_SECTOR * sector + offset;
         header.length = sectorDataSize;
     
-        FILE* pFile = fopen(pFilename, "w");
+        FILE* pFile = fopen(pFilename, "wb");
         fwrite(&header, 1, sizeof(header), pFile);
         fwrite(pSectorData, 1, sectorDataSize, pFile);
         fclose(pFile);
@@ -347,14 +347,14 @@ TEST_GROUP(BlockDiskImage)
 
     void createBlockRawObjectFile(const char* pFilename, const unsigned char* pBlockData, size_t blockDataSize)
     {
-        FILE* pFile = fopen(pFilename, "w");
+        FILE* pFile = fopen(pFilename, "wb");
         fwrite(pBlockData, 1, blockDataSize, pFile);
         fclose(pFile);
     }
 
     void createTextFile(const char* pFilename, const char* pText)
     {
-        FILE* pFile = fopen(pFilename, "w");
+        FILE* pFile = fopen(pFilename, "wb");
         fwrite(pText, 1, strlen(pText), pFile);
         fclose(pFile);
     }
@@ -363,7 +363,7 @@ TEST_GROUP(BlockDiskImage)
     {
         va_list argList;
         
-        FILE* pFile = fopen(g_imgTableFilename, "w");
+        FILE* pFile = fopen(g_imgTableFilename, "wb");
         fwrite(&imageCount, 1, sizeof(imageCount), pFile);
         va_start(argList, imageCount);
         

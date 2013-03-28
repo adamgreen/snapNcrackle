@@ -53,7 +53,7 @@ TEST_GROUP(ByteBuffer)
     
     void writeBufferToFile()
     {
-        m_pFile = fopen(g_TestFilename, "w");
+        m_pFile = fopen(g_TestFilename, "wb");
         CHECK(NULL != m_pFile);
 
         ByteBuffer_WriteToFile(&m_buffer, m_pFile);
@@ -64,7 +64,7 @@ TEST_GROUP(ByteBuffer)
     
     void validateFileContainsBufferContents()
     {
-        m_pFile = fopen(g_TestFilename, "r");
+        m_pFile = fopen(g_TestFilename, "rb");
         LONGS_EQUAL(m_buffer.bufferSize, getFileSize(m_pFile));
         m_pFileData = (unsigned char*)malloc(m_buffer.bufferSize);
         fread(m_pFileData, 1, m_buffer.bufferSize, m_pFile);
@@ -77,7 +77,7 @@ TEST_GROUP(ByteBuffer)
     
     void createTestFile(const char* pData, size_t dataSize)
     {
-        m_pFile = fopen(g_TestFilename, "w");
+        m_pFile = fopen(g_TestFilename, "wb");
         CHECK(NULL != m_pFile);
 
         LONGS_EQUAL(dataSize, fwrite(pData, 1, dataSize, m_pFile));
@@ -88,7 +88,7 @@ TEST_GROUP(ByteBuffer)
     
     void readBufferFromFile()
     {
-        m_pFile = fopen(g_TestFilename, "r");
+        m_pFile = fopen(g_TestFilename, "rb");
         CHECK(NULL != m_pFile);
 
         ByteBuffer_ReadFromFile(&m_buffer, m_pFile);
@@ -99,7 +99,7 @@ TEST_GROUP(ByteBuffer)
     
     void readPartialBufferFromFile(size_t bytesToRead)
     {
-        m_pFile = fopen(g_TestFilename, "r");
+        m_pFile = fopen(g_TestFilename, "rb");
         CHECK(NULL != m_pFile);
 
         ByteBuffer_ReadPartialFromFile(&m_buffer, bytesToRead, m_pFile);

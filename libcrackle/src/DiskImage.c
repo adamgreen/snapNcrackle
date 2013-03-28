@@ -410,7 +410,7 @@ __throws void DiskImage_ReadObjectFile(DiskImage* pThis, const char* pFilename)
     
     __try
     {
-        pFile = openFile(pFilename, "r");
+        pFile = openFile(pFilename, "rb");
         memset(&pThis->insert, 0, sizeof(pThis->insert));
         determineObjectSizeFromFileHeader(pThis, pFile);
         roundedObjectSize = roundUpLengthToBlockSize(pThis->objectFileLength);
@@ -586,7 +586,7 @@ __throws void DiskImage_WriteImage(DiskImage* pThis, const char* pImageFilename)
 
     __try
     {
-        pFile = openFile(pImageFilename, "w");
+        pFile = openFile(pImageFilename, "wb");
         ByteBuffer_WriteToFile(&pThis->image, pFile);
     }
     __catch

@@ -216,7 +216,7 @@ TEST_GROUP(NibbleDiskImage)
     
     const unsigned char* readNibbleDiskImageIntoMemory(void)
     {
-        m_pFile = fopen(g_imageFilename, "r");
+        m_pFile = fopen(g_imageFilename, "rb");
         CHECK(m_pFile != NULL);
         LONGS_EQUAL(NIBBLE_DISK_IMAGE_SIZE, getFileSize(m_pFile));
         
@@ -281,7 +281,7 @@ TEST_GROUP(NibbleDiskImage)
         header.address = 0;
         header.length = sectorDataSize;
     
-        FILE* pFile = fopen(pFilename, "w");
+        FILE* pFile = fopen(pFilename, "wb");
         fwrite(&header, 1, sizeof(header), pFile);
         fwrite(pSectorData, 1, sectorDataSize, pFile);
         fclose(pFile);
@@ -289,7 +289,7 @@ TEST_GROUP(NibbleDiskImage)
 
     void createTextFile(const char* pFilename, const char* pText)
     {
-        FILE* pFile = fopen(pFilename, "w");
+        FILE* pFile = fopen(pFilename, "wb");
         fwrite(pText, 1, strlen(pText), pFile);
         fclose(pFile);
     }

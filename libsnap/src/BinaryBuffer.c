@@ -286,7 +286,7 @@ static void writeEntryToDisk(FileWriteEntry* pEntry)
     size_t                     bytesWritten;
     FILE*                      pFile;
     
-    pFile = fopen(pEntry->filename, "w");
+    pFile = fopen(pEntry->filename, "wb");
     if (!pFile)
         __throw(fileException);
     

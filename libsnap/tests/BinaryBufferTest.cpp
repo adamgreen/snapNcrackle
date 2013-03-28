@@ -91,7 +91,7 @@ TEST_GROUP(BinaryBuffer)
     {
         SavFileHeader header;
         
-        m_pFile = fopen(pFilename, "r");
+        m_pFile = fopen(pFilename, "rb");
         CHECK(m_pFile != NULL);
         LONGS_EQUAL(expectedContentSize + sizeof(header), getFileSize(m_pFile));
         
@@ -119,7 +119,7 @@ TEST_GROUP(BinaryBuffer)
     {
         RW18SavFileHeader header;
         
-        m_pFile = fopen(pFilename, "r");
+        m_pFile = fopen(pFilename, "rb");
         CHECK(m_pFile != NULL);
         LONGS_EQUAL(expectedContentSize + sizeof(header), getFileSize(m_pFile));
         

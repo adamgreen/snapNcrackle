@@ -40,7 +40,7 @@ TEST_GROUP(FileFailureInject)
     
     void openFile()
     {
-        m_pFile = hook_fopen(testFilename, "w");
+        m_pFile = hook_fopen(testFilename, "wb");
     }
     
     void createSmallTestFile()
@@ -48,7 +48,7 @@ TEST_GROUP(FileFailureInject)
         openFile();
         LONGS_EQUAL(5, fwrite("12345", 1, 5, m_pFile));
         fclose(m_pFile);
-        m_pFile = fopen(testFilename, "r");
+        m_pFile = fopen(testFilename, "rb");
         CHECK(m_pFile != NULL);
     }
 };

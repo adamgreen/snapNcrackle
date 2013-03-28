@@ -498,7 +498,7 @@ TEST(AssemblerDirectives, SAV_DirectiveShouldBeIgnoredOnErrors)
                                                    " sav AssemblerTest.sav\n"), NULL);
     Assembler_Run(m_pAssembler);
     LONGS_EQUAL(1, Assembler_GetErrorCount(m_pAssembler));
-    m_pFile = fopen(g_objectFilename, "r");
+    m_pFile = fopen(g_objectFilename, "rb");
     POINTERS_EQUAL(NULL, m_pFile);
 }
 
