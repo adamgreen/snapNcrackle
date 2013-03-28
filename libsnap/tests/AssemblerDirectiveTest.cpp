@@ -481,7 +481,7 @@ TEST(AssemblerDirectives, SAV_DirectiveOnSmallObjectFileOverridingOutputDirector
 
 TEST(AssemblerDirectives, SAV_DirectiveOnSmallObjectFileOverridingToInvalidOutputDirectory)
 {
-    m_initParams.pOutputDirectory = "foobar/";
+    m_initParams.pOutputDirectory = "foobar" SLASH_STR;
     m_pAssembler = Assembler_CreateFromString(dupe(" org $800" LINE_ENDING
                                                    " hex 00,ff" LINE_ENDING
                                                    " sav AssemblerTest.sav" LINE_ENDING), &m_initParams);

@@ -18,6 +18,7 @@ extern "C"
     #include "BinaryBuffer.h"
     #include "MallocFailureInject.h"
     #include "FileFailureInject.h"
+    #include "util.h"
 }
 
 // Include C++ headers for test harness.
@@ -251,7 +252,7 @@ TEST(BinaryBuffer, QueueWriteToFileWithDirectoryNoSlash)
 TEST(BinaryBuffer, QueueWriteToFileWithDirectorySlash)
 {
     placeDataInBuffer(g_testData, sizeof(g_testData));
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, "./", toSizedString(g_filename), NULL);
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, "." SLASH_STR, toSizedString(g_filename), NULL);
     BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer);
     validateObjectFileContains(g_filename, 0x0000, g_testData, sizeof(g_testData));
 }
@@ -267,7 +268,7 @@ TEST(BinaryBuffer, QueueWriteToFileWithDirectoryAndSuffix)
 TEST(BinaryBuffer, QueueWriteToInvalidDirectory)
 {
     placeDataInBuffer(g_testData, sizeof(g_testData));
-    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, "invalidDirectory/", toSizedString(g_filename), NULL);
+    BinaryBuffer_QueueWriteToFile(m_pBinaryBuffer, "invalidDirectory" SLASH_STR, toSizedString(g_filename), NULL);
     __try_and_catch( BinaryBuffer_ProcessWriteFileQueue(m_pBinaryBuffer) );
     validateExceptionThrown(fileException);
 }

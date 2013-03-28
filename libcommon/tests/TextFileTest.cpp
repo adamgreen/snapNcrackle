@@ -205,7 +205,7 @@ TEST(TextFile, CreateFromFileWithSuffixAndDirectoryNoSlash)
 TEST(TextFile, CreateFromFileWithSuffixAndDirectorySlash)
 {
     createTestFile(" \n\r \n");
-    SizedString testDirectory = SizedString_InitFromString("./");
+    SizedString testDirectory = SizedString_InitFromString("." SLASH_STR);
     m_pTextFile = TextFile_CreateFromFile(&testDirectory, toSizedString("TestFileTestCppBogusContent"), ".S");
     fetchAndValidateLineWithSingleSpace();
     fetchAndValidateLineWithSingleSpace();
