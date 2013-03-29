@@ -29,7 +29,7 @@ crackle --format image_format scriptFilename outputImageFilename
 The format, scriptFilename, and outputImageFilename are all required parameters.  The meaning of these parameters
 follow:
 
-* {{(--format image_format}}} - Indicates the type of outputImage to be created.  image_format can be one of:
+* {{{--format image_format}}} - Indicates the type of outputImage to be created.  image_format can be one of:
 ** **nib_5.25** - Creates a nibble image for a 5 1/4" disk.
 ** **hdv_3.5** - Creates a .HDV block image for a 3 1/2" disk.
 * {{{scriptFilename}}} - Specifies the name of the input script to be used for placing data in the image file.  The
