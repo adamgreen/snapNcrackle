@@ -1,6 +1,10 @@
 == Overview
-snap is a simple cross-assembler for the 6502 processor.  The main goal of this project is to create enough of an
-assembler to be able to assemble the 
+snap is a minimal 6502 assembler and crackle is a simple disk imaging utility.  The main goal of this project is to
+create an assembler that is able to assemble the 
 [[https://github.com/jmechner/Prince-of-Persia-Apple-II|Prince of Persia for Apple II sources]] and create/update a
-disk image suitable for emulation.  As such it will only support the subset of directives that are required by these
-sources.  I don't know how useful it will be in general for other 6502 assembly language projects.
+disk image suitable for Apple II emulation.  As such it will only support the subset of directives that are required by
+these sources.  I don't know how useful it will be in general for other 6502 assembly language projects.
+
+== More Information
+* [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole | snap Assembler Documentation]]
+* [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/crackle.creole | crackle Disk Imaging Utility Documentation]]
