@@ -1,0 +1,677 @@
+== snap - Assembler
+This assembler was created to allow for compilation of the Prince of Persia (Apple II version) sources.  The primary
+goals of this assembler include:
+* Enable building of the Prince of Persia (PoP) sources from ~1989 without modification.  This requires a 6502 assembler
+  that is compatible with the one originally used, Glen Bredon's Merlin assembler.  The initial version of snap won't be
+  a generic replacement for Merlin since it was primarily written to handle the PoP source's use of Merlin's abilities.
+* Run on modern personal computers so that today's CPU horsepower can be utilized to produce fast builds.  This allows
+  for quick experimentation.  While it is possible to find copies of the original version of Merlin on the Internet
+  which can be run under Apple II emulation, I don't feel that this is as convenient.  The snap assembler was also
+  written from scratch with all sources being licensed as GPL v.2 so there are no needs to worry about the legality of
+  distributing and using it to build PoP.
+* Run on OS X, Windows and Linux operating systems.  The snap assembler was written from the beginning with the
+  expectation that it should run on x86 based machines running OS X, Windows, or Linux.  Other architectures and
+  operating systems are likely to work with minimal porting effort as well since it was originally produced to work on
+  these three different operating systems.
+* Allow the creation of a repository which includes all of the necessary scripts and tools for a user to perform a
+  build on their machine.  This means that I prefer to ship snap and the other builds tools as native applications for
+  the supported platforms so that they don't require interpreters to be pre-installed by the user.
+* Be fun for me to write.  To this end, I have written snap in the C programming language.
+
+
+== Command Line
+The snap command line has the following format:
+{{{
+snap [--list listFilename] [--putdirs includeDir1;includeDir2...] [--outdir outputDirectory] sourceFilename
+}}}
+
+Only the sourceFilename is a required parameter.  The rest are optional.  The meaning of these parameters are as
+follows:
+* {{{--list listFilename}}} - Allows the list file for the assembly process to be output to the specified file.  By
+                              default it will be sent to stdout.
+* {{{--putdirs includeDir1;includeDir2...}}} - Specifies the directories (semi-colon separated) in which files will be
+                                               searched when including files with the PUT directive.
+* {{{--outdir outputDirectory}} - Specifies the directory where output files from directives such as USR and SAV should
+                                  be created.
+* {{{sourceFilename}}} - Specifies the name of an input assembly language file to be assembled.  This is the only
+                         required parameter.
+
+
+== Source Lines
+The snap assembler only supports 8-bit ASCII text in the source file and there is no maximum line length for the source
+lines.  Each line of the source file can be terminated with any of the common line ending formats: 
+* line feed only (default for many editors on *nix systems such as Linux and OS X)
+* carriage return and line feed (default for many editors on Windows)
+* carriage return only (used on Apple II and versions of Mac OS before OS X)
+* line feed and carriage return
+
+What follows is an example source line which contains text for all of the supported fields:
+{{{
+label adc $100,x The rest of the line is a comment
+}}}
+
+* The supported fields are label, opcode, operand, and comment.
+* The fields are separated by whitespace characters.
+* The snap assembler recognizes both the space and tab characters as whitespace field delimiters.
+
+=== Label
+If there are any non-whitespace characters in the leftmost column other than '*' or ';' then it and the subsequent text
+will be treated as a label.  //See the comment field description below to learn more about what '*' or ';' mean when
+found in the leftmost location.//  The label field is an optional field.  If you don't want to specify a label for
+a particular line of code, then just indent the code for the line with atleast one whitespace character before
+specifying the opcode.
+
+Labels are used to symbolically identify the current line's output location in the machine language object file
+or to provide a symbolic name to **EQU** or macro directives.
+
+{{{
+       org 2048
+label1 lda #$ff
+}}}
+In the above example, the **LDA** instruction would be located at address 2048 and the symbol named, "label1", would be
+assigned that address value.
+
+{{{
+three equ 3
+}}}
+In the above example, the **EQU** statement will assign the value of 3 to the symbol named, "three".
+
+{{{
+    lda three
+}}}
+In the above example, the symbol named "three" is referenced in the operand field so that the address used for the
+**LDA** instruction is the value assigned to the symbol named "three".
+
+Labels are case sensitive and can contain the following characters: 
+{{{
+'0' - '9', 'A' - 'Z', 'a' - 'z', ':', ';', '<', '=', '?', '@', '[', '/', ']', '^', '_', '`', '{', '|', '}', '~'
+}}}
+The first character in a label is slightly more restricted.  It can contain any of the above characters except for the
+decimal digits ('0' - '9').  Labels that start with a colon, ':', are considered local labels and ones that start with
+a right bracket, ']', are considered variable labels.
+
+==== Global Labels
+Global labels have global scope and therefore can only be assigned a value once.
+{{{
+globalFunc rts
+           ...
+           jsr globalFunc
+}}}
+
+==== Local Labels
+Local labels start with a colon, ":", and have scope which is local to the last global label.  A local label can be
+assigned a value more than once as long as each one follows a different global label.  It is an error to attempt
+assigning a value to a local label before a global label has been used in the source code.
+{{{
+         xc
+         
+main     lda #$ff
+:loop    dec
+         bne :loop
+         jsr infinite
+
+infinite nop
+:loop    bra :loop
+}}}
+
+==== Variable Labels
+Variable labels start with a right bracket, ']', and can be defined multiple times within a source file.  A reference to
+a variable will use the value which was most recently assigned to the symbol.
+{{{
+]value equ #1
+       lda ]value   ; Load accumulator with a value of 1.
+]value equ #2
+       ldx ]value   ; Load the X index register with a value of 2.
+}}}
+
+=== Opcode
+The opcode field is used to specify a assembly language instruction mnemonic, assembler directive, or macro name.
+
+====Supported Instruction Mnemonics
+These correspond to instructions understood by the 65xx device itself.  You will find more information about these
+instructions in 6502 device documentation and/or Apple II Technical Reference Manuals.
+
+Currently only 6502 and 65c02 mnemonics are supported by the snap assembler.  //In the near future, 65c816 instruction
+support will be added as well.//  These instruction mnemonics are not case sensitive.  Here is a summary of the
+instructions currently supported.
+
+| ADC | Add Memory to Accumulator with Carry |
+| AND | Logical AND Memory with Accumulator |
+| ASL | Shift Accumulator Left by 1 Bit |
+| BCC | Branch when Carry Clear |
+| BCS | Branch when Carry Set |
+| BEQ | Branch when Equal (zero flag set) |
+| BIT | Test Memory Bits with Accumulator |
+| BMI | Branch when Minus (negative flag set) |
+| BNE | Branch when Not Equal (zero flag not set) |
+| BPL | Branch when Plus (negative flag not set) |
+| BRA | Branch Always (**65c02 only**) |
+| BRK | Software Breakpoint |
+| BVC | Branch when Overflow Clear |
+| BVS | Branch when Overflow Set |
+| CLC | Clear Carry Flag |
+| CLD | Clear Decimal Flag |
+| CLI | Clear Interrupt Disable Flag |
+| CLV | Clear Overflow Flag |
+| CMP | Compare Memory to Accumulator |
+| CPX | Compare Memory to X Register |
+| CPY | Compare Memory to Y Register |
+| DEA | Decrement Accumulator by 1 (**65c02 only**) |
+| DEC | Decrement Memory by 1 |
+| DEX | Decrement X Register by 1 |
+| DEY | Decrement Y Register by 1 |
+| EOR | Logical Exclusive OR Memory with Accumulator |
+| INA | Increment Accumulator by 1 (**65c02 only**) |
+| INC | Increment Memory by 1 |
+| INX | Increment X Register by 1 |
+| INY | Increment Y Register by 1 |
+| JMP | Jump to New Address |
+| JSR | Jump to New Address and Push Return Address To Stack |
+| LDA | Load Accumulator from Memory |
+| LDX | Load X Register from Memory |
+| LDY | Load Y Register from Memory |
+| LSR | Shift Accumulator Right by 1 Bit |
+| NOP | No Operation |
+| ORA | Logical OR Memory with Accumulator |
+| PHA | Push Accumulator on Stack |
+| PHP | Push Processor Status on Stack |
+| PHX | Push X Register on Stack (**65c02 only**) |
+| PHY | Push Y Register on Stack (**65c02 only**) |
+| PLA | Pull Accumulator from Stack |
+| PLP | Pull Processor Status from Stack |
+| PLX | Pull X Register from Stack (**65c02 only**) |
+| PLY | Pull Y Register from Stack (**65c02 only**) |
+| ROL | Rotate Accumulator Left by 1 Bit |
+| ROR | Rotate Accumulator Right by 1 Bit |
+| RTI | Return from Interrupt Handler |
+| RTS | Return from Subroutine |
+| SBC | Subtract Memory from Accumulator with Borrow |
+| SEC | Set Carry Flag |
+| SED | Set Decimal Flag |
+| SEI | Set Interrupt Disable Flag |
+| STA | Store Accumulator to Memory |
+| STX | Store X Register to Memory |
+| STY | Store Y Register to Memory |
+| STZ | Store Zero in Memory (**65c02 only**) |
+| TAX | Transfer Accumulator to X Register |
+| TAY | Transfer Accumulator to Y Register |
+| TRB | Test and Reset Memory Bits with Accumulator (**65c02 only**) |
+| TSB | Test and Set Memory Bits with Accumulator (**65c02 only**) |
+| TSX | Transfer Stack Pointer to X Register |
+| TXA | Transfer X Register to Accumulator |
+| TXS | Transfer X Register to Stack Pointer |
+| TYA | Transfer Y Register to Stack Pointer |
+
+====Assembler Directives
+These only have meaning to the assembler and provide it with commands outside of the 65xx device's instruction set.
+This would include directives that specify where in memory the code is being targetted (ie: **ORG** directive) or
+reserving space in memory for variables (ie: **DS** directive).
+
+This is a list of the currently supported assembler directives which will be described in more detail in sections found
+further down in this documentation.
+
+| --^   | Ending indicator for LUP directive. |
+| =     | Pseudoname for EQU. |
+| ASC   | Place ASCII string into memory. |
+| DA    | Place 2-byte addresses into memory. |
+| DB    | Place byte values into memory. |
+| DEND  | Ending indicator for DUM directive. |
+| DFB   | Pseudoname for DB. |
+| DO    | Start of conditional assembly section. |
+| DS    | Define storage space in memory. |
+| DW    | Pseudoname for DA. |
+| DUM   | Start of dummy section. |
+| ELSE  | Start of alternate clause for DO directive. |
+| EQU   | Assign value to symbol. |
+| FIN   | Ending indicator for DO directive. |
+| LST   | Ignored |
+| LSTDO | Ignored |
+| MX    | Ignored |
+| HEX   | Place hex based values into memory. |
+| LUP   | Start of code to duplicate multiple times. |
+| ORG   | Tell assembler desired target address. |
+| PUT   | Include text from specified source file. |
+| REV   | Reverse byte order version of ASC. |
+| SAV   | Save output image to specified file. |
+| TR    | Ignored |
+| USR   | Save output image for PoP RW18 insertion. |
+| XC    | Switches instruction sets. |
+
+=== Operand
+The required contents of the operand field will depend on the opcode used.  They will typically be expressions or
+addresses.
+
+==== Expressions in Operands
+An expression is used in the operand field to specify 16-bit unsigned values as required by the opcode.  There should be
+no whitespace, spaces or tabs, placed within an expression.
+
+=====Immediate Expressions
+If the expression starts with a pound sign, '#', then the expression should treat the result of the rest of the
+expression text as a literal value and not an address.
+
+The following modifiers can be used immediately to the right of the '#' character to extract a particular 8-bit value
+from a 16-bit expression.
+| {{{<}}} | Use lower 8-bits of the 16-bit expression value. |
+| {{{>}}} | Use upper 8-bits of the 16-bit expression value. |
+
+Examples:
+{{{
+example1 equ #1         ; example1 is given a value of 1.
+example2 equ #<$1234    ; example2 is given a value of $34.
+example3 equ #>$1234    : example3 is given a value of $12.
+}}}
+
+=====Numbers in expressions
+There are multiple ways to specify numbers within an expression.
+
+|= Prefix  |= Meaning    |= Example |
+| //None// | Decimal     | 10 - is the value 10 in decimal. |
+| {{{$}}}  | Hexadecimal | $12 - equivalent to 0x12 or 18. |
+| {{{%}}}  | Binary      | %10000001 - equivalent to 129.  |
+| {{{'}}}  | Character   | 'a' - equivalent to ASCII of 'a' => 97 => $61. |
+| {{{"}}}  | Character with high bit set | "a" - equivalent to $61 + $80 = $E1 |
+| {{{*}}}  | Current address | jmp * - would create infinite loop jump to self. |
+
+The name of a label can also be specified in an expression to have the assembler lookup the value for that label and use
+it within the expression.  In many cases, these can even be forward references to labels that haven't been defined yet.
+In those cases, full expression evaluation will be delayed until all such forward references have been defined in the
+source code.
+
+=====Unary operators
+The only unary operator supported in expressions is the minus, '-', character used to signify that the negative value
+of the following expression value should be taken.
+
+Example:
+{{{
+example equ -1 ; example would be given a value of -1 which is equivalent to $ffff.
+}}}
+
+=====Binary operators
+Operators found within expressions are evaluated from left to right as they are encountered and there is no notion of
+precedence.  Parenethesis can't be used to provide precedence order within expressions.  They will always be evaluated
+as they are encountered.
+
+|= Operator |= Meaning             |= Example |
+| {{{+}}}   | Addition             | 5+5 - is 10. |
+| {{{-}}}   | Subtraction          | 5-5 - is 0. |
+| {{{*}}}   | Multiplication       | 5*5 - is 25. |
+| {{{/}}}   | Division             | 5/2 - is 2. |
+| {{{!}}}   | Bitwise Exclusive OR | %1001!%0011 - is %1010. |
+| {{{.}}}   | Bitwise OR           | %1001.%0011 - is %1011. |
+| {{{&}}}   | Bitwise AND          | %1001&%0011 - is %0001. |
+
+An example which combines operators in an expression:
+{{{
+example equ 1+2*3 ; example will be give a value of (1+2)*3 = 9.
+}}}
+
+==== Addresses as Operands
+The 65xx instruction opcodes support various addressing modes and they can be specified as follows:
+
+|= Address Type                              |= Format                                        |= Example |
+| Implied                                    | //No operand//                                 | {{{txa}}} |
+| Accumulator                                | //No operand//                                 | {{{asl}}} |
+| Immediate                                  | **immediate_expression**                       | {{{adc #1}}} |
+| Absolute                                   | **expression**                                 | {{{adc $1234}} |
+| Zero Page                                  | **8bit_expression**                            | {{{adc $ff}} |
+| Absolute Indexed                           | **expression**,x or **expression**,y           | {{{adc $1234,x}}} |
+| Zero Page Indexed                          | **8bit_expression**,x or **8bit_expression**,y | {{{adc $80,x}}} |
+| Relative                                   | **expression**                                 | {{{beq label}}} |
+| Zero Page Indexed Indirect                 | (**8bit_expression**,x)                        | {{{adc ($80,x)}}} |
+| Absolute Indexed Indirect (**65c02 only**) | (**expression**,x)                             | {{{jmp ($100,x)}}} |
+| Indirect Indexed                           | (**8bit_expression**),y                        | {{{adc ($80),y}}} |
+| Zero Page Indirect (**65c02 only**)        | (**8bit_expression**)                          | {{{adc ($80)}}} |
+| Absolute Indirect                          | (**expression**)                               | {{{jmp ($100)}}} |
+
+Where:\\
+**immediate_expression** is any expression which starts with '#' as described above in Immediate Expressions.\\
+**expression** is any valid non-immediate expression.\\
+**8bit-expression** is any valid non-immediate expression which has a value of 255 or lower.\\
+
+=== Comment
+Unused text at the end of line is treated as a comment.  To reduce confusion it is possible to force text to be
+considered a comment by starting it with a semicolon, ';', as in the following example:
+{{{
+    inc ; 1 example of a comment starting with ';' so that the accumulator is incremented instead of byte at address 1.
+}}}
+
+It is also possible to have a whole line treated as a comment.  Lines which begin with the asterisk, '*', or semicolon,
+';', characters are treated as comments.  Blank lines with no text are ignored by the assembler as well.
+
+Examples:
+{{{
+* All 3 of these lines are
+
+; ignored by the assembler.
+}}}
+
+
+
+== Directives
+===EQU
+{{{symbolName EQU}}} **expression** \\
+ - or - \\
+{{{symbolName =}}} **expression** \\
+
+Assigns an expression value to the symbol with the specified label name.
+* The **EQU** directive requires a line label.
+* The label name used with **EQU** can't be a local label (ie. can't begin with colon, ':', character.)
+
+Example:
+{{{
+one equ 1       ; Assign value of 1 to symbol named one.
+two equ one+1   ; Assign value of 2 to symbol named two.
+}}}
+
+===XC
+{{{ XC [OFF]}}} \\
+
+Toggles the instruction set supported by the assembler.
+* The snap assembler starts out only supporting the core 6502 instruction set.  If you attempt to use an extended
+  instruction and/or addressing mode from the 65c02, 65c816, etc. then an error will be generated.  The XC directive
+  can be used to enable these extended instructions sets.
+* Supplying 1 XC directive in your code will enable 65c02 instructions.
+* Supplying 2 XC directives in your code will enable the 65c816 instruction set.  // Note: The 65c816 instruction set
+  is not currently supported by snap.//
+* Using a "XC OFF" directive in your source code will revert back to only supporting the core 6502 instruction set.
+
+Examples:
+{{{
+    ORG $800
+    ; At this point only 6502 instructions are enabled.
+    LDA #1
+    
+    ; Enable 65c02 instructions.
+    XC
+    BRA .
+    
+    ; Enable 65c816 instrucions by issuing a second XC directive.
+    XC
+    XBA
+    
+    ; Switch back to only supporting the core 6502 instructions.
+    XC OFF
+}}}
+
+===ORG
+{{{ ORG}}} **expression** \\
+
+Tell the assembler at what address the output image will be loaded into the 65xx device's memory.
+* An expression is required in the operand field.  This expression specifies the desired new current address.
+* If no **ORG** directive is specified in a program, then a default of $8000 will be used by the assembler.
+* The **ORG** directive is typically one of the first lines of an assembly language program as it should proceed any
+  lines which will generate or reserve space for code and/or data.
+
+Example:
+{{{
+        org $800
+main    lda #1      ; This instruction will be located at an address of $800.
+}}}
+
+===DUM
+{{{    DUM}}} **expression** \\
+{{{     code to repeat}}} \\
+{{{    DEND}}} \\
+
+Temporarily overrides the assembler's current address.
+* An expression is required in the operand field.  This expression specifies the desired new current address.
+* Used to begin regions containing labels in other parts of the device's memory other than where the code will be
+  placed.
+* For example a **DUM** section could be started at $00 to create labels specifying important locations for the program
+  in page zero.
+* The **DEND** directive ends region of code started with the **DUM** directive.
+* The previous current address is saved before it is changed with the **DUM** directive.  It will be restored when the
+  **DEND** directive is encountered.
+* It is possible to use multiple **DUM** and **ORG** directives between the first **DUM** directive and the terminating
+  **DEND** directive.
+* It is an error to specify a **DEND** directive if there isn't a previous **DUM** directive to end.
+  
+Example:
+{{{
+            org $8000
+main        lda #$ff
+            sta zpVariable
+            rts
+        
+            dum $0000
+zpVariable  ds 1
+            dend
+}}}
+
+===DS
+{{{ DS}}} **expression**[,**expression**] \\
+
+Allocates and sets the specified number of bytes at the current address with a fill value.
+* The operand field must contain at least one expression.
+** This expression specifies the count of bytes to be allocated.
+** The back slash, '\', character can be used instead of an expression for this count value.  When used it indicates
+   that the rest of the 256 byte page should be allocated.  This means that the current address will be advanced to a
+   value which is an even multiple of 256.
+* The operand field can contain a comma and an optional second expression.
+** This optional expression will specify the 8-bit value to be used as the fill value placed in this allocated area of
+   memory.
+** The default fill value is 0.
+
+Examples:
+{{{
+    ds 10,$ff    ; Fills the next 10 bytes with a value of $FF.
+    ds /         ; Will fill up the rest of the 256 byte page with a value of 0.
+}}}
+
+===HEX
+{{{ HEX hexByte[[,]hexByte]...}}} \\
+
+Inserts the specified operand ASCII text into the output image.
+* An operand containing the hexadecimal representation of bytes values is required.
+** Each byte will be represented by two hexadecimal characters (0-9, a-f)
+** Commas can be used as a separator between byte values but this is optional.
+* No more than 32 bytes can be generated by a single HEX directive.
+
+Example:
+{{{
+    ; Both of the following examples generate the same 3 bytes.
+    hex 00,7f,ff
+    hex 007FFF
+}}}
+
+===DB
+{{{ DB}}} **8bitExpression**[,**8bitExpression**]... \\
+ - or - \\
+{{{ DFB}}} **8bitExpression**[,**8bitExpression**]... \\
+
+Inserted the specified bytes into the output image.
+* An operand field is required.
+* The operand field contains a comma separated list of 8-bit expressions to be inserted into the memory image.
+
+Example:
+{{{
+    DB 1+2,2-1  ; Inserts the values 3 and 1 into the output image.
+}}}
+
+===DA
+{{{ DA}}} **expression**[,**expression**]... \\
+ - or - \\
+{{{ DW}}} **expression**[,**expression**]... \\
+
+Inserts the specified 16-bit words or addresses into the output image.
+* An operand field is required.
+* The operand field contains a comma separated list of 16-bit expressions to be inserted into the memory image.
+
+Example:
+{{{
+    DA $ff00,$ff00+1  ; Inserts the values $ff00 and $ff01 into the output image.
+}}}
+
+===ASC
+{{{ ASC 'text'[,hexByte][[,]hexByte]...}}} \\
+ - or - \\
+{{{ ASC "text"[,hexByte][[,]hexByte]...}}} \\
+
+Inserts the specified ASCII text into the output image.
+* An operand containing a delimited string is required.
+* The first character of the operand will be treated as the text delimiter.  The text operand must be terminated by the
+  same delimiter.
+* The delimiter can be any non-whitespace character.
+* Typical delimiters are the single and double quote characters (' and ").
+** Use of the single quote as delimiter will set the high bit of each ASCII character to 0.
+** Use of the double quote as delimiter will set the high bit of each ASCII character to 1.
+* It should be however noted:
+** Any delimiter preceeding the single quote character in the ASCII table will be treated the same as a double quote
+   delimiter.  This includes the following characters: {{{! " # $ % &}}}
+** Any delimiter following the single quote character in the ASCII table will be treated the same as a single quote
+   delimiter.  This includes the following characters: {{{' ( ) * + , - . / 0-9 : ; < = > ? @ A-Z [ \ ] ^ _ ` a-z { | } ~}}}
+* The delimited string can be followed by 2 character hexadecimal representation of bytes.
+** Each byte will be represented by two hexadecimal characters (0-9, a-f)
+** Commas can be used as a separator between byte values but this is optional.
+
+Example:
+{{{
+    ASC 'Sample string',00  ; String with NULL terminator.
+}}}
+
+===REV
+{{{ REV 'text'[,hexByte][[,]hexByte]...}}} \\
+ - or - \\
+{{{ REV "text"[,hexByte][[,]hexByte]...}}} \\
+
+Inserts specified operand ASCII text into the output image like the ASC directive except that the text is reversed.
+* An operand containing a delimited string is required.
+* The first character of the operand will be treated as the text delimiter.  The text operand must be terminated by the
+  same delimiter.
+* The delimiter can be any non-whitespace character.
+* Typical delimiters are the single and double quote characters (' and ").
+** Use of the single quote as delimiter will set the high bit of each ASCII character to 0.
+** Use of the double quote as delimiter will set the high bit of each ASCII character to 1.
+* It should be however noted:
+** Any delimiter preceeding the single quote character in the ASCII table will be treated the same as a double quote
+   delimiter.  This includes the following characters: {{{! " # $ % &}}}
+** Any delimiter following the single quote character in the ASCII table will be treated the same as a single quote
+   delimiter.  This includes the following characters: {{{' ( ) * + , - . / 0-9 : ; < = > ? @ A-Z [ \ ] ^ _ ` a-z { | } ~}}}
+* The delimited string can be followed by 2 character hexadecimal representation of bytes.
+** Each byte will be represented by two hexadecimal characters (0-9, a-f)
+** Commas can be used as a separator between byte values but this is optional.
+
+===PUT
+{{{ PUT includeFilename}}} \\
+
+Includes the specified source text file into the code stream to be assembled.
+* The operand field is required and should provide the name of the file to be included.
+* The assembler will search the directories specified in the {{{--putdirs}}} command line parameter when the assembler
+  was launched.
+* PUT directives cannot be nested.  An error will be generated if you attempt to use a PUT directive from a source file
+  which itself is PUT from another source file.
+
+===DO
+{{{    DO}}} **expression** \\
+{{{    code to assemble if DO expression is non-zero.}}} \\
+{{{    [ELSE]}}} \\
+{{{    [optional alternate code to assemble if DO expression is zero.}}} \\
+{{{    FIN}}} \\
+
+Restricts subsequent code to only be assembled when specified expression has a non zero value.
+* The operand field must contain an expression.
+* The **DO** expression can't contain forward reference to labels further down in the source code.
+* If the expression is zero then the code following it will not be assembled and assembly will not begin again until the
+  **ELSE** and/or **FIN** directives are encountered.
+* If the expression in non-zero then the code following it will be included in the assembly process.
+* The code following an optional **ELSE** line will only be assembled when the **DO** conditional expression was 0,
+  therefore being the inverse of the initial **DO** clause.
+* The **FIN** directive is used to end a **DO** clause.
+* The **ELSE** and **FIN** directive lines shouldn't contain operand fields.
+* It is an error to use the **ELSE** or **FIN** directive without a preceeding **DO** directive.
+
+Example:
+{{{
+    do 1-1
+    lda #1  ; This line won't be assembled since the DO expression evaluated to 0.
+    fin
+    
+    do 0+1
+    lda #2  ; This line will be assembled since the DO expression evaluated to 1.
+    fin
+
+    do 0
+    lda #1  ; This line won't be assembled since the DO expression is 0.
+    else
+    lda #2  ; This line will be assembled instead.
+    fin
+}}}
+
+===LUP
+{{{    LUP}}} **expression** \\
+{{{    code to repeat}}} \\
+{{{    --^}}} \\
+
+Repeats the code between the **LUP** and **{{{--^}}}** directives the number of times specified by the **LUP**
+expression.
+* The **LUP** directive must contain an expression which contains the count of repeat iterations.
+** The allowed values for the repeat expression are between 1 and $7fff.
+** Setting repeat expression to 0 or greater than $7fff will cause the LUP clause code to be ignored by the assembler.
+** The repeat expression cannot contain forward references to labels further down in the source code.
+* The **{{{--^}}}** directive must not contain an operand field.
+* **{{{--^}}}** is only used to end a **LUP** code clause and will generate an error if not following a **LUP**
+  directive.
+
+Example:
+{{{
+        ; Fill memory with 0, 1, 2, 3, ..., $ff
+]VAR    EQU 0
+        LUP 256
+        DB  ]VAR
+]VAR    EQU ]VAR+1
+        --^
+}}}
+
+===SAV
+{{{ SAV objectFilename}}} \\
+
+Instructs the assembler to write out the image data to the specified object file.  A source file will typically contain
+one of these directives at its end.
+* The object file will be placed in the directory specified by the {{{--outdir}}} command line parameter or the current
+  directory otherwise.
+
+The object file generated by this directive will contain the following 8 byte header:
+* 4 byte header of 'SAV',1A
+* 2 byte load address in little endian order.
+* 2 byte lenght of image in little endian order.
+  
+===USR
+{{{ USR}}} **sideExpression**,**trackExpression**,**offsetExpression**,**lengthExpression** \\
+
+Instructs the assembler to write out the image data to the specified object file in a format that can be used by the
+crackle disk imaging tool to insert using the RW18 format used by Prince of Persia.  **Note:** The USR directive would
+typically have a more generic use in Merlin but it has been hardcoded to work with Prince of Persia's use for outputting
+object files in RW18 format.
+* The name of the object file will be the same as the input source filename, with extension removed (ie. SOURCE.S would
+  generate a USR object file named SOURCE).
+* The object file will be placed in the directory specified by the {{{--outdir}}} command line parameter or the current
+  directory otherwise.
+* The side expression should be $a9 for side 1, $ad for side 2, or $79 for side 3.
+* The track expression should be between 0 and 34.
+* The offset expression should be between 0 and $11ff.
+* The length expression is actually ignored by the assembler.
+
+The object file generated by this directive will contain the following 12 byte header:
+* 4 byte header of 'USR',1A
+* 2 byte side in little endian order.
+* 2 byte track in little endian order.
+* 2 byte offset in little endian order.
+* 2 byte length in little endian order.
+
+Example:
+{{{
+    usr $a9,1,$a80,*-org
+}}}
+
+
+
+== Differences from Merlin
+Things to be fixed in near future:
+* No 65c816 support.  This actually impacts Apple IIGS source code in PoP which is currently assembled into RTS instructions until this support is added.
+* No macro support.  There is Apple IIGS source code in PoP which takes advantage of this macro feature.  I want to add
+  this anyway since it is pretty foolish to build a Merlin 'compatible' assembler that doesn't support this feature.
+* **LUP** directive should allow decrementing iteration count to be substituted into replicated source text.
+
+I can add the following features in the future but currently they aren't high on my priority list.  If you have a need for any
+particular feature to make it more useful for your needs, then please enter a issue at github to help me prioritize it
+correctly :)
