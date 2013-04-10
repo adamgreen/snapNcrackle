@@ -56,7 +56,7 @@ label adc $100,x The rest of the line is a comment
 
 === Label
 If there are any non-whitespace characters in the leftmost column other than '*' or ';' then it and the subsequent text
-will be treated as a label.  //See the [[#comment | comment field description below]] to learn more about what '*' or
+will be treated as a label.  //See the [[https:#comment | comment field description below]] to learn more about what '*' or
 ';' mean when found in the leftmost location.//  The label field is an optional field.  If you don't want to specify a
 label for a particular line of code, then just indent the code for the line with atleast one whitespace character before
 specifying the opcode.
