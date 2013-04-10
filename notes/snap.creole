@@ -31,7 +31,7 @@ follows:
                               default it will be sent to stdout.
 * {{{--putdirs includeDir1;includeDir2...}}} - Specifies the directories (semi-colon separated) in which files will be
                                                searched when including files with the PUT directive.
-* {{{--outdir outputDirectory}} - Specifies the directory where output files from directives such as USR and SAV should
+* {{{--outdir outputDirectory}}} - Specifies the directory where output files from directives such as USR and SAV should
                                   be created.
 * {{{sourceFilename}}} - Specifies the name of an input assembly language file to be assembled.  This is the only
                          required parameter.
@@ -56,9 +56,9 @@ label adc $100,x The rest of the line is a comment
 
 === Label
 If there are any non-whitespace characters in the leftmost column other than '*' or ';' then it and the subsequent text
-will be treated as a label.  //See the comment field description below to learn more about what '*' or ';' mean when
-found in the leftmost location.//  The label field is an optional field.  If you don't want to specify a label for
-a particular line of code, then just indent the code for the line with atleast one whitespace character before
+will be treated as a label.  //See the [[#comment | comment field description below]] to learn more about what '*' or
+';' mean when found in the leftmost location.//  The label field is an optional field.  If you don't want to specify a
+label for a particular line of code, then just indent the code for the line with atleast one whitespace character before
 specifying the opcode.
 
 Labels are used to symbolically identify the current line's output location in the machine language object file
