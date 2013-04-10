@@ -420,7 +420,7 @@ static void reverseMachineCode(LineInfo* pLineInfo);
 static Expression getAbsoluteExpression(Assembler* pThis, SizedString* pOperands);
 static int isTypeAbsolute(Expression* pExpression);
 static int isAlreadyInDUMSection(Assembler* pThis);
-static void warnIfNoOperandWasProvided(Assembler* pThis);
+static void warnIfOperandWasProvided(Assembler* pThis);
 static Expression getCountExpression(Assembler* pThis, SizedString* pString);
 static Expression getBytesLeftInPage(Assembler* pThis);
 static void saveDSInfoInLineInfo(Assembler* pThis, unsigned short repeatCount, unsigned char fillValue);
@@ -1190,7 +1190,7 @@ static void handleDEND(Assembler* pThis)
 {
     __try
     {
-        warnIfNoOperandWasProvided(pThis);
+        warnIfOperandWasProvided(pThis);
         if (!isAlreadyInDUMSection(pThis))
         {
             LOG_ERROR(pThis, "%.*s isn't allowed without a preceding DUM directive.", 
@@ -1207,7 +1207,7 @@ static void handleDEND(Assembler* pThis)
     }
 }
 
-static void warnIfNoOperandWasProvided(Assembler* pThis)
+static void warnIfOperandWasProvided(Assembler* pThis)
 {
     if (SizedString_strlen(&pThis->parsedLine.operands) == 0)
         return;
@@ -1679,7 +1679,7 @@ static void handleELSE(Assembler* pThis)
 {
     __try
     {
-        warnIfNoOperandWasProvided(pThis);
+        warnIfOperandWasProvided(pThis);
         flipTopConditionalState(pThis);
     }
     __catch
@@ -1734,7 +1734,7 @@ static void handleFIN(Assembler* pThis)
 {
     __try
     {
-        warnIfNoOperandWasProvided(pThis);
+        warnIfOperandWasProvided(pThis);
         popConditional(pThis);
     }
     __catch
@@ -1833,7 +1833,7 @@ static void handleLUPend(Assembler* pThis)
     __try
     {
         clearLupDirectiveFlag(pThis);
-        warnIfNoOperandWasProvided(pThis);
+        warnIfOperandWasProvided(pThis);
     }
     __catch
     {
