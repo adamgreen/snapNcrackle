@@ -56,10 +56,11 @@ label adc $100,x The rest of the line is a comment
 
 === Label
 If there are any non-whitespace characters in the leftmost column other than '*' or ';' then it and the subsequent text
-will be treated as a label.  //See the [[https:#comment | comment field description below]] to learn more about what '*' or
-';' mean when found in the leftmost location.//  The label field is an optional field.  If you don't want to specify a
-label for a particular line of code, then just indent the code for the line with atleast one whitespace character before
-specifying the opcode.
+will be treated as a label.  //See the 
+[[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#comment | comment field description below]]
+to learn more about what '*' or ';' mean when found in the leftmost location.//  The label field is an optional field.
+If you don't want to specify a label for a particular line of code, then just indent the code for the line with atleast
+one whitespace character before specifying the opcode.
 
 Labels are used to symbolically identify the current line's output location in the machine language object file
 or to provide a symbolic name to **EQU** or macro directives.
@@ -312,8 +313,8 @@ The 65xx instruction opcodes support various addressing modes and they can be sp
 | Implied                                    | //No operand//                                 | {{{txa}}} |
 | Accumulator                                | //No operand//                                 | {{{asl}}} |
 | Immediate                                  | **immediate_expression**                       | {{{adc #1}}} |
-| Absolute                                   | **expression**                                 | {{{adc $1234}} |
-| Zero Page                                  | **8bit_expression**                            | {{{adc $ff}} |
+| Absolute                                   | **expression**                                 | {{{adc $1234}}} |
+| Zero Page                                  | **8bit_expression**                            | {{{adc $ff}}} |
 | Absolute Indexed                           | **expression**,x or **expression**,y           | {{{adc $1234,x}}} |
 | Zero Page Indexed                          | **8bit_expression**,x or **8bit_expression**,y | {{{adc $80,x}}} |
 | Relative                                   | **expression**                                 | {{{beq label}}} |
@@ -349,9 +350,9 @@ Examples:
 
 == Directives
 ===EQU
-{{{symbolName EQU}}} **expression** \\
- - or - \\
-{{{symbolName =}}} **expression** \\
+{{{symbolName EQU expression}}} \\
+{{ - or - }}} \\
+{{{symbolName = expression}}} \\
 
 Assigns an expression value to the symbol with the specified label name.
 * The **EQU** directive requires a line label.
@@ -394,7 +395,7 @@ Examples:
 }}}
 
 ===ORG
-{{{ ORG}}} **expression** \\
+{{{ ORG expression}}} \\
 
 Tell the assembler at what address the output image will be loaded into the 65xx device's memory.
 * An expression is required in the operand field.  This expression specifies the desired new current address.
@@ -409,8 +410,8 @@ main    lda #1      ; This instruction will be located at an address of $800.
 }}}
 
 ===DUM
-{{{    DUM}}} **expression** \\
-{{{     code to repeat}}} \\
+{{{    DUM expression}}} \\
+{{{     code to temporarily origin at expression}}} \\
 {{{    DEND}}} \\
 
 Temporarily overrides the assembler's current address.
@@ -439,7 +440,7 @@ zpVariable  ds 1
 }}}
 
 ===DS
-{{{ DS}}} **expression**[,**expression**] \\
+{{{ DS expression[,expression]}}} \\
 
 Allocates and sets the specified number of bytes at the current address with a fill value.
 * The operand field must contain at least one expression.
@@ -475,9 +476,9 @@ Example:
 }}}
 
 ===DB
-{{{ DB}}} **8bitExpression**[,**8bitExpression**]... \\
- - or - \\
-{{{ DFB}}} **8bitExpression**[,**8bitExpression**]... \\
+{{{ DB 8bitExpression[,8bitExpression]...}}} \\
+{{{ - or - }}} \\
+{{{ DFB 8bitExpression[,8bitExpression]...}}} \\
 
 Inserted the specified bytes into the output image.
 * An operand field is required.
@@ -489,9 +490,9 @@ Example:
 }}}
 
 ===DA
-{{{ DA}}} **expression**[,**expression**]... \\
- - or - \\
-{{{ DW}}} **expression**[,**expression**]... \\
+{{{ DA expression[,expression]...}}} \\
+{{{ - or - }}} \\
+{{{ DW expression[,expression]...}}} \\
 
 Inserts the specified 16-bit words or addresses into the output image.
 * An operand field is required.
@@ -504,7 +505,7 @@ Example:
 
 ===ASC
 {{{ ASC 'text'[,hexByte][[,]hexByte]...}}} \\
- - or - \\
+{{{ - or - }}} \\
 {{{ ASC "text"[,hexByte][[,]hexByte]...}}} \\
 
 Inserts the specified ASCII text into the output image.
@@ -531,7 +532,7 @@ Example:
 
 ===REV
 {{{ REV 'text'[,hexByte][[,]hexByte]...}}} \\
- - or - \\
+{{{ - or - }}} \\
 {{{ REV "text"[,hexByte][[,]hexByte]...}}} \\
 
 Inserts specified operand ASCII text into the output image like the ASC directive except that the text is reversed.
@@ -562,7 +563,7 @@ Includes the specified source text file into the code stream to be assembled.
   which itself is PUT from another source file.
 
 ===DO
-{{{    DO}}} **expression** \\
+{{{    DO expression}}} \\
 {{{    code to assemble if DO expression is non-zero.}}} \\
 {{{    [ELSE]}}} \\
 {{{    [optional alternate code to assemble if DO expression is zero.}}} \\
@@ -598,7 +599,7 @@ Example:
 }}}
 
 ===LUP
-{{{    LUP}}} **expression** \\
+{{{    LUP expression}}} \\
 {{{    code to repeat}}} \\
 {{{    --^}}} \\
 
@@ -636,7 +637,7 @@ The object file generated by this directive will contain the following 8 byte he
 * 2 byte lenght of image in little endian order.
   
 ===USR
-{{{ USR}}} **sideExpression**,**trackExpression**,**offsetExpression**,**lengthExpression** \\
+{{{ USR sideExpression,trackExpression,offsetExpression,lengthExpression}}} \\
 
 Instructs the assembler to write out the image data to the specified object file in a format that can be used by the
 crackle disk imaging tool to insert using the RW18 format used by Prince of Persia.  **Note:** The USR directive would
