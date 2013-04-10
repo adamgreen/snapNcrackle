@@ -351,7 +351,7 @@ Examples:
 == Directives
 ===EQU
 {{{symbolName EQU expression}}} \\
-{{ - or - }}} \\
+{{{ - or - }}} \\
 {{{symbolName = expression}}} \\
 
 Assigns an expression value to the symbol with the specified label name.
@@ -566,7 +566,7 @@ Includes the specified source text file into the code stream to be assembled.
 {{{    DO expression}}} \\
 {{{    code to assemble if DO expression is non-zero.}}} \\
 {{{    [ELSE]}}} \\
-{{{    [optional alternate code to assemble if DO expression is zero.}}} \\
+{{{    [optional alternate code to assemble if DO expression is zero.]}}} \\
 {{{    FIN}}} \\
 
 Restricts subsequent code to only be assembled when specified expression has a non zero value.
