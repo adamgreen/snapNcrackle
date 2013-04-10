@@ -210,32 +210,32 @@ reserving space in memory for variables (ie: **DS** directive).
 This is a list of the currently supported assembler directives which will be described in more detail in sections found
 further down in this documentation.
 
-| --^   | Ending indicator for LUP directive. |
-| =     | Pseudoname for EQU. |
-| ASC   | Place ASCII string into memory. |
-| DA    | Place 2-byte addresses into memory. |
-| DB    | Place byte values into memory. |
-| DEND  | Ending indicator for DUM directive. |
-| DFB   | Pseudoname for DB. |
-| DO    | Start of conditional assembly section. |
-| DS    | Define storage space in memory. |
-| DW    | Pseudoname for DA. |
-| DUM   | Start of dummy section. |
-| ELSE  | Start of alternate clause for DO directive. |
-| EQU   | Assign value to symbol. |
-| FIN   | Ending indicator for DO directive. |
-| LST   | Ignored |
-| LSTDO | Ignored |
-| MX    | Ignored |
-| HEX   | Place hex based values into memory. |
-| LUP   | Start of code to duplicate multiple times. |
-| ORG   | Tell assembler desired target address. |
-| PUT   | Include text from specified source file. |
-| REV   | Reverse byte order version of ASC. |
-| SAV   | Save output image to specified file. |
-| TR    | Ignored |
-| USR   | Save output image for PoP RW18 insertion. |
-| XC    | Switches instruction sets. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#lup | --^]]   | Ending indicator for LUP directive. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#equ | =]]     | Pseudoname for EQU. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#asc | ASC]]   | Place ASCII string into memory. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#da  | DA]]    | Place 2-byte addresses into memory. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#db  | DB]]    | Place byte values into memory. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#dum | DEND]]  | Ending indicator for DUM directive. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#db  | DFB]]   | Pseudoname for DB. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#do  | DO]]    | Start of conditional assembly section. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#ds  | DS]]    | Define storage space in memory. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#da  | DW]]    | Pseudoname for DA. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#dum | DUM]]   | Start of dummy section. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#do  | ELSE]]  | Start of alternate clause for DO directive. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#equ | EQU]]   | Assign value to symbol. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#do  | FIN]]   | Ending indicator for DO directive. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#hex | HEX]]   | Place hex based values into memory. |
+|                                                                                 LST     | Ignored |
+|                                                                                 LSTDO   | Ignored |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#lup | LUP]]   | Start of code to duplicate multiple times. |
+|                                                                                 MX      | Ignored |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#org | ORG]]   | Tell assembler desired target address. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#put | PUT]]   | Include text from specified source file. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#rev | REV]]   | Reverse byte order version of ASC. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#sav | SAV]]   | Save output image to specified file. |
+|                                                                                 TR      | Ignored |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#usr | USR]]   | Save output image for PoP RW18 insertion. |
+| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#xc  | XC]]    | Switches instruction sets. |
 
 === Operand
 The required contents of the operand field will depend on the opcode used.  They will typically be expressions or
