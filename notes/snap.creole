@@ -3,9 +3,10 @@ This assembler was created to allow for compilation of the Prince of Persia (App
 goals of this assembler include:
 * Enable building of the Prince of Persia (PoP) sources from ~1989 without modification.  This requires a 6502 assembler
   that is compatible with the one originally used, Glen Bredon's Merlin assembler.  The initial version of snap won't be
-  a generic replacement for Merlin since it was primarily written to handle the PoP source's use of Merlin's abilities.
+  a generic replacement for Merlin 8 since it was primarily written to handle the PoP source's use of Merlin's
+  abilities.
 * Run on modern personal computers so that today's CPU horsepower can be utilized to produce fast builds.  This allows
-  for quick experimentation.  While it is possible to find copies of the original version of Merlin on the Internet
+  for quick experimentation.  While it is possible to find copies of the original version of Merlin 8 on the Internet
   which can be run under Apple II emulation, I don't feel that this is as convenient.  The snap assembler was also
   written from scratch with all sources being licensed as GPL v.2 so there are no needs to worry about the legality of
   distributing and using it to build PoP.
@@ -65,12 +66,29 @@ one whitespace character before specifying the opcode.
 Labels are used to symbolically identify the current line's output location in the machine language object file
 or to provide a symbolic name to **EQU** or macro directives.
 
+Labels are case sensitive and can contain the following characters: 
+{{{
+'0' - '9', 'A' - 'Z', 'a' - 'z', ':', ';', '<', '=', '?', '@', '[', '/', ']', '^', '_', '`', '{', '|', '}', '~'
+}}}
+The first character in a label is slightly more restricted.  It can contain any of the above characters except for the
+decimal digits ('0' - '9').  Labels that start with a colon, ':', are considered local labels and ones that start with
+a right bracket, ']', are considered variable labels.
+
+Examples:
 {{{
        org 2048
 label1 lda #$ff
 }}}
 In the above example, the **LDA** instruction would be located at address 2048 and the symbol named, "label1", would be
 assigned that address value.
+
+{{{
+        org 2048
+label1
+        lda #$ff
+}}}
+The above example is the same as the previous one since a label on a line by itself refers to the address that will be
+used for the next generated image byte, in this case the address for the subsequent {{{lda #$ff}}} instruction.
 
 {{{
 three equ 3
@@ -83,14 +101,6 @@ In the above example, the **EQU** statement will assign the value of 3 to the sy
 In the above example, the symbol named "three" is referenced in the operand field so that the address used for the
 **LDA** instruction is the value assigned to the symbol named "three".
 
-Labels are case sensitive and can contain the following characters: 
-{{{
-'0' - '9', 'A' - 'Z', 'a' - 'z', ':', ';', '<', '=', '?', '@', '[', '/', ']', '^', '_', '`', '{', '|', '}', '~'
-}}}
-The first character in a label is slightly more restricted.  It can contain any of the above characters except for the
-decimal digits ('0' - '9').  Labels that start with a colon, ':', are considered local labels and ones that start with
-a right bracket, ']', are considered variable labels.
-
 ==== Global Labels
 Global labels have global scope and therefore can only be assigned a value once.
 {{{
@@ -100,9 +110,12 @@ globalFunc rts
 }}}
 
 ==== Local Labels
-Local labels start with a colon, ":", and have scope which is local to the last global label.  A local label can be
-assigned a value more than once as long as each one follows a different global label.  It is an error to attempt
-assigning a value to a local label before a global label has been used in the source code.
+Local labels start with a colon, ":", and have scope which is local to the last global label.  
+* A local label can be assigned a value more than once as long as each one follows a different global label.
+* A local label can only be referenced from code which is in the same global scope as the label.
+* It is an error to attempt assigning a value to a local label before a global label has been used in the source code.
+
+Example:
 {{{
          xc
          
@@ -132,7 +145,7 @@ The opcode field is used to specify a assembly language instruction mnemonic, as
 These correspond to instructions understood by the 65xx device itself.  You will find more information about these
 instructions in 6502 device documentation and/or Apple II Technical Reference Manuals.
 
-Currently only 6502 and 65c02 mnemonics are supported by the snap assembler.  //In the near future, 65c816 instruction
+Currently only 6502 and 65c02 mnemonics are supported by the snap assembler.  //In the near future, 65802 instruction
 support will be added as well.//  These instruction mnemonics are not case sensitive.  Here is a summary of the
 instructions currently supported.
 
@@ -306,6 +319,15 @@ An example which combines operators in an expression:
 example equ 1+2*3 ; example will be give a value of (1+2)*3 = 9.
 }}}
 
+The first line of this next example will place the length of the 'buff' string in the accumulator register through the
+use of the subtraction operator and labels placed at the beginning and end of 'buff'.
+{{{
+        lda #buffEnd-buff
+        jmp continue
+buff    da 'Hello World',00
+buffEnd
+}}}
+
 ==== Addresses as Operands
 The 65xx instruction opcodes support various addressing modes and they can be specified as follows:
 
@@ -369,10 +391,10 @@ two equ one+1   ; Assign value of 2 to symbol named two.
 
 Toggles the instruction set supported by the assembler.
 * The snap assembler starts out only supporting the core 6502 instruction set.  If you attempt to use an extended
-  instruction and/or addressing mode from the 65c02, 65c816, etc. then an error will be generated.  The XC directive
+  instruction and/or addressing mode from the 65c02, 65802, etc. then an error will be generated.  The XC directive
   can be used to enable these extended instructions sets.
 * Supplying 1 XC directive in your code will enable 65c02 instructions.
-* Supplying 2 XC directives in your code will enable the 65c816 instruction set.  // Note: The 65c816 instruction set
+* Supplying 2 XC directives in your code will enable the 65802 instruction set.  // Note: The 65802 instruction set
   is not currently supported by snap.//
 * Using a "XC OFF" directive in your source code will revert back to only supporting the core 6502 instruction set.
 
@@ -386,7 +408,7 @@ Examples:
     XC
     BRA .
     
-    ; Enable 65c816 instrucions by issuing a second XC directive.
+    ; Enable 65802 instrucions by issuing a second XC directive.
     XC
     XBA
     
@@ -497,6 +519,7 @@ Example:
 Inserts the specified 16-bit words or addresses into the output image.
 * An operand field is required.
 * The operand field contains a comma separated list of 16-bit expressions to be inserted into the memory image.
+* The 16-bit value is inserted in little endian order.
 
 Example:
 {{{
@@ -596,6 +619,20 @@ Example:
     else
     lda #2  ; This line will be assembled instead.
     fin
+    
+    ; The following examples show how to use unsigned integer division
+    ; to simulate relational operators.
+    do foo/5
+    lda #foo    ; This line will be assembled if (foo >= 5).
+    fin
+    
+    do foo-5-1/-1
+    lda #foo    ; This line will be assembled if (foo == 5).
+    fin
+    
+    do 5-1/foo
+    lda #foo    ; This line will be assembled if (foo < 5).
+    fin
 }}}
 
 ===LUP
@@ -630,12 +667,28 @@ Instructs the assembler to write out the image data to the specified object file
 one of these directives at its end.
 * The object file will be placed in the directory specified by the {{{--outdir}}} command line parameter or the current
   directory otherwise.
+* All of the image data assembled since the last **ORG** statement will be saved to disk by this directive.  This means
+  that you can use the **SAV** directive more than once in your code to save different pieces of code which start at
+  different **ORG** addresses.
 
 The object file generated by this directive will contain the following 8 byte header:
 * 4 byte header of 'SAV',1A
 * 2 byte load address in little endian order.
 * 2 byte lenght of image in little endian order.
-  
+
+Example:
+{{{
+    ORG $8000
+    LDA #0
+    RTS
+    SAV EXAMPLE1    ; Saves code meant for address $8000 into EXAMPLE1 object file.
+    
+    ORG $9000
+    LDA #1
+    RTS
+    SAV EXAMPLE2    ; Saves code meant for address $9000 into EXAMPLE2 object file.
+}}}
+
 ===USR
 {{{ USR sideExpression,trackExpression,offsetExpression,lengthExpression}}} \\
 
@@ -666,13 +719,74 @@ Example:
 
 
 
-== Differences from Merlin
-Things to be fixed in near future:
-* No 65c816 support.  This actually impacts Apple IIGS source code in PoP which is currently assembled into RTS instructions until this support is added.
+== Differences from Merlin 8
+Differences that will be corrected in the near future:
+* No 65802 support.  This actually impacts Apple IIGS source code in PoP which is currently assembled into RTS
+  instructions until this support is added.
 * No macro support.  There is Apple IIGS source code in PoP which takes advantage of this macro feature.  I want to add
   this anyway since it is pretty foolish to build a Merlin 'compatible' assembler that doesn't support this feature.
-* **LUP** directive should allow decrementing iteration count to be substituted into replicated source text.
+* **LUP** directive should allow decrementing iteration count to be substituted for '@' character in replicated source
+  text.
+* Labels can't contain the period, '.', character in Merlin since when used in an expression, it would be confused with
+  the bitwise OR operator.
 
-I can add the following features in the future but currently they aren't high on my priority list.  If you have a need for any
-particular feature to make it more useful for your needs, then please enter a issue at github to help me prioritize it
-correctly :)
+These differences between Merlin and snap should be expected:
+* Merlin has limits for the length of labels, comments, and overall line lengths.  snap doesn't have such limits.  snap
+  does limit the expanded filenames used with directives like **PUT** and **SAV** to 255 characters.
+* **DO** conditionals can only be nested to 8 levels deep in Merlin.  snap has no set limits.
+* **REV** doesn't accept hexadecimal bytes after the delimited operand string in Merlin but it does in snap.
+
+I can add/modify the following features in the future but currently they aren't high on my priority list.  If you have a
+need for any particular feature to make it more useful for your needs, then please enter an issue at github to help me
+prioritize it correctly :)
+* Merlin only compares the first 3 characters of the opcode field to known 65xx instructions and/or directives.  snap
+  requires that all characters of the opcode field match.
+* Parenthesis aren't supported in snap expressions.  In Merlin, they are used to read the contents at a particular
+  address in memory that was probably placed by the user with something like a POKE statement.  If existing code
+  required this functionality then maybe treat them like symbols and allow them to be defined on the command line.
+* snap will accept <,>,^ in expression for addresses in addition to immediates.  Merlin only allowed the '>' character
+  in **DFB** and **DB** directives.
+* snap doesn't currently support adding a character other than 'D' to end of opcode to force absolute addressing instead
+  of zero page addressing.
+* Merlin allows users to specify Accumulator Addressing Mode by specifying no operand field or placing the 'A' character
+  in the operand field.  snap only supports the empty operand field format.
+* Merlin supports Sweet 16 Opcodes but snap doesn't.
+* **BLT** should be the same as **BCC** and **BGE** the same as **BCS**.
+* No linker support.  This means that directives like **ENT**, **EXT**, and **REL** aren't supported in the assembler
+  either.
+* Merlin doesn't allow current address to be decremented through an **ORG** command like: {{{ ORG *-1}}}.  snap allows
+  this.
+* **ORG** with no operand field isn't supported by snap.
+* The following Merlin directives not currently supported by snap:
+** EXT - don't support the linker currently.
+** ENT - don't support the linker currently.
+** REL - don't support the linker currently.
+** OBJ - can probably just be ignored by snap since there is much less RAM restriction on modern host machines.
+** USE - might just be able to treat the same as PUT in snap since sources are always kept in memory by snap anyway.
+** VAR
+** TYP - can probably just be ignored by snap since we aren't using the ProDOS filesystem.
+** DSK
+** END - can probably just ignore this directive.
+** LST - these are just ignored by snap as its listing output format is fixed for now.
+** LSTDO - these are just ignored by snap as its listing output format is fixed for now.
+** TR - these are just ignored by snap as its listing output format is fixed for now.
+** AST - can probably just ignore this directive as snap doesn't allow much configuration of LST file output anyway.
+** DAT - " " "
+** EXP - " " "
+** PAG - " " "
+** SKP - " " "
+** CYC - would be nice to have.  I might put the numbers on the left though since there is no fixed right margin in
+   snap.
+** DCI
+** INV
+** FLS
+** STR
+** DDB
+** IF
+** CHK
+** ERR
+** KBD
+** MX - will be added when 65802 support is added.
+** PAU
+** SW
+** MAC, EOM, <<<, PMC, >>> - macro support is planned for a future release.
