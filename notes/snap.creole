@@ -1,10 +1,10 @@
 == snap - Assembler
-This assembler was created to allow for compilation of the Prince of Persia (Apple II version) sources.  The primary
+This assembler was created to allow for compilation of the 
+[[https://github.com/jmechner/Prince-of-Persia-Apple-II | Prince of Persia (Apple II version) sources]].  The primary
 goals of this assembler include:
 * Enable building of the Prince of Persia (PoP) sources from ~1989 without modification.  This requires a 6502 assembler
-  that is compatible with the one originally used, Glen Bredon's Merlin assembler.  The initial version of snap won't be
-  a generic replacement for Merlin 8 since it was primarily written to handle the PoP source's use of Merlin's
-  abilities.
+  that is compatible with the one originally used, Glen Bredon's Merlin 8 assembler.  The initial version of snap won't
+  be a generic replacement for Merlin 8 since it was written to handle the PoP source's use of Merlin's abilities.
 * Run on modern personal computers so that today's CPU horsepower can be utilized to produce fast builds.  This allows
   for quick experimentation.  While it is possible to find copies of the original version of Merlin 8 on the Internet
   which can be run under Apple II emulation, I don't feel that this is as convenient.  The snap assembler was also
@@ -31,16 +31,16 @@ follows:
 * {{{--list listFilename}}} - Allows the list file for the assembly process to be output to the specified file.  By
                               default it will be sent to stdout.
 * {{{--putdirs includeDir1;includeDir2...}}} - Specifies the directories (semi-colon separated) in which files will be
-                                               searched when including files with the PUT directive.
-* {{{--outdir outputDirectory}}} - Specifies the directory where output files from directives such as USR and SAV should
-                                  be created.
+                                               searched when including files with the **PUT** directive.
+* {{{--outdir outputDirectory}}} - Specifies the directory where output files from directives such as **USR** and **SAV**
+                                   should be created.
 * {{{sourceFilename}}} - Specifies the name of an input assembly language file to be assembled.  This is the only
                          required parameter.
 
 
 == Source Lines
-The snap assembler only supports 8-bit ASCII text in the source file and there is no maximum line length for the source
-lines.  Each line of the source file can be terminated with any of the common line ending formats: 
+The snap assembler supports 8-bit ASCII text with no maximum line length for the source lines.  Each line of the source
+file can be terminated with any of the common line ending formats: 
 * line feed only (default for many editors on *nix systems such as Linux and OS X)
 * carriage return and line feed (default for many editors on Windows)
 * carriage return only (used on Apple II and versions of Mac OS before OS X)
@@ -52,11 +52,11 @@ label adc $100,x The rest of the line is a comment
 }}}
 
 * The supported fields are label, opcode, operand, and comment.
-* The fields are separated by whitespace characters.
+* The fields are separated by whitespace field delimiters.
 * The snap assembler recognizes both the space and tab characters as whitespace field delimiters.
 
 === Label
-If there are any non-whitespace characters in the leftmost column other than '*' or ';' then it and the subsequent text
+If there is any non-whitespace character in the leftmost column other than '*' or ';' then it and the subsequent text
 will be treated as a label.  //See the 
 [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#comment | comment field description below]]
 to learn more about what '*' or ';' mean when found in the leftmost location.//  The label field is an optional field.
@@ -68,7 +68,7 @@ or to provide a symbolic name to **EQU** or macro directives.
 
 Labels are case sensitive and can contain the following characters: 
 {{{
-'0' - '9', 'A' - 'Z', 'a' - 'z', ':', ';', '<', '=', '?', '@', '[', '/', ']', '^', '_', '`', '{', '|', '}', '~'
+'0'-'9' 'A'-'Z' 'a'-'z' ':' ';' '<' '=' '?' '@' '[' '/' ']' '^' '_' '`' '{' '|' '}' '~'
 }}}
 The first character in a label is slightly more restricted.  It can contain any of the above characters except for the
 decimal digits ('0' - '9').  Labels that start with a colon, ':', are considered local labels and ones that start with
@@ -99,7 +99,7 @@ In the above example, the **EQU** statement will assign the value of 3 to the sy
     lda three
 }}}
 In the above example, the symbol named "three" is referenced in the operand field so that the address used for the
-**LDA** instruction is the value assigned to the symbol named "three".
+**LDA** instruction is the value assigned to the symbol named "three" elsewhere in the source code.
 
 ==== Global Labels
 Global labels have global scope and therefore can only be assigned a value once.
@@ -112,7 +112,7 @@ globalFunc rts
 ==== Local Labels
 Local labels start with a colon, ":", and have scope which is local to the last global label.  
 * A local label can be assigned a value more than once as long as each one follows a different global label.
-* A local label can only be referenced from code which is in the same global scope as the label.
+* A local label can only be referenced from code which is in the same global scope as the local label.
 * It is an error to attempt assigning a value to a local label before a global label has been used in the source code.
 
 Example:
@@ -139,7 +139,7 @@ a variable will use the value which was most recently assigned to the symbol.
 }}}
 
 === Opcode
-The opcode field is used to specify a assembly language instruction mnemonic, assembler directive, or macro name.
+The opcode field is used to specify an assembly language instruction mnemonic, assembler directive, or macro name.
 
 ====Supported Instruction Mnemonics
 These correspond to instructions understood by the 65xx device itself.  You will find more information about these
@@ -170,12 +170,10 @@ instructions currently supported.
 | CMP | Compare Memory to Accumulator |
 | CPX | Compare Memory to X Register |
 | CPY | Compare Memory to Y Register |
-| DEA | Decrement Accumulator by 1 (**65c02 only**) |
 | DEC | Decrement Memory by 1 |
 | DEX | Decrement X Register by 1 |
 | DEY | Decrement Y Register by 1 |
 | EOR | Logical Exclusive OR Memory with Accumulator |
-| INA | Increment Accumulator by 1 (**65c02 only**) |
 | INC | Increment Memory by 1 |
 | INX | Increment X Register by 1 |
 | INY | Increment Y Register by 1 |
@@ -252,8 +250,8 @@ further down in this documentation.
 | [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#xc  | XC]]    | Switches instruction sets. |
 
 === Operand
-The required contents of the operand field will depend on the opcode used.  They will typically be expressions or
-addresses.
+The required contents of the operand field will depend on the opcode used.  They will typically be addresses or 
+expressions.
 
 ==== Expressions in Operands
 An expression is used in the operand field to specify 16-bit unsigned values as required by the opcode.  There should be
@@ -271,8 +269,8 @@ from a 16-bit expression.
 Examples:
 {{{
 example1 equ #1         ; example1 is given a value of 1.
-example2 equ #<$1234    ; example2 is given a value of $34.
-example3 equ #>$1234    : example3 is given a value of $12.
+example2 equ #<$4321    ; example2 is given a value of $21.
+example3 equ #>$4321    : example3 is given a value of $43.
 }}}
 
 =====Numbers in expressions
@@ -443,10 +441,10 @@ Temporarily overrides the assembler's current address.
 * For example a **DUM** section could be started at $00 to create labels specifying important locations for the program
   in page zero.
 * The **DEND** directive ends region of code started with the **DUM** directive.
-* The previous current address is saved before it is changed with the **DUM** directive.  It will be restored when the
-  **DEND** directive is encountered.
-* It is possible to use multiple **DUM** and **ORG** directives between the first **DUM** directive and the terminating
-  **DEND** directive.
+* The previous current address is saved before it is changed with the **DUM** directive.  It will be restored when
+  the **DEND** directive is encountered.
+* It is possible to use multiple **DUM** and **ORG** directives between the first **DUM** directive and the 
+  terminating **DEND** directive.
 * It is an error to specify a **DEND** directive if there isn't a previous **DUM** directive to end.
   
 Example:
@@ -539,7 +537,7 @@ Inserts the specified ASCII text into the output image.
 * Typical delimiters are the single and double quote characters (' and ").
 ** Use of the single quote as delimiter will set the high bit of each ASCII character to 0.
 ** Use of the double quote as delimiter will set the high bit of each ASCII character to 1.
-* It should be however noted:
+* It should however be noted:
 ** Any delimiter preceeding the single quote character in the ASCII table will be treated the same as a double quote
    delimiter.  This includes the following characters: {{{! " # $ % &}}}
 ** Any delimiter following the single quote character in the ASCII table will be treated the same as a single quote
@@ -566,7 +564,7 @@ Inserts specified operand ASCII text into the output image like the ASC directiv
 * Typical delimiters are the single and double quote characters (' and ").
 ** Use of the single quote as delimiter will set the high bit of each ASCII character to 0.
 ** Use of the double quote as delimiter will set the high bit of each ASCII character to 1.
-* It should be however noted:
+* It should however be noted:
 ** Any delimiter preceeding the single quote character in the ASCII table will be treated the same as a double quote
    delimiter.  This includes the following characters: {{{! " # $ % &}}}
 ** Any delimiter following the single quote character in the ASCII table will be treated the same as a single quote
@@ -595,8 +593,8 @@ Includes the specified source text file into the code stream to be assembled.
 Restricts subsequent code to only be assembled when specified expression has a non zero value.
 * The operand field must contain an expression.
 * The **DO** expression can't contain forward reference to labels further down in the source code.
-* If the expression is zero then the code following it will not be assembled and assembly will not begin again until the
-  **ELSE** and/or **FIN** directives are encountered.
+* If the expression is zero then the code following it will not be assembled and assembly will not begin again until
+  the **ELSE** and/or **FIN** directives are encountered.
 * If the expression in non-zero then the code following it will be included in the assembly process.
 * The code following an optional **ELSE** line will only be assembled when the **DO** conditional expression was 0,
   therefore being the inverse of the initial **DO** clause.
@@ -644,7 +642,8 @@ Repeats the code between the **LUP** and **{{{--^}}}** directives the number of 
 expression.
 * The **LUP** directive must contain an expression which contains the count of repeat iterations.
 ** The allowed values for the repeat expression are between 1 and $7fff.
-** Setting repeat expression to 0 or greater than $7fff will cause the LUP clause code to be ignored by the assembler.
+** Setting the repeat expression to 0 or greater than $7fff will cause the LUP clause code to be ignored by the
+   assembler.
 ** The repeat expression cannot contain forward references to labels further down in the source code.
 * The **{{{--^}}}** directive must not contain an operand field.
 * **{{{--^}}}** is only used to end a **LUP** code clause and will generate an error if not following a **LUP**
@@ -674,7 +673,7 @@ one of these directives at its end.
 The object file generated by this directive will contain the following 8 byte header:
 * 4 byte header of 'SAV',1A
 * 2 byte load address in little endian order.
-* 2 byte lenght of image in little endian order.
+* 2 byte length of image in little endian order.
 
 Example:
 {{{
@@ -696,8 +695,8 @@ Instructs the assembler to write out the image data to the specified object file
 crackle disk imaging tool to insert using the RW18 format used by Prince of Persia.  **Note:** The USR directive would
 typically have a more generic use in Merlin but it has been hardcoded to work with Prince of Persia's use for outputting
 object files in RW18 format.
-* The name of the object file will be the same as the input source filename, with extension removed (ie. SOURCE.S would
-  generate a USR object file named SOURCE).
+* The name of the object file will be the same as the input source filename, with the extension removed (ie. SOURCE.S
+  would generate a USR object file named SOURCE).
 * The object file will be placed in the directory specified by the {{{--outdir}}} command line parameter or the current
   directory otherwise.
 * The side expression should be $a9 for side 1, $ad for side 2, or $79 for side 3.
@@ -724,11 +723,12 @@ Differences that will be corrected in the near future:
 * No 65802 support.  This actually impacts Apple IIGS source code in PoP which is currently assembled into RTS
   instructions until this support is added.
 * No macro support.  There is Apple IIGS source code in PoP which takes advantage of this macro feature.  I want to add
-  this anyway since it is pretty foolish to build a Merlin 'compatible' assembler that doesn't support this feature.
+  this anyway since it is pretty foolish to build a Merlin 'compatible' macro assembler that doesn't support this
+  feature.
 * **LUP** directive should allow decrementing iteration count to be substituted for '@' character in replicated source
   text.
 * Labels can't contain the period, '.', character in Merlin since when used in an expression, it would be confused with
-  the bitwise OR operator.
+  the bitwise OR operator.  snap shouldn't allow it either.
 
 These differences between Merlin and snap should be expected:
 * Merlin has limits for the length of labels, comments, and overall line lengths.  snap doesn't have such limits.  snap
@@ -746,8 +746,8 @@ prioritize it correctly :)
   required this functionality then maybe treat them like symbols and allow them to be defined on the command line.
 * snap will accept <,>,^ in expression for addresses in addition to immediates.  Merlin only allowed the '>' character
   in **DFB** and **DB** directives.
-* snap doesn't currently support adding a character other than 'D' to end of opcode to force absolute addressing instead
-  of zero page addressing.
+* snap doesn't currently support adding a character other than 'D' to the end of the opcode to force absolute addressing
+  instead of zero page addressing.
 * Merlin allows users to specify Accumulator Addressing Mode by specifying no operand field or placing the 'A' character
   in the operand field.  snap only supports the empty operand field format.
 * Merlin supports Sweet 16 Opcodes but snap doesn't.
@@ -757,7 +757,7 @@ prioritize it correctly :)
 * Merlin doesn't allow current address to be decremented through an **ORG** command like: {{{ ORG *-1}}}.  snap allows
   this.
 * **ORG** with no operand field isn't supported by snap.
-* The following Merlin directives not currently supported by snap:
+* The following Merlin directives are not currently supported by snap:
 ** EXT - don't support the linker currently.
 ** ENT - don't support the linker currently.
 ** REL - don't support the linker currently.

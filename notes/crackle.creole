@@ -1,23 +1,22 @@
 == crackle - Disk Imaging Utility
-This custom disk imaging utility exists to facilitate the building of disk images for the Prince of Persia (Apple II
-version) project.  There already exist tools like [[http://ciderpress.sourceforge.net | Ciderpress]] which can create
-disk images for the Apple II computer and they are better suited to general Apple II disk image creation.  The crackle
-utilitiy was created specifically for some unique requirements of the Prince of Persia (PoP) build process.  These
-include:
+This custom disk imaging utility exists to facilitate the building of disk images for the 
+[[https://github.com/jmechner/Prince-of-Persia-Apple-II | Prince of Persia (Apple II version) project]].  There already
+exist tools like [[http://ciderpress.sourceforge.net | Ciderpress]] which can create disk images for the Apple II
+computer and they are better suited to general Apple II disk image creation.  The crackle utilitiy was created
+specifically for some unique requirements of the Prince of Persia (PoP) build process.  These include:
 
-* In PoP assembly language source, USR directives were used to write the object file out to disk directly in the
-  required location using the RW18 file system API.  My snap assembler does support this direct interaction with the
+* In the PoP assembly language sources, USR directives were used to write the object file out to disk directly in the
+  required location using the RW18 file system API.  My snap assembler doesn't support this direct interaction with the
   RW18 API but instead saves out an object file with a special header that will let the crackle application know where
   it should place the file in the image.
-* Understands the RW18 disk format used by Prince of Persia.  //Should be noted that currently this is only supported
-  on the 3.5" block disk image output type and not for the 5.25" nibble format.//
+* Understands the RW18 disk format used by Prince of Persia.  // It should be noted that currently this is only
+  supported on the 3.5" block disk image output type and not for the 5.25" nibble format.//
 * The image tables found here,
-  [[https://github.com/jmechner/Prince-of-Persia-Apple-II/tree/master/01%20POP%20Source/Images]], contain a list of
-  addresses for the start of each image in the table.  The files in the repository have these addresses set to values
-  that work if the image table was loaded at an address of $6000.  The snap utility has the ability to rebase these
-  image tables based on where they will actually be loaded into memory.  It also truncates the image tables and only
-  writes out the active table entries and not any of the overflow if the file happens to be larger in the repository
-  than required.
+  [[https://github.com/jmechner/Prince-of-Persia-Apple-II/tree/master/01%20POP%20Source/Images]], contains addresses set
+  to values that work if the image table was loaded at an address of $6000.  The snap utility has the ability to rebase
+  these image tables based on where they will actually be loaded into memory.  It also truncates the image tables and
+  only writes out the active table entries and not any of the overflow if the file happens to be larger than required in
+  the repository.
 
 
 == Command Line
@@ -39,7 +38,7 @@ follow:
 
 == Script File
 The crackle scripts files are text based files where the lines contain comma separated values indicating which file
-data should be placed where in the disk image.  Each line of the script provided to crackle can come in one of 3
+data should be placed where in the disk image.  Each line of the script provided to crackle can be one of 3
 formats: **BLOCK**, **RWTS16**, or **RWTS18**.
 
 ===BLOCK
@@ -59,7 +58,7 @@ BLOCK,objectFilename,startOffset,length,block[,intraBlockOffset]
                   at the beginning of the file so specifying 0 for this field would be the appropriate action.  This is
                   a required field.\\
 **length** - How many bytes should be read from within the objectFilename to be placed in the disk image.  You can use
-             an asterisk, '*', in this field to indicate the complete length of the object file.  This is a required
+             an asterisk, '*', in this field to indicate the full length of the object file.  This is a required
              field.\\
 **block** - At what block in the output disk image, should this file's data be inserted.  You can use an asterisk, '*',
             in this field to indicate that the data should be inserted where the data from the previous script line
@@ -86,7 +85,7 @@ RWTS16,objectFilename,startOffset,length,track,sector
                   at the beginning of the file so specifying 0 for this field would be the appropriate action.  This is
                   a required field.\\
 **length** - How many bytes should be read from within the objectFilename to be placed in the disk image.  You can use
-             an asterisk, '*', in this field to indicate the complete length of the object file.  This is a required
+             an asterisk, '*', in this field to indicate the full length of the object file.  This is a required
              field.\\
 **track** - At what track in the output disk image, should this file's data be inserted.  The allowed values are 0 - 34.
             This is a required field.\\
@@ -110,12 +109,12 @@ RWTS18,objectFilename,startOffset,length,side,track,sector,intraSectorOffset[,im
                   at the beginning of the file so specifying 0 for this field would be the appropriate action.  This is
                   a required field.\\
 **length** - How many bytes should be read from within the objectFilename to be placed in the disk image.  You can use
-             an asterisk, '*', in this field to indicate the complete length of the object file.  This is a required
+             an asterisk, '*', in this field to indicate the full length of the object file.  This is a required
              field.\\
 **side** - At what side of the output disk image (for 3.5" disk images where virtualized sides are used within the RW18
            disk format), should this file's data be inserted.  The allowed values are 0xa9 for side 1, 0xad for side 2,
-           0x79 for side 3.  You can also use an asterisk, '*', in this field when objectFilename points to an object
-           saved out by snap in response to an USR directive as its header will then indicate the desired side.  This is
+           and 0x79 for side 3.  You can also use an asterisk, '*', in this field when objectFilename points to an object
+           saved out by snap in response to an USR directive as its header will indicate the desired side.  This is
            a required field.\\
 **track** - At what track in the output disk image, should this file's data be inserted.  The allowed values are 0 - 34.
             You can also use an asterisk, '*', in this field when objectFilename points to an object saved out by snap
@@ -123,14 +122,14 @@ RWTS18,objectFilename,startOffset,length,side,track,sector,intraSectorOffset[,im
             field.\\
 **sector** - At what sector within the specified track in the output disk image, should this file's data be inserted.
              The allowed values are 0 - 17.  You can also use an asterisk, '*', in this field when objectFilename points
-             to an object saved out by snap in response to an USR directive as its header will then indicate the desired
+             to an object saved out by snap in response to an USR directive as its header will indicate the desired
              sector.  This is a required field.\\
 **intraBlockOffset** - The destination of the data doesn't have to be at the beginning of a 256 byte sector.  This
                        optional intra block offset accepts a value of 0 - 255 to indicate at what offset within the 
                        block the data should be inserted.  You can also use an asterisk, '*', in this field when
                        objectFilename points to an object saved out by snap in response to an USR directive as its
-                       header will then indicate the desired offset.  This is a required field.\\
+                       header will indicate the desired offset.  This is a required field.\\
 **imageTableAddress** - When objectFilename is an image table used by Prince of Persia, this optional field indicates
                         the address in memory where the table will be loaded.  Specifying this values will direct the
-                        crackle utility to remap the table entries to this new base address but also truncate the input
+                        crackle utility to remap the table entries to this new base address and also truncate the input
                         data so that only active images are inserted into the output disk image.\\
