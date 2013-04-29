@@ -91,7 +91,7 @@ static void setBlockInsertFieldsBaseOnScriptFields(DiskImageScriptEngine* pThis,
                                                    const SizedString* pFields);
 static void rememberLastInsertionInformation(DiskImageScriptEngine* pThis);
 static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields);
-static void processRWTS18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields);
+static void processRW18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields);
 static void processImageTableUpdates(DiskImageScriptEngine* pThis, unsigned short newImageTableAddress);
 static unsigned short getImageTableObjectSize(DiskImage* pDiskImage, unsigned short startImageTableAddress);
 static void reportScriptLineException(DiskImageScriptEngine* pThis);
@@ -158,8 +158,8 @@ static void processNextScriptLine(DiskImageScriptEngine* pThis, const SizedStrin
             processBlockScriptLine(pThis, fieldCount, pFields);
         else if (0 == SizedString_strcasecmp(&pFields[0], "rwts16"))
             processRWTS16ScriptLine(pThis, fieldCount, pFields);
-        else if (0 == SizedString_strcasecmp(&pFields[0], "rwts18"))
-            processRWTS18ScriptLine(pThis, fieldCount, pFields);
+        else if (0 == SizedString_strcasecmp(&pFields[0], "rw18"))
+            processRW18ScriptLine(pThis, fieldCount, pFields);
         else
             LOG_ERROR(pThis, "%.*s isn't a recognized image insertion type of BLOCK or RWTS16.", 
                       pFields[0].stringLength, pFields[0].pString);
@@ -282,19 +282,19 @@ static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCo
     DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert);
 }
 
-static void processRWTS18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields)
+static void processRW18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields)
 {
     if (fieldCount < 8 || fieldCount > 9)
     {
         LOG_ERROR(pThis, 
                   "%s doesn't contain correct fields: "
-                    "RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset[,imageTableAddress]",
+                    "RW18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset[,imageTableAddress]",
                   "Line");
         __throw(invalidArgumentException);
     }
     
     readObjectFile(pThis->pDiskImage, &pFields[1]);
-    pThis->insert.type = DISK_IMAGE_INSERTION_RWTS18;
+    pThis->insert.type = DISK_IMAGE_INSERTION_RW18;
     pThis->insert.sourceOffset = SizedString_strtoul(&pFields[2], NULL, 0);
     pThis->insert.length = parseLengthField(pThis, &pFields[3]);
     pThis->insert.side = parseFieldWhichSupportsAsteriskForDefaulValue(pThis, &pFields[4], 
@@ -471,7 +471,7 @@ static void readInRW18SavHeaderToSetDefaultInsertOptions(DiskImage* pThis, FILE*
     RW18SavFileHeader rw18Header = readInRestOfRW18FileHeader(pThis, pFile, pPartialHeader);
 
     pThis->objectFileLength = rw18Header.length;
-    pThis->insert.type = DISK_IMAGE_INSERTION_RWTS18;
+    pThis->insert.type = DISK_IMAGE_INSERTION_RW18;
     pThis->insert.length = rw18Header.length;
     pThis->insert.side = rw18Header.side;
     pThis->insert.track = rw18Header.track;

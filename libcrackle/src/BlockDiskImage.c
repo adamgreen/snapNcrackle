@@ -105,7 +105,7 @@ static void validateImageOffsets(BlockDiskImage* pThis, DiskImageInsert* pInsert
 static unsigned int calculateSourceOffset(DiskImageInsert* pInsert);
 __throws void BlockDiskImage_InsertData(BlockDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert)
 {
-    if (pInsert->type == DISK_IMAGE_INSERTION_RWTS18)
+    if (pInsert->type == DISK_IMAGE_INSERTION_RW18)
         insertRW18Data(pThis, pData, pInsert);
     else
         insertBlockData(pThis, pData, pInsert);

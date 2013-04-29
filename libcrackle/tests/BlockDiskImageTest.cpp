@@ -223,7 +223,7 @@ TEST_GROUP(BlockDiskImage)
         DiskImageInsert insert;
         insert.sourceOffset = 0;
         insert.length = totalSize;
-        insert.type = DISK_IMAGE_INSERTION_RWTS18;
+        insert.type = DISK_IMAGE_INSERTION_RW18;
         insert.side = side;
         insert.track = startTrack;
         insert.sector = startSector;
@@ -969,7 +969,7 @@ TEST(BlockDiskImage, ProcessOneRW18LineTextScriptWithAsteriskForAllFieldsSoThatF
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,*,*,*,*" LINE_ENDING));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RW18,BlockDiskImageTestOnes.usr,0,*,*,*,*,*" LINE_ENDING));
 
     const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
     validateRW18SectorsAreZeroes(pImage, DISK_IMAGE_RW18_SIDE_0, 0, 0, 
@@ -983,7 +983,7 @@ TEST(BlockDiskImage, ProcessOneRW18LineTextScriptWithOverridesForAllFileHeaderFi
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,0" LINE_ENDING));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RW18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,0" LINE_ENDING));
 
     const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
     validateRW18SectorsAreOnes(pImage, DISK_IMAGE_RW18_SIDE_0, 0, 0, DISK_IMAGE_RW18_SIDE_0, 0, 0);
@@ -1000,7 +1000,7 @@ TEST(BlockDiskImage, ProcessOneRW18LineTextScriptWithImageTableUpdate)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createImageTable(8, IMAGE_SIZES);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTest.img,0,*,0xa9,0,0,0,0x9F00" LINE_ENDING));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RW18,BlockDiskImageTest.img,0,*,0xa9,0,0,0,0x9F00" LINE_ENDING));
 
     const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
     validateUpdatedImageTable(pImage, startBlock, newStartAddress, 8, IMAGE_SIZES);
@@ -1014,7 +1014,7 @@ TEST(BlockDiskImage, UpdateImageTableFileThatShouldBeTruncatedAndWriteToImage)
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createBlockRawObjectFile(g_imgTableFilename, (const unsigned char*)"\x01\x05\x60\x05\x60\xcd", 6);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTest.img,0,*,0xa9,0,0,0,0x9F00" LINE_ENDING));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RW18,BlockDiskImageTest.img,0,*,0xa9,0,0,0,0x9F00" LINE_ENDING));
 
     const unsigned char* pImage = BlockDiskImage_GetImagePointer(m_pDiskImage);
     // Validate table headers were updated.
@@ -1113,52 +1113,52 @@ TEST(BlockDiskImage, PassInvalidInsertionTypeToProcessScript)
                  printfSpy_GetLastErrorOutput());
 }
 
-TEST(BlockDiskImage, PassTooFewRWTS18TokensToProcessScript)
+TEST(BlockDiskImage, PassTooFewRW18TokensToProcessScript)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0" LINE_ENDING));
-    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset[,imageTableAddress]" LINE_ENDING,
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RW18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RW18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset[,imageTableAddress]" LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
-TEST(BlockDiskImage, PassTooManyRWTS18TokensToProcessScript)
+TEST(BlockDiskImage, PassTooManyRW18TokensToProcessScript)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,0,0,0" LINE_ENDING));
-    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RWTS18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset[,imageTableAddress]" LINE_ENDING,
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RW18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,0,0,0" LINE_ENDING));
+    STRCMP_EQUAL("<null>:1: error: Line doesn't contain correct fields: RW18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset[,imageTableAddress]" LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
-TEST(BlockDiskImage, PassInvalidRWTS18FilenameToProcessScript)
+TEST(BlockDiskImage, PassInvalidRW18FilenameToProcessScript)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,InvalidFilename.usr,0,*,0xa9,0,0,0" LINE_ENDING));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RW18,InvalidFilename.usr,0,*,0xa9,0,0,0" LINE_ENDING));
     STRCMP_EQUAL("<null>:1: error: Failed to read 'InvalidFilename.usr' object file." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
-TEST(BlockDiskImage, PassInvalidRWTS18SectorOffsetToProcessScript)
+TEST(BlockDiskImage, PassInvalidRW18SectorOffsetToProcessScript)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,256" LINE_ENDING));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RW18,BlockDiskImageTestOnes.usr,0,*,0xa9,0,0,256" LINE_ENDING));
     STRCMP_EQUAL("<null>:1: error: 256 specifies an invalid intra sector offset.  Must be 0 - 255." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 
-TEST(BlockDiskImage, PassInvalidRWTS18SideToProcessScript)
+TEST(BlockDiskImage, PassInvalidRW18SideToProcessScript)
 {
     m_pDiskImage = BlockDiskImage_Create(BLOCK_DISK_IMAGE_3_5_BLOCK_COUNT);
     createOnesSectorUSRObjectFile(DISK_IMAGE_RW18_SIDE_2, DISK_IMAGE_TRACKS_PER_SIDE - 1, 17, 0);
 
-    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RWTS18,BlockDiskImageTestOnes.usr,0,*,0,0,0,0" LINE_ENDING));
+    BlockDiskImage_ProcessScript(m_pDiskImage, copy("RW18,BlockDiskImageTestOnes.usr,0,*,0,0,0,0" LINE_ENDING));
     STRCMP_EQUAL("<null>:1: error: 0x0 specifies an invalid side.  Must be 0xa9, 0xad, 0x79." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }

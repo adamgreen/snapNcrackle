@@ -34,7 +34,7 @@ typedef struct DiskImage DiskImage;
 typedef enum DiskImageInsertionType
 {
     DISK_IMAGE_INSERTION_RWTS16,
-    DISK_IMAGE_INSERTION_RWTS18,
+    DISK_IMAGE_INSERTION_RW18,
     DISK_IMAGE_INSERTION_BLOCK
 } DiskImageInsertionType;
 

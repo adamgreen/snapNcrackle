@@ -39,7 +39,7 @@ follow:
 == Script File
 The crackle scripts files are text based files where the lines contain comma separated values indicating which file
 data should be placed where in the disk image.  Each line of the script provided to crackle can be one of 3
-formats: **BLOCK**, **RWTS16**, or **RWTS18**.
+formats: **BLOCK**, **RWTS16**, or **RW18**.
 
 ===BLOCK
 These lines are used to place a block, 512 bytes, of data at specific locations in a ProDOS block ordered image.
@@ -92,17 +92,17 @@ RWTS16,objectFilename,startOffset,length,track,sector
 **sector** - At what sector within the specified track in the output disk image, should this file's data be inserted.
              The allowed values are 0 - 15.  This is a required field.\\
 
-===RWTS18
+===RW18
 These lines are used to place data at specific locations in a disk image using the RW18 format used by Prince of
 Persia and other Apple II titles from Brøderbund.  Currently this format is only supported for block formatted disk
 images.
 
 The lines of this format should have the following form:
 {{{
-RWTS18,objectFilename,startOffset,length,side,track,sector,intraSectorOffset[,imageTableAddress]
+RW18,objectFilename,startOffset,length,side,track,sector,intraSectorOffset[,imageTableAddress]
 }}}
 
-**RWTS18** - Indicates that this is a RWTS18 formatted line.  This is a required field.\\
+**RW18** - Indicates that this is a RW18 formatted line.  This is a required field.\\
 **objectFilename** - Which data file should be read and placed into the disk image by this line of the script.  This is
                      a required field.\\
 **startOffset** - At what offset should the reads from within objectFilename begin.  Typically you will want to start
