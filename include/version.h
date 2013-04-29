@@ -16,8 +16,8 @@
 
 /* Version Information. */
 #define VERSION_MAJOR       0
-#define VERSION_MINOR       1
-#define VERSION_BUILD       20130301
+#define VERSION_MINOR       2
+#define VERSION_BUILD       20130429
 #define VERSION_SUBBUILD    0
 
 #define VER_STR(X) VER_STR2(X)
