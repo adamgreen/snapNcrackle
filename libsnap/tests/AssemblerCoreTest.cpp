@@ -56,7 +56,7 @@ TEST(AssemblerCore, InitFromEmptyFile)
 TEST(AssemblerCore, InitFromNonExistantFile)
 {
     __try_and_catch( m_pAssembler = Assembler_CreateFromFile("foo.noexist.bar", NULL) );
-    validateFileNotFoundExceptionThrown();
+    validateFileOpenExceptionThrown();
 }
 
 TEST(AssemblerCore, FailAllAllocationsDuringFileInit)
@@ -111,7 +111,7 @@ TEST(AssemblerCore, FailAttemptToOpenListFile)
         __try_and_catch( m_pAssembler = Assembler_CreateFromString(dupe("* Comment line."), &m_initParams) );
     fopenRestore();
     LONGS_EQUAL(NULL, m_pAssembler);
-    validateFileNotFoundExceptionThrown();
+    validateFileOpenExceptionThrown();
 }
 
 TEST(AssemblerCore, FailAllocationOnLineInfoAllocation)

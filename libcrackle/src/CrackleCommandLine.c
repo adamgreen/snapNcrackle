@@ -35,7 +35,7 @@ static void displayUsage(void)
            "         one of these formats:\n"
            "           BLOCK,objectFilename,startOffset,length,block[,intraBlockOffset]\n"
            "           RWTS16,objectFilename,startOffset,length,track,sector\n"
-           "           RW18,objectFilename,startOffset,length,side,track,sector,intraSectorOffset[,imageTableAddress]\n"
+           "           RW18,objectFilename,startOffset,length,side,track,intraTrackOffset[,imageTableAddress]\n"
            "       outputImageFilename is the name of the image to be created by\n"
            "           this tool.\n\n");
 }

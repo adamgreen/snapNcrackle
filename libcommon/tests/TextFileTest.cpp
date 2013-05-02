@@ -237,7 +237,7 @@ TEST(TextFile, FailWithBadDirectory)
     __try_and_catch( m_pTextFile = TextFile_CreateFromFile(&testDirectory, toSizedString(tempFilename), NULL) );
 
     POINTERS_EQUAL(NULL, m_pTextFile);
-    LONGS_EQUAL(fileNotFoundException, getExceptionCode());
+    LONGS_EQUAL(fileOpenException, getExceptionCode());
     clearExceptionCode();
 }
 
@@ -249,7 +249,7 @@ TEST(TextFile, FailFOpen)
     fopenRestore();
 
     POINTERS_EQUAL(NULL, m_pTextFile);
-    LONGS_EQUAL(fileNotFoundException, getExceptionCode());
+    LONGS_EQUAL(fileOpenException, getExceptionCode());
     clearExceptionCode();
 }
 

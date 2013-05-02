@@ -284,11 +284,11 @@ static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCo
 
 static void processRW18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields)
 {
-    if (fieldCount < 8 || fieldCount > 9)
+    if (fieldCount < 7 || fieldCount > 8)
     {
         LOG_ERROR(pThis, 
                   "%s doesn't contain correct fields: "
-                    "RW18,objectFilename,objectStartOffset,insertionLength,side,track,sector,offset[,imageTableAddress]",
+                    "RW18,objectFilename,objectStartOffset,insertionLength,side,track,offset[,imageTableAddress]",
                   "Line");
         __throw(invalidArgumentException);
     }
@@ -301,12 +301,10 @@ static void processRW18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCoun
                                                                        pThis->pDiskImage->insert.side);
     pThis->insert.track = parseFieldWhichSupportsAsteriskForDefaulValue(pThis, &pFields[5], 
                                                                         pThis->pDiskImage->insert.track);
-    pThis->insert.sector = parseFieldWhichSupportsAsteriskForDefaulValue(pThis, &pFields[6], 
-                                                                         pThis->pDiskImage->insert.sector);
-    pThis->insert.intraSectorOffset = parseFieldWhichSupportsAsteriskForDefaulValue(pThis, &pFields[7], 
-                                                                       pThis->pDiskImage->insert.intraSectorOffset);
-    if (fieldCount > 8)
-        processImageTableUpdates(pThis, SizedString_strtoul(&pFields[8], NULL, 0));
+    pThis->insert.intraTrackOffset = parseFieldWhichSupportsAsteriskForDefaulValue(pThis, &pFields[6], 
+                                                                                   pThis->pDiskImage->insert.intraTrackOffset);
+    if (fieldCount > 7)
+        processImageTableUpdates(pThis, SizedString_strtoul(&pFields[7], NULL, 0));
 
     DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert);
 }
@@ -340,7 +338,8 @@ static void reportScriptLineException(DiskImageScriptEngine* pThis)
     const SizedString* pFields = ParseCSV_FieldPointers(pThis->pParser);
     int                exceptionCode = getExceptionCode();
     
-    assert ( exceptionCode == fileException || 
+    assert ( exceptionCode == fileOpenException ||
+             exceptionCode == fileException || 
              exceptionCode == invalidArgumentException ||
              exceptionCode == blockExceedsImageBoundsException ||
              exceptionCode == invalidInsertionTypeException ||
@@ -348,10 +347,16 @@ static void reportScriptLineException(DiskImageScriptEngine* pThis)
              exceptionCode == invalidSectorException ||
              exceptionCode == invalidTrackException ||
              exceptionCode == invalidIntraBlockOffsetException ||
-             exceptionCode == invalidIntraSectorOffsetException);
+             exceptionCode == invalidIntraTrackOffsetException ||
+             exceptionCode == invalidSourceOffsetException ||
+             exceptionCode == invalidLengthException );
 
-    if (exceptionCode == fileException)
-        LOG_ERROR(pThis, "Failed to read '%.*s' object file.", 
+    /* Note: invalidArgumentException prints error text before throwing. */
+    if (exceptionCode == fileOpenException)
+        LOG_ERROR(pThis, "Failed to open '%.*s' object file.", 
+                  pFields[1].stringLength, pFields[1].pString);
+    else if (exceptionCode == fileException)
+        LOG_ERROR(pThis, "Failed to process '%.*s' object file.", 
                   pFields[1].stringLength, pFields[1].pString);
     else if (exceptionCode == blockExceedsImageBoundsException)
         LOG_ERROR(pThis, "Write starting at block %u offset %u won't fit in output image file.", 
@@ -369,9 +374,16 @@ static void reportScriptLineException(DiskImageScriptEngine* pThis)
     else if (exceptionCode == invalidIntraBlockOffsetException)
         LOG_ERROR(pThis, "%u specifies an invalid intra block offset.  Must be 0 - 511.", 
                   pThis->insert.intraBlockOffset);
-    else if (exceptionCode == invalidIntraSectorOffsetException)
-        LOG_ERROR(pThis, "%u specifies an invalid intra sector offset.  Must be 0 - 255.", 
-                  pThis->insert.intraSectorOffset);
+    else if (exceptionCode == invalidIntraTrackOffsetException)
+        LOG_ERROR(pThis, "%u specifies an invalid intra track offset.  Must be 0 - 4607.", 
+                  pThis->insert.intraTrackOffset);
+    else if (exceptionCode == invalidSourceOffsetException)
+        LOG_ERROR(pThis, "%u specifies an invalid source data offset.  Should be less than %u.", 
+                  pThis->insert.sourceOffset,
+                  pThis->pDiskImage->objectFileLength);
+    else if (exceptionCode == invalidLengthException)
+        LOG_ERROR(pThis, "%u specifies an invalid legnth.", 
+                  pThis->insert.length);
 }
 
 
@@ -431,7 +443,7 @@ static FILE* openFile(const char* pFilename, const char* pMode)
 {
     FILE* pFile = fopen(pFilename, pMode);
     if (!pFile)
-        __throw(fileException);
+        __throw(fileOpenException);
     return pFile;
 }
 
@@ -475,8 +487,7 @@ static void readInRW18SavHeaderToSetDefaultInsertOptions(DiskImage* pThis, FILE*
     pThis->insert.length = rw18Header.length;
     pThis->insert.side = rw18Header.side;
     pThis->insert.track = rw18Header.track;
-    pThis->insert.sector = rw18Header.offset / DISK_IMAGE_BYTES_PER_SECTOR;
-    pThis->insert.intraSectorOffset = rw18Header.offset % DISK_IMAGE_BYTES_PER_SECTOR;
+    pThis->insert.intraTrackOffset = rw18Header.offset;
 }
 
 static RW18SavFileHeader readInRestOfRW18FileHeader(DiskImage* pThis, FILE* pFile, void* pPartialHeader)

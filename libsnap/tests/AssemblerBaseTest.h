@@ -98,9 +98,9 @@ TEST_BASE(AssemblerBase)
         m_argv[m_argc++] = pArg;
     }
     
-    void validateFileNotFoundExceptionThrown()
+    void validateFileOpenExceptionThrown()
     {
-        validateExceptionThrown(fileNotFoundException);
+        validateExceptionThrown(fileOpenException);
     }
     
     void validateOutOfMemoryExceptionThrown()

@@ -19,7 +19,7 @@
 #define noException                         0
 #define bufferOverrunException              1
 #define outOfMemoryException                2
-#define fileNotFoundException               3
+#define fileOpenException                   3
 #define fileException                       4
 #define invalidHexDigitException            5
 #define invalidBinaryDigitException         6
@@ -31,12 +31,13 @@
 #define invalidTrackException               12
 #define invalidSectorException              13
 #define invalidIntraBlockOffsetException    14
-#define invalidIntraSectorOffsetException   15
+#define invalidIntraTrackOffsetException    15
 #define blockExceedsImageBoundsException    16
 #define invalidInsertionTypeException       17
 #define missingOperandException             18
 #define invalidArgumentCountException       19
 #define encounteredCommentException         20
+#define badTrackException                   21
 
 
 #ifndef __debugbreak

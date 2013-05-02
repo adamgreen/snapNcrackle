@@ -9,14 +9,13 @@ specifically for some unique requirements of the Prince of Persia (PoP) build pr
   required location using the RW18 file system API.  My snap assembler doesn't support this direct interaction with the
   RW18 API but instead saves out an object file with a special header that will let the crackle application know where
   it should place the file in the image.
-* Understands the RW18 disk format used by Prince of Persia.  // It should be noted that currently this is only
-  supported on the 3.5" block disk image output type and not for the 5.25" nibble format.//
+* Understands the RW18 disk format used by Prince of Persia.
 * The image tables found here,
-  [[https://github.com/jmechner/Prince-of-Persia-Apple-II/tree/master/01%20POP%20Source/Images]], contains addresses set
-  to values that work if the image table was loaded at an address of $6000.  The snap utility has the ability to rebase
-  these image tables based on where they will actually be loaded into memory.  It also truncates the image tables and
-  only writes out the active table entries and not any of the overflow if the file happens to be larger than required in
-  the repository.
+  [[https://github.com/jmechner/Prince-of-Persia-Apple-II/tree/master/01%20POP%20Source/Images]], contain addresses set
+  to work if the image table was loaded at an address of $6000.  The snap utility has the ability to rebase these image
+  tables based on where they will actually be loaded into memory.  It also truncates the image tables and only writes
+  out the active table entries and not any of the overflow if the file happens to be larger than required in the
+  repository.
 
 
 == Command Line
@@ -93,13 +92,12 @@ RWTS16,objectFilename,startOffset,length,track,sector
              The allowed values are 0 - 15.  This is a required field.\\
 
 ===RW18
-These lines are used to place data at specific locations in a disk image using the RW18 format used by Prince of
-Persia and other Apple II titles from Brøderbund.  Currently this format is only supported for block formatted disk
-images.
+These lines are used to place data at specific locations in a disk image using the RW18 format created by
+Roland Gustafsson.  This format was used by Prince of Persia and other Apple II titles from Brøderbund.
 
 The lines of this format should have the following form:
 {{{
-RW18,objectFilename,startOffset,length,side,track,sector,intraSectorOffset[,imageTableAddress]
+RW18,objectFilename,startOffset,length,side,track,intraTrackOffset[,imageTableAddress]
 }}}
 
 **RW18** - Indicates that this is a RW18 formatted line.  This is a required field.\\
@@ -120,15 +118,11 @@ RW18,objectFilename,startOffset,length,side,track,sector,intraSectorOffset[,imag
             You can also use an asterisk, '*', in this field when objectFilename points to an object saved out by snap
             in response to an USR directive as its header will then indicate the desired track.  This is a required
             field.\\
-**sector** - At what sector within the specified track in the output disk image, should this file's data be inserted.
-             The allowed values are 0 - 17.  You can also use an asterisk, '*', in this field when objectFilename points
-             to an object saved out by snap in response to an USR directive as its header will indicate the desired
-             sector.  This is a required field.\\
-**intraBlockOffset** - The destination of the data doesn't have to be at the beginning of a 256 byte sector.  This
-                       optional intra block offset accepts a value of 0 - 255 to indicate at what offset within the 
-                       block the data should be inserted.  You can also use an asterisk, '*', in this field when
-                       objectFilename points to an object saved out by snap in response to an USR directive as its
-                       header will indicate the desired offset.  This is a required field.\\
+**intraTrackOffset** - The destination of the data doesn't have to be at the beginning of the track.  This intratrack
+                       offset accepts a value of 0 - 4607 to indicate at what offset within the track the data should be
+                       inserted.  You can also use an asterisk, '*', in this field when objectFilename points to an
+                       object saved out by snap in response to an USR directive as its header will indicate the desired
+                       offset.  This is a required field.\\
 **imageTableAddress** - When objectFilename is an image table used by Prince of Persia, this optional field indicates
                         the address in memory where the table will be loaded.  Specifying this values will direct the
                         crackle utility to remap the table entries to this new base address and also truncate the input

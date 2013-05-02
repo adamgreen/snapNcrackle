@@ -79,6 +79,12 @@ TEST_GROUP(NibbleDiskImage)
             LONGS_EQUAL(0, *pBuffer++);
     }
     
+    void validateAllOnes(const unsigned char* pBuffer, size_t bufferSize)
+    {
+        for (size_t i = 0 ; i < bufferSize ; i++)
+            LONGS_EQUAL(0xFF, *pBuffer++);
+    }
+    
     void validateRWTS16SectorsAreClear(const unsigned char* pImage, 
                                        unsigned int         startTrack, 
                                        unsigned int         startSector,
@@ -197,7 +203,9 @@ TEST_GROUP(NibbleDiskImage)
         m_pCurr += 343;
     }
     
-    void writeZeroSectors(unsigned int startTrack, unsigned int startSector, unsigned int sectorCount)
+    void writeZeroRWTS16Sectors(unsigned int startTrack,
+                                unsigned int startSector, 
+                                unsigned int sectorCount)
     {
         unsigned int   totalSectorSize = sectorCount * DISK_IMAGE_BYTES_PER_SECTOR;
         unsigned char* pSectorData = (unsigned char*)malloc(totalSectorSize);
@@ -210,6 +218,42 @@ TEST_GROUP(NibbleDiskImage)
         insert.length = totalSectorSize;
         insert.track = startTrack;
         insert.sector = startSector;
+
+        __try_and_catch( NibbleDiskImage_InsertData(m_pNibbleDiskImage, pSectorData, &insert) );
+        free(pSectorData);
+    }
+    
+    void writeZeroRW18Sectors(unsigned int startTrack, 
+                              unsigned int startTrackOffset, 
+                              unsigned int pageCount)
+    {
+        writeRW18Sectors(startTrack, startTrackOffset, pageCount, 0x00);
+    }
+    
+    void writeOnesRW18Sectors(unsigned int startTrack, 
+                              unsigned int startTrackOffset, 
+                              unsigned int pageCount)
+    {
+        writeRW18Sectors(startTrack, startTrackOffset, pageCount, 0xFF);
+    }
+    
+    void writeRW18Sectors(unsigned int startTrack, 
+                          unsigned int startTrackOffset, 
+                          unsigned int pageCount,
+                          unsigned char value)
+    {
+        unsigned int   totalSize = pageCount * DISK_IMAGE_PAGE_SIZE;
+        unsigned char* pSectorData = (unsigned char*)malloc(totalSize);
+        CHECK_TRUE(pSectorData != NULL);
+        memset(pSectorData, value, totalSize);
+        
+        DiskImageInsert insert;
+        insert.type = DISK_IMAGE_INSERTION_RW18;
+        insert.sourceOffset = 0;
+        insert.length = totalSize;
+        insert.side = 0xa9;
+        insert.track = startTrack;
+        insert.intraTrackOffset = startTrackOffset;
 
         __try_and_catch( NibbleDiskImage_InsertData(m_pNibbleDiskImage, pSectorData, &insert) );
         free(pSectorData);
@@ -326,7 +370,7 @@ TEST(NibbleDiskImage, VerifyCreateStartsWithZeroesInImage)
 TEST(NibbleDiskImage, InsertZeroSectorAt0_0AsRWTS16)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
-    writeZeroSectors(0, 0, 1);
+    writeZeroRWTS16Sectors(0, 0, 1);
 
     const unsigned char* pImage = NibbleDiskImage_GetImagePointer(m_pNibbleDiskImage);
     validateRWTS16SectorsAreClear(pImage, 0, 1, 34, 15);
@@ -336,7 +380,7 @@ TEST(NibbleDiskImage, InsertZeroSectorAt0_0AsRWTS16)
 TEST(NibbleDiskImage, InsertZeroSectorAt34_15AsRWTS16)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
-    writeZeroSectors(34, 15, 1);
+    writeZeroRWTS16Sectors(34, 15, 1);
 
     const unsigned char* pImage = NibbleDiskImage_GetImagePointer(m_pNibbleDiskImage);
     validateRWTS16SectorsAreClear(pImage, 0, 0, 34, 14);
@@ -346,7 +390,7 @@ TEST(NibbleDiskImage, InsertZeroSectorAt34_15AsRWTS16)
 TEST(NibbleDiskImage, InsertTwoZeroSectorsAt0_15AsRWTS16)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
-    writeZeroSectors(0, 15, 2);
+    writeZeroRWTS16Sectors(0, 15, 2);
  
     unsigned char expectedEncodedData[343];
     memset(expectedEncodedData, 0x96, sizeof(expectedEncodedData));
@@ -360,22 +404,38 @@ TEST(NibbleDiskImage, InsertTwoZeroSectorsAt0_15AsRWTS16)
 TEST(NibbleDiskImage, FailToInsertSector16AsRWTS16)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
-    writeZeroSectors(0, 16, 1);
+    writeZeroRWTS16Sectors(0, 16, 1);
     validateExceptionThrown(invalidSectorException);
 }
 
 TEST(NibbleDiskImage, FailToInsertTrack35AsRWTS16)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
-    writeZeroSectors(35, 0, 1);
+    writeZeroRWTS16Sectors(35, 0, 1);
     validateExceptionThrown(invalidTrackException);
 }
 
 TEST(NibbleDiskImage, FailToInsertSecondSectorAsRWTS16)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
-    writeZeroSectors(34, 15, 2);
+    writeZeroRWTS16Sectors(34, 15, 2);
     validateExceptionThrown(invalidTrackException);
+}
+
+TEST(NibbleDiskImage, FailToInsertTooSmallSectorAsRWTS16)
+{
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+    DiskImageInsert insert;
+    unsigned char   sectorData[DISK_IMAGE_BYTES_PER_SECTOR];
+    
+    insert.type = DISK_IMAGE_INSERTION_RWTS16;
+    insert.sourceOffset = 0;
+    insert.length = 255;
+    insert.track = 0;
+    insert.sector = 0;
+
+    __try_and_catch( NibbleDiskImage_InsertData(m_pNibbleDiskImage, sectorData, &insert) );
+    validateExceptionThrown(invalidLengthException);
 }
 
 TEST(NibbleDiskImage, InsertTestSectorAt0_0AsRWTS16)
@@ -477,10 +537,110 @@ TEST(NibbleDiskImage, InsertTestSectorAt0_0AsRWTS16)
     validateRWTS16SectorContainsNibbles(pImage, expectedEncodedData, 0, 0);
 }
 
+TEST(NibbleDiskImage, InsertRW18SectorsInTrack0)
+{
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+    writeZeroRW18Sectors(0, 0x0000, 1);
+    writeOnesRW18Sectors(0, 0x0100, 17);
+
+    unsigned char trackBuffer[DISK_IMAGE_RW18_BYTES_PER_TRACK];
+    NibbleDiskImage_ReadRW18Track(m_pNibbleDiskImage, 0xa9, 0, trackBuffer, sizeof(trackBuffer));
+    validateAllZeroes(trackBuffer, DISK_IMAGE_PAGE_SIZE);
+    validateAllOnes(trackBuffer + DISK_IMAGE_PAGE_SIZE, 17 * DISK_IMAGE_PAGE_SIZE);
+
+    const unsigned char* pImage = NibbleDiskImage_GetImagePointer(m_pNibbleDiskImage);
+    validateRWTS16SectorsAreClear(pImage, 1, 0, 34, 15);
+}
+
+TEST(NibbleDiskImage, InsertRW18SectorsAcrossTracks0and1)
+{
+    unsigned char trackBuffer[DISK_IMAGE_RW18_BYTES_PER_TRACK];
+
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+    writeOnesRW18Sectors(0, 0x1100, 2);
+
+    NibbleDiskImage_ReadRW18Track(m_pNibbleDiskImage, 0xa9, 0, trackBuffer, sizeof(trackBuffer));
+    validateAllZeroes(trackBuffer, 17 * DISK_IMAGE_PAGE_SIZE);
+
+    NibbleDiskImage_ReadRW18Track(m_pNibbleDiskImage, 0xa9, 1, trackBuffer, sizeof(trackBuffer));
+    validateAllOnes(trackBuffer, DISK_IMAGE_PAGE_SIZE);
+    validateAllZeroes(trackBuffer + DISK_IMAGE_PAGE_SIZE, 17 * DISK_IMAGE_PAGE_SIZE);
+
+    const unsigned char* pImage = NibbleDiskImage_GetImagePointer(m_pNibbleDiskImage);
+    validateRWTS16SectorsAreClear(pImage, 2, 0, 34, 15);
+}
+
+TEST(NibbleDiskImage, FailToInsertTrack35AsRW18)
+{
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+    writeZeroRW18Sectors(35, 0x0000, 1);
+    validateExceptionThrown(invalidTrackException);
+}
+
+TEST(NibbleDiskImage, FailToInsertInvalidOffsetAsRW18)
+{
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+    writeZeroRW18Sectors(0, 0x1200, 1);
+    validateExceptionThrown(invalidIntraTrackOffsetException);
+}
+
+TEST(NibbleDiskImage, FailOnInvalidTrackForReadRW18Track)
+{
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+
+    unsigned char trackBuffer[DISK_IMAGE_RW18_BYTES_PER_TRACK];
+    __try_and_catch( NibbleDiskImage_ReadRW18Track(m_pNibbleDiskImage, 0xa9, 35, trackBuffer, sizeof(trackBuffer)) );
+    validateExceptionThrown(invalidTrackException);
+}
+
+TEST(NibbleDiskImage, FailOnSmallTrackDataBufferForReadRW18Track)
+{
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+
+    unsigned char trackBuffer[DISK_IMAGE_RW18_BYTES_PER_TRACK];
+    __try_and_catch( NibbleDiskImage_ReadRW18Track(m_pNibbleDiskImage, 0xa9, 0, trackBuffer, sizeof(trackBuffer)-1) );
+    validateExceptionThrown(invalidArgumentException);
+}
+
+TEST(NibbleDiskImage, FailOnBigTrackDataBufferForReadRW18Track)
+{
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+
+    unsigned char trackBuffer[DISK_IMAGE_RW18_BYTES_PER_TRACK];
+    __try_and_catch( NibbleDiskImage_ReadRW18Track(m_pNibbleDiskImage, 0xa9, 0, trackBuffer, sizeof(trackBuffer)+1) );
+    validateExceptionThrown(invalidArgumentException);
+}
+
+TEST(NibbleDiskImage, FailOnTrackPrologForReadRW18Track)
+{
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+    unsigned char* pImage = DiskImage_GetImagePointer((DiskImage*)m_pNibbleDiskImage);
+    
+    // Force in the expected sync bytes so that the next track prolog stage fails instead.
+    memset(pImage, 0xFF, 201);
+    
+    unsigned char trackBuffer[DISK_IMAGE_RW18_BYTES_PER_TRACK];
+    __try_and_catch( NibbleDiskImage_ReadRW18Track(m_pNibbleDiskImage, 0xa9, 0, trackBuffer, sizeof(trackBuffer)) );
+    validateExceptionThrown(badTrackException);
+}
+
+TEST(NibbleDiskImage, FailOnEncodedTrackByteForReadRW18Track)
+{
+    m_pNibbleDiskImage = NibbleDiskImage_Create();
+    unsigned char* pImage = DiskImage_GetImagePointer((DiskImage*)m_pNibbleDiskImage);
+    
+    // Force in the expected sync bytes so that the next track prolog stage fails instead.
+    memset(pImage, 0xFF, 201);
+    memcpy(pImage + 201, "\xa5\x96\xbf\xff\xfe\xaa\xbb\xaa\xaa\xff\xef\x9a\xd5\x9d\x00", 12+2+1);
+    unsigned char trackBuffer[DISK_IMAGE_RW18_BYTES_PER_TRACK];
+    __try_and_catch( NibbleDiskImage_ReadRW18Track(m_pNibbleDiskImage, 0xa9, 0, trackBuffer, sizeof(trackBuffer)) );
+    validateExceptionThrown(badTrackException);
+}
+
 TEST(NibbleDiskImage, WriteImage)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
-    writeZeroSectors(0, 0, 1);
+    writeZeroRWTS16Sectors(0, 0, 1);
     NibbleDiskImage_WriteImage(m_pNibbleDiskImage, g_imageFilename);
     
     const unsigned char* pImage = readNibbleDiskImageIntoMemory();
@@ -491,17 +651,17 @@ TEST(NibbleDiskImage, WriteImage)
 TEST(NibbleDiskImage, FailFOpenInWriteImage)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
-    writeZeroSectors(0, 0, 1);
+    writeZeroRWTS16Sectors(0, 0, 1);
     fopenFail(NULL);
         __try_and_catch( NibbleDiskImage_WriteImage(m_pNibbleDiskImage, g_imageFilename) );
     fopenRestore();
-    validateFileExceptionThrown();
+    validateExceptionThrown(fileOpenException);
 }
 
 TEST(NibbleDiskImage, FailFWriteInWriteImage)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
-    writeZeroSectors(0, 0, 1);
+    writeZeroRWTS16Sectors(0, 0, 1);
     fwriteFail(0);
         __try_and_catch( NibbleDiskImage_WriteImage(m_pNibbleDiskImage, g_imageFilename) );
     fwriteRestore();
@@ -519,7 +679,7 @@ TEST(NibbleDiskImage, FailFOpenInReadObjectFile)
 {
     m_pNibbleDiskImage = NibbleDiskImage_Create();
     __try_and_catch( NibbleDiskImage_ReadObjectFile(m_pNibbleDiskImage, g_savFilenameAllZeroes) );
-    validateFileExceptionThrown();
+    validateExceptionThrown(fileOpenException);
 }
 
 TEST(NibbleDiskImage, FailHeaderReadInReadObjectFile)
@@ -755,7 +915,7 @@ TEST(NibbleDiskImage, PassInvalidFilenameToProcessScript)
     createZeroSectorObjectFile();
 
     NibbleDiskImage_ProcessScript(m_pNibbleDiskImage, copy("RWTS16,InvalidFilename.sav,0,256,0,0" LINE_ENDING));
-    STRCMP_EQUAL("<null>:1: error: Failed to read 'InvalidFilename.sav' object file." LINE_ENDING,
+    STRCMP_EQUAL("<null>:1: error: Failed to open 'InvalidFilename.sav' object file." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 

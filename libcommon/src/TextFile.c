@@ -129,7 +129,7 @@ static FILE* openFile(const char* pFilename)
     
     pFile = fopen(pFilename, "rb");
     if (!pFile)
-        __throw(fileNotFoundException);
+        __throw(fileOpenException);
     return pFile;
 }
 

@@ -97,7 +97,7 @@ static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, const AssemblerI
         
     pThis->pFileForListing = fopen(pParams->pListFilename, "wb");
     if (!pThis->pFileForListing)
-        __throw(fileNotFoundException);
+        __throw(fileOpenException);
     return pThis->pFileForListing;
 }
 
@@ -1534,7 +1534,7 @@ static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString*
     }
     
     if (i == fieldCount)
-        __throw(fileNotFoundException);
+        __throw(fileOpenException);
     return pTextFile;
 }
 

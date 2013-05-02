@@ -19,13 +19,14 @@
 #define DISK_IMAGE_BYTES_PER_SECTOR       256
 #define DISK_IMAGE_PAGE_SIZE              256
 #define DISK_IMAGE_SECTORS_PER_BLOCK      2
+#define DISK_IMAGE_PAGES_PER_BLOCK        2
 #define DISK_IMAGE_BLOCK_SIZE             (DISK_IMAGE_SECTORS_PER_BLOCK * DISK_IMAGE_BYTES_PER_SECTOR)
 #define DISK_IMAGE_TRACKS_PER_SIDE        35
 #define DISK_IMAGE_RW18_SIDE_0            0xa9
 #define DISK_IMAGE_RW18_SIDE_1            0xad
 #define DISK_IMAGE_RW18_SIDE_2            0x79
-#define DISK_IMAGE_RW18_SECTORS_PER_TRACK 18
-#define DISK_IMAGE_RW18_BYTES_PER_TRACK   (DISK_IMAGE_RW18_SECTORS_PER_TRACK * DISK_IMAGE_BYTES_PER_SECTOR)
+#define DISK_IMAGE_RW18_PAGES_PER_TRACK   18
+#define DISK_IMAGE_RW18_BYTES_PER_TRACK   (DISK_IMAGE_RW18_PAGES_PER_TRACK * DISK_IMAGE_PAGE_SIZE)
 
 
 typedef struct DiskImage DiskImage;
@@ -50,8 +51,11 @@ typedef struct DiskImageInsert
         {
             unsigned int   side;
             unsigned int   track;
-            unsigned int   sector;
-            unsigned int   intraSectorOffset;
+            union
+            {
+                unsigned int   sector;
+                unsigned int   intraTrackOffset;
+            };
         };
         struct
         {

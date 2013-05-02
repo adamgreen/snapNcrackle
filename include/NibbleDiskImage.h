@@ -39,5 +39,11 @@ __throws void             NibbleDiskImage_WriteImage(NibbleDiskImage* pThis, con
          
          const unsigned char* NibbleDiskImage_GetImagePointer(NibbleDiskImage* pThis);
          size_t               NibbleDiskImage_GetImageSize(NibbleDiskImage* pThis);
-         
+
+__throws void             NibbleDiskImage_ReadRW18Track(NibbleDiskImage* pThis,
+                                                        unsigned int track,
+                                                        unsigned int side,
+                                                        unsigned char* pTrackData,
+                                                        size_t trackDataSize);
+
 #endif /* _NIBBLE_DISK_IMAGE_H_ */
