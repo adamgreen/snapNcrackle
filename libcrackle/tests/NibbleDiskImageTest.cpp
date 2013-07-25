@@ -91,11 +91,13 @@ TEST_GROUP(NibbleDiskImage)
                                        unsigned int         endTrack,
                                        unsigned int         endSector)
     {
-        unsigned int sourceOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * startTrack + 
-                                   NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * startSector;
-        unsigned int endOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * endTrack + 
+        unsigned int sourceOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * startTrack +
+                                    NIBBLE_DISK_IMAGE_RWTS16_GAP1_SYNC_BYTES +
+                                    NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * startSector;
+        unsigned int endOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * endTrack +
+                                 NIBBLE_DISK_IMAGE_RWTS16_GAP1_SYNC_BYTES +
                                  NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * (endSector + 1);
-        unsigned int length = endOffset - sourceOffset;
+        unsigned int length = endOffset - sourceOffset - NIBBLE_DISK_IMAGE_RWTS16_GAP3_SYNC_BYTES;
         
         validateAllZeroes(pImage + sourceOffset, length);
     }
@@ -113,15 +115,19 @@ TEST_GROUP(NibbleDiskImage)
                                              unsigned int         sector)
     {
         static const unsigned char volume = 0;
-        unsigned int               sourceOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * track + 
-                                                 NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * sector;
-        m_pCurr = pImage + sourceOffset;
+        unsigned int               sourceOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * track +
+                                                  NIBBLE_DISK_IMAGE_RWTS16_GAP1_SYNC_BYTES +
+                                                  NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * sector;
+        unsigned int               leadInSyncCount = NIBBLE_DISK_IMAGE_RWTS16_GAP3_SYNC_BYTES;
         
-        validateSyncBytes(21);
+        if (sector == 0)
+            leadInSyncCount = NIBBLE_DISK_IMAGE_RWTS16_GAP1_SYNC_BYTES;
+        
+        m_pCurr = pImage + sourceOffset - leadInSyncCount;
+        validateSyncBytes(leadInSyncCount);
         validateAddressField(volume, track, sector);
-        validateSyncBytes(10);
+        validateSyncBytes(NIBBLE_DISK_IMAGE_RWTS16_GAP2_SYNC_BYTES);
         validateDataField(pExpectedContent);
-        validateSyncBytes(22);
     }
     
     void validateSyncBytes(size_t syncByteCount)

@@ -135,6 +135,7 @@ static void prepareForFirstRWTS16Sector(NibbleDiskImage* pThis, const unsigned c
 static void advanceToNextSector(NibbleDiskImage* pThis);
 static void writeRWTS16Sector(NibbleDiskImage* pThis);
 static void validateRWTS16TrackAndSector(NibbleDiskImage* pThis);
+static void writeSectorLeadInSyncBytes(NibbleDiskImage* pThis);
 static void writeSyncBytes(NibbleDiskImage* pThis, size_t syncByteCount);
 static void writeRWTS16AddressField(NibbleDiskImage* pThis, unsigned char volume, unsigned char track, unsigned char sector);
 static void writeRWTS16AddressFieldProlog(NibbleDiskImage* pThis);
@@ -224,6 +225,7 @@ static void writeRWTS16Sector(NibbleDiskImage* pThis)
 {
     static const unsigned char   volume = 0;
     unsigned int                 imageOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * pThis->track + 
+                                               NIBBLE_DISK_IMAGE_RWTS16_GAP1_SYNC_BYTES +
                                                NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * pThis->sector;
     const unsigned char*         pStart;
     
@@ -232,13 +234,12 @@ static void writeRWTS16Sector(NibbleDiskImage* pThis)
     pThis->pWrite = DiskImage_GetImagePointer(&pThis->super) + imageOffset;
     pStart = pThis->pWrite;
     
-    writeSyncBytes(pThis, 21);
+    writeSectorLeadInSyncBytes(pThis);
     writeRWTS16AddressField(pThis, volume, pThis->track, pThis->sector);
-    writeSyncBytes(pThis, 10);
+    writeSyncBytes(pThis, NIBBLE_DISK_IMAGE_RWTS16_GAP2_SYNC_BYTES);
     writeRWTS16DataField(pThis, pThis->pData);
-    writeSyncBytes(pThis, 22);
     
-    assert ( pThis->pWrite - pStart == NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR );
+    assert ( pThis->pWrite - pStart == NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR - NIBBLE_DISK_IMAGE_RWTS16_GAP3_SYNC_BYTES);
 }
 
 static void validateRWTS16TrackAndSector(NibbleDiskImage* pThis)
@@ -249,6 +250,19 @@ static void validateRWTS16TrackAndSector(NibbleDiskImage* pThis)
         __throw(invalidTrackException);
     if (pThis->bytesLeft < DISK_IMAGE_BYTES_PER_SECTOR)
         __throw(invalidLengthException);
+}
+
+static void writeSectorLeadInSyncBytes(NibbleDiskImage* pThis)
+{
+    size_t leadInSyncByteCount;
+    
+    if (pThis->sector == 0)
+        leadInSyncByteCount = NIBBLE_DISK_IMAGE_RWTS16_GAP1_SYNC_BYTES;
+    else
+        leadInSyncByteCount = NIBBLE_DISK_IMAGE_RWTS16_GAP3_SYNC_BYTES;
+    pThis->pWrite -= leadInSyncByteCount;
+    
+    writeSyncBytes(pThis, leadInSyncByteCount);
 }
 
 static void writeSyncBytes(NibbleDiskImage* pThis, size_t syncByteCount)
@@ -452,7 +466,7 @@ static void writeRW18Track(NibbleDiskImage* pThis)
     pThis->pCurrentTrack = trackData;
     pStart = pThis->pWrite;
     
-    writeSyncBytes(pThis, 201);
+    writeSyncBytes(pThis, 403);
     writeEncodedBytes(pThis, "\xa5\x96\xbf\xff\xfe\xaa\xbb\xaa\xaa\xff\xef\x9a", 12);
     writeRW18Sector(pThis, sector);
     
@@ -462,7 +476,6 @@ static void writeRW18Track(NibbleDiskImage* pThis)
         writeRW18Sector(pThis, --sector);
     } while (sector);
 
-    writeSyncBytes(pThis, 202);
     assert ( pThis->pWrite - pStart == NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK );
     
     advanceToNextRW18Track(pThis, bytesUsed);
@@ -633,7 +646,7 @@ __throws void NibbleDiskImage_ReadRW18Track(NibbleDiskImage* pThis,
     pThis->track = track;
     pThis->side = side;
 
-    validateSyncBytes(pThis, 201);
+    validateSyncBytes(pThis, 403);
     validateBytes(pThis, "\xa5\x96\xbf\xff\xfe\xaa\xbb\xaa\xaa\xff\xef\x9a", 12);
     extractRW18Sector(pThis, sector);
     
