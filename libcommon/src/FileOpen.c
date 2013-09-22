@@ -11,6 +11,7 @@
     GNU General Public License for more details.
 */
 #include <dirent.h>
+#include <sys/stat.h>
 #include "FileOpen.h"
 #include "FileOpenTest.h"
 #include "string.h"
@@ -122,7 +123,19 @@ static const char* findFilenameCaseInsensitive(FilenameParts* pThis)
 {
     struct dirent* pNextEntry;
     DIR*           pDir;
-    
+    struct stat    statBuf;
+
+#ifdef FOPEN_IS_CASE_SENSITIVE
+    /*
+     * Try to find a file with the exact same case.  Only when this fails do
+     * we do a case-insensitive search in the directory.
+     *
+     * -- tkchia 20130921
+     */
+
+    if (stat(pThis->fullFilename, &statBuf) == 0)
+        return pThis->fullFilename;
+
     pThis->pFilename[-1] = '\0';
     pDir = opendir(pThis->fullFilename);
     pThis->pFilename[-1] = PATH_SEPARATOR;
@@ -138,6 +151,7 @@ static const char* findFilenameCaseInsensitive(FilenameParts* pThis)
         }
     }
     closedir(pDir);
+#endif
     
     return pThis->fullFilename;
 }

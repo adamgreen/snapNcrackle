@@ -25,6 +25,9 @@ CPPUTEST_CFLAGS += -Wextra
 CPPUTEST_CFLAGS += -pedantic 
 CPPUTEST_CFLAGS += -Wstrict-prototypes
 CPPUTEST_CFLAGS += -DCODE_UNDER_TEST
+ifeq "$(wildcard MAKEFILE)" ""
+CPPUTEST_CFLAGS += -DFOPEN_IS_CASE_SENSITIVE
+endif
 
 SRC_DIRS = \
 	src\

@@ -12,6 +12,7 @@
 */
 #include <string.h>
 #include <stdio.h>
+#include "FileOpen.h"
 #include "TextFile.h"
 #include "TextFileTest.h"
 #include "util.h"
@@ -127,7 +128,7 @@ static FILE* openFile(const char* pFilename)
 {
     FILE* pFile = NULL;
     
-    pFile = fopen(pFilename, "rb");
+    pFile = FileOpen(pFilename, "rb");
     if (!pFile)
         __throw(fileOpenException);
     return pFile;
