@@ -21,7 +21,11 @@ void*  (*hook_realloc)(void* ptr, size_t size) = realloc;
 void   (*hook_free)(void* ptr) = free;
 int    (*hook_printf)(const char* pFormat, ...) = printf;
 int    (*hook_fprintf)(FILE* pFile, const char* pFormat, ...) = fprintf;
+#ifdef FOPEN_IS_CASE_SENSITIVE
+FILE*  (*hook_fopen)(const char* filename, const char* mode) = FileOpen;
+#else
 FILE*  (*hook_fopen)(const char* filename, const char* mode) = fopen;
+#endif
 int    (*hook_fseek)(FILE* stream, long offset, int whence) = fseek;
 long   (*hook_ftell)(FILE* stream) = ftell;
 size_t (*hook_fwrite)(const void* ptr, size_t size, size_t nitems, FILE* stream) = fwrite;
