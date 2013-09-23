@@ -411,9 +411,19 @@ TEST(AssemblerInstructions, BEQ_AllAddressingModes)
     test6502RelativeBranchInstruction("beq", 0xF0);
 }
 
+TEST(AssemblerInstructions, BGE_AllAddressingMode)
+{
+    test6502RelativeBranchInstruction("bge", 0xB0);
+}
+
 TEST(AssemblerInstructions, BIT_TableDrivenTest)
 {
     test6502_65c02Instruction("bit", "*89,2C,24,XX,XX,XX,*34,XX,*3C,XX,XX,XX,XX,XX");
+}
+
+TEST(AssemblerInstructions, BLT_AllAddressingMode)
+{
+    test6502RelativeBranchInstruction("blt", 0x90);
 }
 
 TEST(AssemblerInstructions, BMI_AllAddressingMode)
