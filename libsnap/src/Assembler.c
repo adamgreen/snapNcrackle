@@ -22,7 +22,6 @@
 #include "InstructionSets.h"
 #include "TextFileSource.h"
 #include "LupSource.h"
-#include <unistd.h>
 
 
 static void commonObjectInit(Assembler* pThis, const AssemblerInitParams* pParams, TextFile* pTextFile);
