@@ -1,4 +1,5 @@
 /*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
+    Copyright (C) 2013  Tee-Kiah Chia
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -21,6 +22,7 @@
 #include "InstructionSets.h"
 #include "TextFileSource.h"
 #include "LupSource.h"
+#include <unistd.h>
 
 
 static void commonObjectInit(Assembler* pThis, const AssemblerInitParams* pParams, TextFile* pTextFile);
@@ -429,9 +431,14 @@ static unsigned char getNextHexByte(const SizedString* pString, const char** ppC
 static unsigned char hexCharToNibble(char value);
 static void logHexParseError(Assembler* pThis);
 static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString* pFilename);
+#if 0
 static int isProcessingTextFromPutFile(Assembler* pThis);
+#endif
 static SizedString removeDirectoryAndSuffixFromFullFilename(SizedString* pFullFilename);
+static SizedString getNextCommaSeparatedOptionalStringArgument(Assembler* pThis, SizedString* pRemainingArguments);
+static SizedString getNextCommaSeparatedStringArgument(Assembler* pThis, SizedString* pRemainingArguments);
 static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments);
+static unsigned short getNextCommaSeparatedOptionalArgument(Assembler* pThis, SizedString* pRemainingArguments, unsigned short defaultValue);
 static int isUpdatingForwardReference(Assembler* pThis);
 static void disallowForwardReferences(Assembler* pThis);
 static int doesExpressionEqualZeroIndicatingToSkipSourceLines(Expression* pExpression);
@@ -1482,27 +1489,49 @@ static void handlePUT(Assembler* pThis)
 {
     TextFile*    pIncludedFile = NULL;
     SizedString* pOperands = &pThis->parsedLine.operands;
-    
+    SizedString  filename;
+    unsigned short numberOfInitialLinesToSkip;
+
+#if 0
     if (isProcessingTextFromPutFile(pThis))
     {
         LOG_ERROR(pThis, "Can't nest PUT directive within another %s file.", "PUT");
         return;
     }
-    
+#endif
+
+    __try
+    {
+        filename = getNextCommaSeparatedStringArgument(pThis, pOperands);
+        /* ignore slot number (if present) */
+        getNextCommaSeparatedOptionalArgument(pThis, pOperands, 0);
+        /* ignore drive number (if present) */
+        getNextCommaSeparatedOptionalArgument(pThis, pOperands, 0);
+        numberOfInitialLinesToSkip = getNextCommaSeparatedOptionalArgument(pThis, pOperands, 0);
+    }
+    __catch
+    {
+        LOG_ERROR(pThis, "Cannot parse %s.", "PUT");
+        __nothrow;
+    }
+
     __try
     {
         TextSource* pTextSource = NULL;
-        
-        validateOperandWasProvided(pThis);
-        pIncludedFile = openPutFileUsingSearchPath(pThis, pOperands);
+
+        pIncludedFile = openPutFileUsingSearchPath(pThis, &filename);
         pTextSource = TextFileSource_Create(pIncludedFile);
+        while (numberOfInitialLinesToSkip != 0) {
+            TextSource_GetNextLine(pTextSource);
+            --numberOfInitialLinesToSkip;
+        }
         TextSource_StackPush(&pThis->pTextSourceStack, pTextSource);
         pIncludedFile = NULL;
     }
     __catch
     {
         TextFile_Free(pIncludedFile);
-        LOG_ERROR(pThis, "Failed to PUT '%.*s.S' source file.", pOperands->stringLength, pOperands->pString);
+        LOG_ERROR(pThis, "Failed to PUT '%.*s.S' source file.", filename.stringLength, filename.pString);
         __nothrow;
     }
 }
@@ -1538,14 +1567,16 @@ static TextFile* openPutFileUsingSearchPath(Assembler* pThis, const SizedString*
     return pTextFile;
 }
 
+#if 0
 static int isProcessingTextFromPutFile(Assembler* pThis)
 {
     return TextSource_StackDepth(pThis->pTextSourceStack) > 1;
 }
+#endif
 
 static void handleUSR(Assembler* pThis)
 {
-    SizedString fullFilename = SizedString_InitFromString(TextSource_GetFilename(pThis->pTextSourceStack));
+    SizedString fullFilename = SizedString_InitFromString(TextSource_GetFirstFilename(pThis->pTextSourceStack));
     SizedString filename = removeDirectoryAndSuffixFromFullFilename(&fullFilename);
 
     __try
@@ -1597,18 +1628,38 @@ static SizedString removeDirectoryAndSuffixFromFullFilename(SizedString* pFullFi
     return result;
 }
 
-static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments)
+static SizedString getNextCommaSeparatedOptionalStringArgument(Assembler* pThis, SizedString* pRemainingArguments)
 {
     SizedString beforeComma;
     SizedString afterComma;
-    Expression  expression;
     
     SizedString_SplitString(pRemainingArguments, ',', &beforeComma, &afterComma);
+    *pRemainingArguments = afterComma;
+    return beforeComma;
+}
+
+static SizedString getNextCommaSeparatedStringArgument(Assembler* pThis, SizedString* pRemainingArguments)
+{
+    SizedString beforeComma = getNextCommaSeparatedOptionalStringArgument(pThis, pRemainingArguments);
     if (SizedString_strlen(&beforeComma) == 0)
         __throw(invalidArgumentCountException);
+    return beforeComma;
+}
+
+static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments)
+{
+    SizedString beforeComma = getNextCommaSeparatedStringArgument(pThis, pRemainingArguments);
+    Expression expression;
     expression = ExpressionEval(pThis, &beforeComma);
-    
-    *pRemainingArguments = afterComma;
+    return expression.value;
+}
+
+static unsigned short getNextCommaSeparatedOptionalArgument(Assembler* pThis, SizedString* pRemainingArguments, unsigned short defaultValue)
+{
+    SizedString beforeComma = getNextCommaSeparatedOptionalStringArgument(pThis, pRemainingArguments);
+    if (SizedString_strlen(&beforeComma) == 0)
+        return defaultValue;
+    Expression expression = ExpressionEval(pThis, &beforeComma);
     return expression.value;
 }
 

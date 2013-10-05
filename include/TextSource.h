@@ -22,6 +22,7 @@ int          TextSource_IsEndOfFile(TextSource* pThis);
 SizedString  TextSource_GetNextLine(TextSource* pThis);
 unsigned int TextSource_GetLineNumber(TextSource* pThis);
 const char*  TextSource_GetFilename(TextSource* pThis);
+const char*  TextSource_GetFirstFilename(TextSource* pThis);
 TextFile*    TextSource_GetTextFile(TextSource* pThis);
 
 void         TextSource_FreeAll(void);

@@ -1,4 +1,5 @@
 /*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
+    Copyright (C) 2013  Tee-Kiah Chia
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -732,6 +733,37 @@ TEST(AssemblerDirectives, PUT_DirectiveTwice)
     LONGS_EQUAL(0, memcmp(pFourthLine->pMachineCode, "\x85\x02", 2));
 }
 
+TEST(AssemblerDirectives, PUT_DirectiveWithLineSkipping)
+{
+    createThisSourceFile(g_putFilename, "foo = $03" LINE_ENDING
+                                        " sta $01" LINE_ENDING
+                                        " stx $02" LINE_ENDING
+                                        " ldy foo" LINE_ENDING);
+    m_pAssembler = Assembler_CreateFromString(dupe("foo = $04" LINE_ENDING
+                                                   " put AssemblerTestPut,,,2" LINE_ENDING), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 86 02            3  stx $02" LINE_ENDING,
+                                                   "8002: A4 04            4  ldy foo" LINE_ENDING, 4);
+}
+
+TEST(AssemblerDirectives, PUT_DirectiveWithLineSkippingUsingExpression)
+{
+    createThisSourceFile(g_putFilename, "foo = $03" LINE_ENDING
+                                        " sta $01" LINE_ENDING
+                                        " stx $02" LINE_ENDING
+                                        " ldy foo" LINE_ENDING);
+    m_pAssembler = Assembler_CreateFromString(dupe("foo = $04" LINE_ENDING
+                                                   " put AssemblerTestPut,,,3-1" LINE_ENDING), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 86 02            3  stx $02" LINE_ENDING,
+                                                   "8002: A4 04            4  ldy foo" LINE_ENDING, 4);
+}
+
+TEST(AssemblerDirectives, PUT_DirectiveWithLineSkippingButNoFilename)
+{
+    m_pAssembler = Assembler_CreateFromString(dupe(" put ,,,3" LINE_ENDING), NULL);
+    runAssemblerAndValidateFailure("filename:1: error: Cannot parse PUT." LINE_ENDING, 
+                                   "    :              1  put ,,,3" LINE_ENDING);
+}
+
 TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToCurrentDirectory)
 {
     createThisSourceFile(g_putFilename, " sta $ff" LINE_ENDING);
@@ -777,6 +809,7 @@ TEST(AssemblerDirectives, PUT_DirectiveWithPutDirsSetToTwoComponentsFirstInvalid
                                                    "8000: 85 FF            1  sta $ff" LINE_ENDING);
 }
 
+#if 0
 TEST(AssemblerDirectives, PUT_DirectiveInvalidNesting)
 {
     createThisSourceFile(g_putFilename, " put AssemblerTestPut2" LINE_ENDING);
@@ -785,6 +818,7 @@ TEST(AssemblerDirectives, PUT_DirectiveInvalidNesting)
     runAssemblerAndValidateFailure("AssemblerTestPut.S:1: error: Can't nest PUT directive within another PUT file." LINE_ENDING, 
                                    "    :                  1  put AssemblerTestPut2" LINE_ENDING, 3);
 }
+#endif
 
 TEST(AssemblerDirectives, PUT_DirectiveWithErrorInPutFile)
 {

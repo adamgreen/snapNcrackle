@@ -1,4 +1,5 @@
 /*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
+    Copyright (C) 2013  Tee-Kiah Chia
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -39,12 +40,18 @@ const char*  TextSource_GetFilename(TextSource* pThis)
     return pThis->pVTable->getFilename(pThis);
 }
 
+const char* TextSource_GetFirstFilename(TextSource* pThis)
+{
+    TextSource* pThat = pThis;
+    while (pThat->stackDepth != 1)
+        pThat = pThat->pStackPrev;
+    return TextSource_GetFilename(pThat);
+}
 
 TextFile* TextSource_GetTextFile(TextSource* pThis)
 {
     return pThis->pTextFile;
 }
-
 
 void TextSource_FreeAll(void)
 {
