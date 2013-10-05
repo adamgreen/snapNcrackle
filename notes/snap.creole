@@ -574,14 +574,14 @@ Inserts specified operand ASCII text into the output image like the ASC directiv
 ** Commas can be used as a separator between byte values but this is optional.
 
 ===PUT
-{{{ PUT includeFilename}}} \\
+{{{ PUT includeFilename[,[slot],[drive],linesToSkip]}}} \\
 
 Includes the specified source text file into the code stream to be assembled.
-* The operand field is required and should provide the name of the file to be included.
+* The filename field is required and should provide the name of the file to be included.
+* If linesToSkip is specified, the directive will skip the specified number of lines at the beginning of the PUT file.
+  The slot and drive operands, if present, are ignored.
 * The assembler will search the directories specified in the {{{--putdirs}}} command line parameter when the assembler
   was launched.
-* PUT directives cannot be nested.  An error will be generated if you attempt to use a PUT directive from a source file
-  which itself is PUT from another source file.
 
 ===DO
 {{{    DO expression}}} \\
@@ -696,7 +696,8 @@ crackle disk imaging tool to insert using the RW18 format used by Prince of Pers
 typically have a more generic use in Merlin but it has been hardcoded to work with Prince of Persia's use for outputting
 object files in RW18 format.
 * The name of the object file will be the same as the input source filename, with the extension removed (ie. SOURCE.S
-  would generate a USR object file named SOURCE).
+  would generate a USR object file named SOURCE).  If a USR command occurs within a PUT file, the object filename
+  used is taken from the //top-level// source filename.
 * The object file will be placed in the directory specified by the {{{--outdir}}} command line parameter or the current
   directory otherwise.
 * The side expression should be $a9 for side 1, $ad for side 2, or $79 for side 3.
@@ -735,6 +736,9 @@ These differences between Merlin and snap should be expected:
   does limit the expanded filenames used with directives like **PUT** and **SAV** to 255 characters.
 * **DO** conditionals can only be nested to 8 levels deep in Merlin.  snap has no set limits.
 * **REV** doesn't accept hexadecimal bytes after the delimited operand string in Merlin but it does in snap.
+* For **PUT** directives, Merlin uses the slot and drive parameters to allow specifying include files on different disks,
+  and **PUT**s cannot be nested.  snap does not use the slot and drive parameters; it allows a third parameter for
+  specifying a number of lines to skip; and it allows **PUT**s to be nested.
 
 I can add/modify the following features in the future but currently they aren't high on my priority list.  If you have a
 need for any particular feature to make it more useful for your needs, then please enter an issue at github to help me
