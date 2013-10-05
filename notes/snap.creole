@@ -155,7 +155,9 @@ instructions currently supported.
 | BCC | Branch when Carry Clear |
 | BCS | Branch when Carry Set |
 | BEQ | Branch when Equal (zero flag set) |
+| BGE | Branch when Greater Than or Equal (same as BCS) |
 | BIT | Test Memory Bits with Accumulator |
+| BLT | Branch when Less Than (same as BCC) |
 | BMI | Branch when Minus (negative flag set) |
 | BNE | Branch when Not Equal (zero flag not set) |
 | BPL | Branch when Plus (negative flag not set) |
@@ -755,7 +757,6 @@ prioritize it correctly :)
 * Merlin allows users to specify Accumulator Addressing Mode by specifying no operand field or placing the 'A' character
   in the operand field.  snap only supports the empty operand field format.
 * Merlin supports Sweet 16 Opcodes but snap doesn't.
-* **BLT** should be the same as **BCC** and **BGE** the same as **BCS**.
 * No linker support.  This means that directives like **ENT**, **EXT**, and **REL** aren't supported in the assembler
   either.
 * Merlin doesn't allow current address to be decremented through an **ORG** command like: {{{ ORG *-1}}}.  snap allows
