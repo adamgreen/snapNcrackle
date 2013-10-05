@@ -737,7 +737,7 @@ These differences between Merlin and snap should be expected:
 * **DO** conditionals can only be nested to 8 levels deep in Merlin.  snap has no set limits.
 * **REV** doesn't accept hexadecimal bytes after the delimited operand string in Merlin but it does in snap.
 * For **PUT** directives, Merlin uses the slot and drive parameters to allow specifying include files on different disks,
-  and **PUT**s cannot be nested.  snap does not use the slot and drive parameters; it allows a third parameter for
+  and **PUT**s cannot be nested.  snap does not use the slot and drive parameters; it allows a fourth parameter for
   specifying a number of lines to skip; and it allows **PUT**s to be nested.
 
 I can add/modify the following features in the future but currently they aren't high on my priority list.  If you have a
