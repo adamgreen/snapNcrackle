@@ -1,4 +1,5 @@
 /*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+    Copyright (C) 2013  Tee-Kiah Chia
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -13,6 +14,7 @@
 #ifndef _EXPRESSION_EVAL_H_
 #define _EXPRESSION_EVAL_H_
 
+#include <stdint.h>
 #include "try_catch.h"
 #include "Assembler.h"
 #include "SizedString.h"
@@ -32,11 +34,11 @@ typedef struct Expression
 {
     ExpressionType type;
     unsigned int   flags;
-    unsigned short value;
+    uint32_t       value;
 } Expression;
 
 
 __throws Expression ExpressionEval(Assembler* pAssembler, SizedString* pOperands);
-         Expression ExpressionEval_CreateAbsoluteExpression(unsigned short value);
+         Expression ExpressionEval_CreateAbsoluteExpression(uint32_t value);
 
 #endif /* _EXPRESSION_EVAL_H_ */

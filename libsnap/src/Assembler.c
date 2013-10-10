@@ -31,6 +31,7 @@ static void createFullInstructionSetTables(Assembler* pThis);
 static void create6502InstructionSetTable(Assembler* pThis);
 static int compareInstructionSetEntries(const void* pv1, const void* pv2);
 static void create65c02InstructionSetTable(Assembler* pThis);
+static void create65816InstructionSetTable(Assembler* pThis);
 static size_t countNewInstructionMnemonics(const OpCodeEntry* pBaseSet, size_t baseSetLength, 
                                            const OpCodeEntry* pNewSet,  size_t newSetLength);
 static int compareInstructionSetEntryToOperatorString(const void* pvKey, const void* pvEntry);
@@ -128,12 +129,7 @@ static void createFullInstructionSetTables(Assembler* pThis)
 {
     create6502InstructionSetTable(pThis);
     create65c02InstructionSetTable(pThis);
-
-    /* UNDONE: Just faking out 65816 instruction set for now. */
-    pThis->instructionSets[INSTRUCTION_SET_65816] = allocateAndZero(sizeof(g_6502InstructionSet));
-    pThis->instructionSetSizes[INSTRUCTION_SET_65816] = pThis->instructionSetSizes[INSTRUCTION_SET_6502];
-    memcpy(pThis->instructionSets[INSTRUCTION_SET_65816], 
-           pThis->instructionSets[INSTRUCTION_SET_6502], sizeof(g_6502InstructionSet));
+    create65816InstructionSetTable(pThis);
 }
 
 static void create6502InstructionSetTable(Assembler* pThis)
@@ -168,6 +164,23 @@ static void create65c02InstructionSetTable(Assembler* pThis)
                                g_65c02AdditionalInstructions, ARRAYSIZE(g_65c02AdditionalInstructions));
     pThis->instructionSetSizes[INSTRUCTION_SET_65C02] = newSetLength;
     qsort(pThis->instructionSets[INSTRUCTION_SET_65C02], newSetLength, sizeof(g_6502InstructionSet[0]), compareInstructionSetEntries);
+}
+
+static void create65816InstructionSetTable(Assembler* pThis)
+{
+    size_t baseSetLength = pThis->instructionSetSizes[INSTRUCTION_SET_65C02];
+    size_t instructionsAdded = countNewInstructionMnemonics(
+                                    pThis->instructionSets[INSTRUCTION_SET_65C02], baseSetLength, 
+                                    g_65816AdditionalInstructions, ARRAYSIZE(g_65816AdditionalInstructions));
+    size_t newSetLength = baseSetLength + instructionsAdded;
+    
+    pThis->instructionSets[INSTRUCTION_SET_65816] = allocateAndZero(sizeof(OpCodeEntry) * newSetLength);
+    memcpy(pThis->instructionSets[INSTRUCTION_SET_65816], pThis->instructionSets[INSTRUCTION_SET_65C02], 
+           sizeof(OpCodeEntry) * baseSetLength);
+    mergeInstructionSets(pThis->instructionSets[INSTRUCTION_SET_65816], baseSetLength, newSetLength, 
+                               g_65816AdditionalInstructions, ARRAYSIZE(g_65816AdditionalInstructions));
+    pThis->instructionSetSizes[INSTRUCTION_SET_65816] = newSetLength;
+    qsort(pThis->instructionSets[INSTRUCTION_SET_65816], newSetLength, sizeof(g_6502InstructionSet[0]), compareInstructionSetEntries);
 }
 
 static size_t countNewInstructionMnemonics(const OpCodeEntry* pBaseSet, size_t baseSetLength, 
@@ -387,6 +400,7 @@ static void handleZeroPageOrAbsoluteAddressingModes(Assembler*         pThis,
                                                     unsigned char      opcodeAbsolute);
 static void emitTwoByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value);
 static void emitThreeByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value);
+static void emitFourByteInstruction(Assembler* pThis, unsigned char opCode, uint32_t value);
 static void handleImmediateAddressingMode(Assembler*      pThis, 
                                           AddressingMode* pAddressingMode, 
                                           unsigned char   opcodeImmediate);
@@ -716,13 +730,6 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
         return;
     }
     
-    if (pThis->pLineInfo->instructionSet == INSTRUCTION_SET_65816)
-    {
-        /* UNDONE: snap doesn't currently support this extended instruction set so just emit RTS for all instructions. */
-        emitSingleByteInstruction(pThis, 0x60);
-        return;
-    }
-    
     __try
         addressingMode = AddressingMode_Eval(pThis, &pThis->parsedLine.operands);
     __catch
@@ -838,7 +845,7 @@ static void handleZeroPageAbsoluteOrRelativeAddressingMode(Assembler*         pT
                                                            AddressingMode*    pAddressingMode, 
                                                            const OpCodeEntry* pOpcodeEntry)
 {
-    if (pOpcodeEntry->opcodeRelative != _xXX)
+    if (pOpcodeEntry->opcodeRelative != _xXX && pOpcodeEntry->opcodeZeroPage != _xLL)
     {
         handleRelativeAddressingMode(pThis, pAddressingMode, pOpcodeEntry->opcodeRelative);
         return;
@@ -874,10 +881,15 @@ static void handleZeroPageOrAbsoluteAddressingModes(Assembler*         pThis,
                                                     unsigned char      opcodeZeroPage,
                                                     unsigned char      opcodeAbsolute)
 {
-    if (pAddressingMode->expression.type == TYPE_ZEROPAGE && opcodeZeroPage != _xXX)
-        emitTwoByteInstruction(pThis, opcodeZeroPage, pAddressingMode->expression.value);
+    if (pAddressingMode->expression.type == TYPE_ZEROPAGE && opcodeZeroPage != _xXX && opcodeZeroPage != _xLL)
+        emitTwoByteInstruction(pThis, opcodeZeroPage, (unsigned short)pAddressingMode->expression.value);
     else if (opcodeAbsolute != _xXX)
-        emitThreeByteInstruction(pThis, opcodeAbsolute, pAddressingMode->expression.value);
+    {
+        if (opcodeZeroPage == _xLL)
+            emitFourByteInstruction(pThis, opcodeAbsolute, pAddressingMode->expression.value);
+        else
+            emitThreeByteInstruction(pThis, opcodeAbsolute, (unsigned short)pAddressingMode->expression.value);
+    }
     else
         logInvalidAddressingModeError(pThis);
 }
@@ -903,6 +915,18 @@ static void emitThreeByteInstruction(Assembler* pThis, unsigned char opCode, uns
     pThis->pLineInfo->pMachineCode[2] = HI_BYTE(value);
 }
 
+static void emitFourByteInstruction(Assembler* pThis, unsigned char opCode, uint32_t value)
+{
+    __try
+        allocateLineInfoMachineCodeBytes(pThis, 4);
+    __catch
+        __nothrow;
+    pThis->pLineInfo->pMachineCode[0] = opCode;
+    pThis->pLineInfo->pMachineCode[1] = LO_BYTE(value);
+    pThis->pLineInfo->pMachineCode[2] = HI_BYTE(value);
+    pThis->pLineInfo->pMachineCode[3] = HIHI_BYTE(value);
+}
+
 static void handleImmediateAddressingMode(Assembler*      pThis, 
                                           AddressingMode* pAddressingMode, 
                                           unsigned char   opcodeImmediate)
@@ -919,7 +943,7 @@ static void handleTwoByteAddressingMode(Assembler*      pThis,
         logInvalidAddressingModeError(pThis);
         return;
     }
-    emitTwoByteInstruction(pThis, opcode, pAddressingMode->expression.value);
+    emitTwoByteInstruction(pThis, opcode, (unsigned short)pAddressingMode->expression.value);
 }
 
 static void handleZeroPageOrAbsoluteIndexedIndirectAddressingMode(Assembler*         pThis, 

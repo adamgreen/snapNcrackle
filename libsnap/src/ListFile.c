@@ -1,4 +1,5 @@
 /*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
+    Copyright (C) 2013  Tee-Kiah Chia
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -85,7 +86,15 @@ static void fillAddressBuffer(LineInfo* pLineInfo, char* pOutputBuffer)
 static void fillMachineCodeOrSymbolBuffer(ListFile* pThis, LineInfo* pLineInfo, char* pOutputBuffer)
 {
     if (pLineInfo->flags & LINEINFO_FLAG_WAS_EQU)
-        sprintf(pOutputBuffer, "   =%04X", pLineInfo->equValue);
+    {
+        unsigned long value = (unsigned long)pLineInfo->equValue;
+        if (value <= 0xfffful)
+            sprintf(pOutputBuffer, "   =%04lX", value);
+        else if (value <= 0xffffffful)
+            sprintf(pOutputBuffer, "=%07lX", value);
+        else
+            sprintf(pOutputBuffer, "=...%04lX", value & 0xfffful);
+    }
     else if (pLineInfo->machineCodeSize > 0)
         fillMachineCodeBuffer(pThis, pOutputBuffer);
 }

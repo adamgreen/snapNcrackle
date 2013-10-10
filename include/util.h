@@ -1,4 +1,5 @@
 /*  Copyright (C) 2012  Adam Green (https://github.com/adamgreen)
+    Copyright (C) 2013  Tee-Kiah Chia
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -36,6 +37,7 @@
 
 #define LO_BYTE(X) ((X) & 0xFF)
 #define HI_BYTE(X) (((X) >> 8) &0xFF)
+#define HIHI_BYTE(X) (((X) >> 16) &0xFF)
 
 static inline void* allocateAndZero(size_t size)
 {

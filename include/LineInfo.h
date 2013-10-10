@@ -1,4 +1,5 @@
 /*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
+    Copyright (C) 2013  Tee-Kiah Chia
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -13,6 +14,7 @@
 #ifndef _LINE_INFO_H_
 #define _LINE_INFO_H_
 
+#include <stdint.h>
 #include "Symbol.h"
 #include "TextSource.h"
 
@@ -48,7 +50,7 @@ struct LineInfo
     unsigned int            lineNumber;
     unsigned int            flags;
     unsigned short          address;
-    unsigned short          equValue;
+    uint32_t                equValue;
 };
 
 #endif /* _LINE_INFO_H_ */

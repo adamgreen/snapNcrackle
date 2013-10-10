@@ -647,21 +647,21 @@ TEST(AssemblerDirectives, XC_DirectiveSingleInvocation)
     runAssemblerAndValidateOutputIs("    :              1  xc" LINE_ENDING);
 }
 
-/* UNDONE: This is testing a temporary hack to ignore 65802/65816 instructions as I don't support those at this time. */
-TEST(AssemblerDirectives, XC_DirectiveTwiceShouldCauseRTSInsertion)
+TEST(AssemblerDirectives, XC_DirectiveTwiceShouldStillAllow6502Instructions)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" xc" LINE_ENDING
                                                    " xc" LINE_ENDING
                                                    " lda #20" LINE_ENDING), NULL);
-    runAssemblerAndValidateLastLineIs("8000: 60           3  lda #20" LINE_ENDING, 3);
+    runAssemblerAndValidateLastLineIs("8000: A9 14        3  lda #20" LINE_ENDING, 3);
 }
 
-TEST(AssemblerDirectives, XC_DirectiveTwiceShouldCauseRTSInsertionForUnknownOpcodes)
+TEST(AssemblerDirectives, XC_DirectiveTwiceShouldAllowSTAL)
 {
     m_pAssembler = Assembler_CreateFromString(dupe(" xc" LINE_ENDING
                                                    " xc" LINE_ENDING
-                                                   " foobar" LINE_ENDING), NULL);
-    runAssemblerAndValidateLastLineIs("8000: 60           3  foobar" LINE_ENDING, 3);
+                                                   " stal $123456,x" LINE_ENDING), NULL);
+    runAssemblerAndValidateLastTwoLinesOfOutputAre("8000: 9F 56 34     3  stal $123456,x" LINE_ENDING,
+                                                   "8003: 12      " LINE_ENDING, 4);
 }
 
 TEST(AssemblerDirectives, XC_DirectiveWithOffOperandShouldResetTo6502)
@@ -688,7 +688,7 @@ TEST(AssemblerDirectives, XC_DirectiveForwardReferenceFrom6502To65816)
                                                    " xc" LINE_ENDING
                                                    " xc" LINE_ENDING
                                                    "ForwardLabel lda #20" LINE_ENDING), NULL);
-    runAssemblerAndValidateLastLineIs("8002: 60           4 ForwardLabel lda #20" LINE_ENDING, 4);
+    runAssemblerAndValidateLastLineIs("8002: A9 14        4 ForwardLabel lda #20" LINE_ENDING, 4);
 }
 
 /* UNDONE: This should be supported in the future. */

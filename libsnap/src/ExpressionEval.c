@@ -1,4 +1,5 @@
 /*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
+    Copyright (C) 2013  Tee-Kiah Chia
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -47,13 +48,13 @@ static void combineExpressionTypeAndFlags(Expression* pLeftExpression, Expressio
 static void flagEvaluationAsCompleteOnEncounteringComment(ExpressionEvaluation* pEval);
 static int isHexPrefix(char prefixChar);
 static void parseHexValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
-static unsigned short parseHexDigit(char digit);
+static uint32_t parseHexDigit(char digit);
 static int isBinaryPrefix(char prefixChar);
 static void parseBinaryValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
-static unsigned short parseBinaryDigit(char digit);
+static uint32_t parseBinaryDigit(char digit);
 static int isDecimal(char firstChar);
 static void parseDecimalValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
-static unsigned short parseDecimalDigit(char digit);
+static uint32_t parseDecimalDigit(char digit);
 static int isSingleQuoteASCII(char prefixChar);
 static void parseASCIIValue(Assembler* pAssembler, ExpressionEvaluation* pEval);
 static int isDoubleQuotedASCII(char prefixChar);
@@ -135,6 +136,8 @@ static void evaluatePrimitive(Assembler* pAssembler, ExpressionEvaluation* pEval
         SizedString_EnumNext(pEval->pString, &pEval->pCurrent);
         expressionEval(pAssembler, pEval);
         pEval->expression.value >>= 8;
+        /* added; not sure if this is needed...  -- tkchia 20131010 */
+        pEval->expression.value &= 0xff;
     }
     else if (isUnarySubtractionOperator(prefixChar))
     {
@@ -263,7 +266,7 @@ static int isHexPrefix(char prefixChar)
 typedef struct Parser
 {
     const char*    pType;
-    unsigned short (*parseDigit)(char digit);
+    uint32_t       (*parseDigit)(char digit);
     int            skipPrefix;
     unsigned int   multiplier;
 } Parser;
@@ -274,7 +277,7 @@ typedef struct Parser
 static void parseValue(Assembler* pAssembler, ExpressionEvaluation* pEval, Parser* pParser)
 {
     const char*    pCurrent = pEval->pCurrent;
-    unsigned int   value = 0;
+    uint_least64_t value = 0;
     unsigned int   digitCount = 0;
     int            overflowDetected = FALSE;
     
@@ -283,7 +286,7 @@ static void parseValue(Assembler* pAssembler, ExpressionEvaluation* pEval, Parse
         
     while (SizedString_EnumCurr(pEval->pString, pCurrent) != '\0')
     {
-        unsigned short digit;
+        uint32_t digit;
 
         __try
         {
@@ -296,7 +299,7 @@ static void parseValue(Assembler* pAssembler, ExpressionEvaluation* pEval, Parse
         }
         
         value = (value * pParser->multiplier) + digit;
-        if (value > USHRT_MAX)
+        if (value > UINT32_MAX)
             overflowDetected = TRUE;
         digitCount++;
         SizedString_EnumNext(pEval->pString, &pCurrent);
@@ -304,7 +307,7 @@ static void parseValue(Assembler* pAssembler, ExpressionEvaluation* pEval, Parse
     
     if (overflowDetected)
     {
-        LOG_ERROR(pAssembler, "%s number '%.*s' doesn't fit in 16-bits.", 
+        LOG_ERROR(pAssembler, "%s number '%.*s' doesn't fit in 32-bits.", 
                   pParser->pType, digitCount + pParser->skipPrefix, pEval->pCurrent);
         setExceptionCode(invalidArgumentException);
         value = 0;
@@ -326,7 +329,7 @@ static void parseHexValue(Assembler* pAssembler, ExpressionEvaluation* pEval)
     parseValue(pAssembler, pEval, &hexParser);
 }
 
-static unsigned short parseHexDigit(char digit)
+static uint32_t parseHexDigit(char digit)
 {
     if (digit >= '0' && digit <= '9')
         return digit - '0';
@@ -356,7 +359,7 @@ static void parseBinaryValue(Assembler* pAssembler, ExpressionEvaluation* pEval)
     parseValue(pAssembler, pEval, &binaryParser);
 }
 
-static unsigned short parseBinaryDigit(char digit)
+static uint32_t parseBinaryDigit(char digit)
 {
     if (digit >= '0' && digit <= '1')
         return digit - '0';
@@ -382,7 +385,7 @@ static void parseDecimalValue(Assembler* pAssembler, ExpressionEvaluation* pEval
     parseValue(pAssembler, pEval, &decimalParser);
 }
 
-static unsigned short parseDecimalDigit(char digit)
+static uint32_t parseDecimalDigit(char digit)
 {
     if (digit >= '0' && digit <= '9')
         return digit - '0';
@@ -479,7 +482,7 @@ static void flagForwardReferenceOnExpressionIfUndefinedLabel(ExpressionEvaluatio
 }
 
 
-Expression ExpressionEval_CreateAbsoluteExpression(unsigned short value)
+Expression ExpressionEval_CreateAbsoluteExpression(uint32_t value)
 {
     Expression expression;
     

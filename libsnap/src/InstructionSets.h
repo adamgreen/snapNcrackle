@@ -17,8 +17,18 @@
 #include "AssemblerPriv.h"
 
 
-/* Used for unsupported addressing modes in opcode table entries. */
-#define _xXX 0xFF
+/*  Used for unsupported addressing modes in opcode table entries.
+
+    I choose the MVP opcode for this purpose, since it requires special
+    handling anyway (if implemented).  -- tkchia 20131010
+*/
+#define _xXX 0x44
+
+/*  Used in the opcodeZeroPage... fields to indicate that the corresponding
+    absolute (direct/indirect/indexed) operation uses long addressing mode. 
+    I choose the MVN opcode for this purpose.  -- tkchia 20131010
+*/
+#define _xLL 0x54
 
 
 /* Forward declaration of directive handling routines. */
@@ -158,6 +168,12 @@ static const OpCodeEntry g_65c02AdditionalInstructions[] =
     {"STZ", NULL, _xXX, 0x9C, 0x64, _xXX, _xXX, _xXX, 0x74, _xXX, 0x9E, _xXX, _xXX, _xXX, _xXX, _xXX},
     {"TRB", NULL, _xXX, 0x1C, 0x14, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
     {"TSB", NULL, _xXX, 0x0C, 0x04, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX},
+};
+
+static const OpCodeEntry g_65816AdditionalInstructions[] =
+{
+    /* 65816 Instructions */
+    {"STAL",NULL, _xXX, 0x8F, _xLL, _xXX, _xLL, _xXX, _xLL, _xLL, 0x9F, _xXX, _xXX, _xXX, _xXX, _xLL},
 };
 
 #endif /* _INSTRUCTION_SETS_H_ */

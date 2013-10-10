@@ -1,4 +1,5 @@
 /*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
+    Copyright (C) 2013  Tee-Kiah Chia
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -76,7 +77,7 @@ TEST_GROUP(ExpressionEval)
         Assembler_Run(m_pAssembler);
     }
     
-    void validateExpression(ExpressionType expectedType, unsigned short expectedValue)
+    void validateExpression(ExpressionType expectedType, uint32_t expectedValue)
     {
         LONGS_EQUAL(expectedType, m_expression.type);
         LONGS_EQUAL(expectedValue, m_expression.value);
@@ -98,8 +99,8 @@ TEST(ExpressionEval, EvaluateInvalidHexDigit)
 
 TEST(ExpressionEval, EvaluateHexValueTooLong)
 {
-    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString("$12345")) );
-    validateFailureMessageAndThrownException("filename:0: error: Hexadecimal number '$12345' doesn't fit in 16-bits." LINE_ENDING, invalidArgumentException);
+    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString("$123456789")) );
+    validateFailureMessageAndThrownException("filename:0: error: Hexadecimal number '$123456789' doesn't fit in 32-bits." LINE_ENDING, invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateHexImmediate)
@@ -122,8 +123,8 @@ TEST(ExpressionEval, EvaluateInvalidBinaryDigit)
 
 TEST(ExpressionEval, EvaluateBinaryValueTooLong)
 {
-    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString("%11110000111100001")) );
-    validateFailureMessageAndThrownException("filename:0: error: Binary number '%11110000111100001' doesn't fit in 16-bits." LINE_ENDING, invalidArgumentException);
+    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString("%111100001111000011110000111100001")) );
+    validateFailureMessageAndThrownException("filename:0: error: Binary number '%111100001111000011110000111100001' doesn't fit in 32-bits." LINE_ENDING, invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateBinaryImmediate)
@@ -146,8 +147,8 @@ TEST(ExpressionEval, EvaluateInvalidDecimalDigit)
 
 TEST(ExpressionEval, EvaluateDecimalValueTooLong)
 {
-    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString("65536")) );
-    validateFailureMessageAndThrownException("filename:0: error: Decimal number '65536' doesn't fit in 16-bits." LINE_ENDING, invalidArgumentException);
+    __try_and_catch( m_expression = ExpressionEval(m_pAssembler, toSizedString("4294967296")) );
+    validateFailureMessageAndThrownException("filename:0: error: Decimal number '4294967296' doesn't fit in 32-bits." LINE_ENDING, invalidArgumentException);
 }
 
 TEST(ExpressionEval, EvaluateDecimalImmediate)
@@ -298,7 +299,7 @@ TEST(ExpressionEval, EvaluateDivision)
 TEST(ExpressionEval, EvaluateUnarySubtraction)
 {
     m_expression = ExpressionEval(m_pAssembler, toSizedString("-2"));
-    validateExpression(TYPE_ABSOLUTE, 0xFFFE);
+    validateExpression(TYPE_ABSOLUTE, 0xFFFFFFFEU);
 }
 
 TEST(ExpressionEval, EvaluateUnarySubtractionInMiddleOfExpression)
