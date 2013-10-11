@@ -1091,13 +1091,6 @@ static void ignoreOperator(Assembler* pThis)
 
 static void handleInvalidOperator(Assembler* pThis)
 {
-    if (pThis->pLineInfo->instructionSet == INSTRUCTION_SET_65816)
-    {
-        /* UNDONE: snap doesn't currently support this extended instruction set so just emit RTS for all instructions. */
-        emitSingleByteInstruction(pThis, 0x60);
-        return;
-    }
-
     LOG_ERROR(pThis, "'%.*s' is not a recognized mnemonic or macro.", 
               pThis->parsedLine.op.stringLength, pThis->parsedLine.op.pString);
 }
