@@ -58,7 +58,7 @@ label adc $100,x The rest of the line is a comment
 === Label
 If there is any non-whitespace character in the leftmost column other than '*' or ';' then it and the subsequent text
 will be treated as a label.  //See the 
-[[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#comment | comment field description below]]
+[[#comment | comment field description below]]
 to learn more about what '*' or ';' mean when found in the leftmost location.//  The label field is an optional field.
 If you don't want to specify a label for a particular line of code, then just indent the code for the line with atleast
 one whitespace character before specifying the opcode.
@@ -145,8 +145,8 @@ The opcode field is used to specify an assembly language instruction mnemonic, a
 These correspond to instructions understood by the 65xx device itself.  You will find more information about these
 instructions in 6502 device documentation and/or Apple II Technical Reference Manuals.
 
-Currently only 6502 and 65c02 mnemonics are supported by the snap assembler.  //In the near future, 65802 instruction
-support will be added as well.//  These instruction mnemonics are not case sensitive.  Here is a summary of the
+Currently 6502 and 65c02 mnemonics, and some 65802 mnemonics, are supported by the snap assembler.
+These instruction mnemonics are not case sensitive.  Here is a summary of the
 instructions currently supported.
 
 | ADC | Add Memory to Accumulator with Carry |
@@ -172,11 +172,11 @@ instructions currently supported.
 | CMP | Compare Memory to Accumulator |
 | CPX | Compare Memory to X Register |
 | CPY | Compare Memory to Y Register |
-| DEC | Decrement Memory by 1 |
+| DEC | Decrement Memory by 1, or (**65802 only**) Decrement Accumulator by 1 |
 | DEX | Decrement X Register by 1 |
 | DEY | Decrement Y Register by 1 |
 | EOR | Logical Exclusive OR Memory with Accumulator |
-| INC | Increment Memory by 1 |
+| INC | Increment Memory by 1, or (**65802 only**) Increment Accumulator by 1 |
 | INX | Increment X Register by 1 |
 | INY | Increment Y Register by 1 |
 | JMP | Jump to New Address |
@@ -185,16 +185,21 @@ instructions currently supported.
 | LDX | Load X Register from Memory |
 | LDY | Load Y Register from Memory |
 | LSR | Shift Accumulator Right by 1 Bit |
+| MVN | Block Move Negative (**65802 only**) |
+| MVP | Block Move Positive (**65802 only**) |
 | NOP | No Operation |
 | ORA | Logical OR Memory with Accumulator |
 | PHA | Push Accumulator on Stack |
+| PHB | Push Data Bank Register (**65802 only**) |
 | PHP | Push Processor Status on Stack |
 | PHX | Push X Register on Stack (**65c02 only**) |
 | PHY | Push Y Register on Stack (**65c02 only**) |
 | PLA | Pull Accumulator from Stack |
+| PLB | Pull Data Bank Register (**65802 only**) |
 | PLP | Pull Processor Status from Stack |
 | PLX | Pull X Register from Stack (**65c02 only**) |
 | PLY | Pull Y Register from Stack (**65c02 only**) |
+| REP | Reset Processor Status Flags, and Do Implicit [[#mx | MX]] (**65802 only**) |
 | ROL | Rotate Accumulator Left by 1 Bit |
 | ROR | Rotate Accumulator Right by 1 Bit |
 | RTI | Return from Interrupt Handler |
@@ -203,6 +208,7 @@ instructions currently supported.
 | SEC | Set Carry Flag |
 | SED | Set Decimal Flag |
 | SEI | Set Interrupt Disable Flag |
+| SEP | Set Processor Status Flags, and Do Implicit [[#mx | MX]] (**65802 only**) |
 | STA | Store Accumulator to Memory |
 | STX | Store X Register to Memory |
 | STY | Store Y Register to Memory |
@@ -215,6 +221,7 @@ instructions currently supported.
 | TXA | Transfer X Register to Accumulator |
 | TXS | Transfer X Register to Stack Pointer |
 | TYA | Transfer Y Register to Stack Pointer |
+| XCE | Exchange Carry with Emulation, and Do Implicit [[#mx | MX]] 3 (**65802 only**) |
 
 ====Assembler Directives
 These only have meaning to the assembler and provide it with commands outside of the 65xx device's instruction set.
@@ -224,32 +231,33 @@ reserving space in memory for variables (ie: **DS** directive).
 This is a list of the currently supported assembler directives which will be described in more detail in sections found
 further down in this documentation.
 
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#lup | --^]]   | Ending indicator for LUP directive. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#equ | =]]     | Pseudoname for EQU. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#asc | ASC]]   | Place ASCII string into memory. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#da  | DA]]    | Place 2-byte addresses into memory. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#db  | DB]]    | Place byte values into memory. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#dum | DEND]]  | Ending indicator for DUM directive. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#db  | DFB]]   | Pseudoname for DB. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#do  | DO]]    | Start of conditional assembly section. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#ds  | DS]]    | Define storage space in memory. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#da  | DW]]    | Pseudoname for DA. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#dum | DUM]]   | Start of dummy section. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#do  | ELSE]]  | Start of alternate clause for DO directive. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#equ | EQU]]   | Assign value to symbol. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#do  | FIN]]   | Ending indicator for DO directive. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#hex | HEX]]   | Place hex based values into memory. |
+| [[#lup | --^]]   | Ending indicator for LUP directive. |
+| [[#equ | =]]     | Pseudoname for EQU. |
+| [[#asc | ASC]]   | Place ASCII string into memory. |
+| [[#da  | DA]]    | Place 2-byte addresses into memory. |
+| [[#db  | DB]]    | Place byte values into memory. |
+| [[#dum | DEND]]  | Ending indicator for DUM directive. |
+| [[#db  | DFB]]   | Pseudoname for DB. |
+| [[#do  | DO]]    | Start of conditional assembly section. |
+| [[#ds  | DS]]    | Define storage space in memory. |
+| [[#da  | DW]]    | Pseudoname for DA. |
+| [[#dum | DUM]]   | Start of dummy section. |
+| [[#do  | ELSE]]  | Start of alternate clause for DO directive. |
+| [[#equ | EQU]]   | Assign value to symbol. |
+| [[#do  | FIN]]   | Ending indicator for DO directive. |
+| [[#hex | HEX]]   | Place hex based values into memory. |
 |                                                                                 LST     | Ignored |
 |                                                                                 LSTDO   | Ignored |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#lup | LUP]]   | Start of code to duplicate multiple times. |
+| [[#lup | LUP]]   | Start of code to duplicate multiple times. |
+| [[#mx  | MX]]    | Tell assembler which long status mode to assume. |
 |                                                                                 MX      | Ignored |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#org | ORG]]   | Tell assembler desired target address. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#put | PUT]]   | Include text from specified source file. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#rev | REV]]   | Reverse byte order version of ASC. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#sav | SAV]]   | Save output image to specified file. |
+| [[#org | ORG]]   | Tell assembler desired target address. |
+| [[#put | PUT]]   | Include text from specified source file. |
+| [[#rev | REV]]   | Reverse byte order version of ASC. |
+| [[#sav | SAV]]   | Save output image to specified file. |
 |                                                                                 TR      | Ignored |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#usr | USR]]   | Save output image for PoP RW18 insertion. |
-| [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole#xc  | XC]]    | Switches instruction sets. |
+| [[#usr | USR]]   | Save output image for PoP RW18 insertion. |
+| [[#xc  | XC]]    | Switches instruction sets. |
 
 === Operand
 The required contents of the operand field will depend on the opcode used.  They will typically be addresses or 
@@ -394,8 +402,7 @@ Toggles the instruction set supported by the assembler.
   instruction and/or addressing mode from the 65c02, 65802, etc. then an error will be generated.  The XC directive
   can be used to enable these extended instructions sets.
 * Supplying 1 XC directive in your code will enable 65c02 instructions.
-* Supplying 2 XC directives in your code will enable the 65802 instruction set.  // Note: The 65802 instruction set
-  is not currently supported by snap.//
+* Supplying 2 XC directives in your code will enable the 65802 instruction set.
 * Using a "XC OFF" directive in your source code will revert back to only supporting the core 6502 instruction set.
 
 Examples:
@@ -408,7 +415,7 @@ Examples:
     XC
     BRA .
     
-    ; Enable 65802 instrucions by issuing a second XC directive.
+    ; Enable 65802 instructions by issuing a second XC directive.
     XC
     XBA
     
@@ -661,6 +668,30 @@ Example:
         --^
 }}}
 
+===MX
+{{{    MX expression}}} \\
+
+Tells the assembler whether assume the processor to be in 16-bit memory mode,
+16-bit index register mode, both, or neither, to decide which instruction
+encodings to use for assembling subsequent lines.
+* The **MX** directive must contain an expression which contains the long status mode to assume.
+** The allowed values for the expression are %00, %01, %10, and %11.
+** The repeat expression cannot contain forward references to labels further down in the source code.
+* If the expression is %00 or %01, then 16-bit X and Y registers are assumed, otherwise 8-bit X and Y are assumed.
+* If the expression is %00 or %10, then 16-bit A is assumed, otherwise 8-bit A is assumed.
+
+The **SEP**, **REP**, and **XCE** instruction mnemonics also implicitly do an
+**MX** to adjust the assembler's idea of the processor long status mode.
+
+Example:
+{{{
+        MX 2        ; assume MX = %10, i.e. 16-bit A and 8-bit X and Y
+        LDA #$1234
+        SEC
+        XCE         ; assume MX = %11, i.e. A, X, Y are all 8-bit
+        LDA #$56
+}}}
+
 ===SAV
 {{{ SAV objectFilename}}} \\
 
@@ -723,8 +754,6 @@ Example:
 
 == Differences from Merlin 8
 Differences that will be corrected in the near future:
-* No 65802 support.  This actually impacts Apple IIGS source code in PoP which is currently assembled into RTS
-  instructions until this support is added.
 * No macro support.  There is Apple IIGS source code in PoP which takes advantage of this macro feature.  I want to add
   this anyway since it is pretty foolish to build a Merlin 'compatible' macro assembler that doesn't support this
   feature.

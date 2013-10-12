@@ -246,6 +246,8 @@ static void updateInstructionEntry(OpCodeEntry* pEntryToUpdate, const OpCodeEntr
     COPY_UPDATED_FIELD(opcodeAbsoluteIndirect);
     COPY_UPDATED_FIELD(opcodeAbsoluteIndexedIndirect);
     COPY_UPDATED_FIELD(opcodeZeroPageIndirect);
+    pEntryToUpdate->longImmediateIfLongA = pAdditionalEntry->longImmediateIfLongA;
+    pEntryToUpdate->longImmediateIfLongXY = pAdditionalEntry->longImmediateIfLongXY;
 }
 
 static void initParameterVariablesTo0(Assembler* pThis)
@@ -401,12 +403,18 @@ static void handleZeroPageOrAbsoluteAddressingModes(Assembler*         pThis,
 static void emitTwoByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value);
 static void emitThreeByteInstruction(Assembler* pThis, unsigned char opCode, unsigned short value);
 static void emitFourByteInstruction(Assembler* pThis, unsigned char opCode, uint32_t value);
-static void handleImmediateAddressingMode(Assembler*      pThis, 
-                                          AddressingMode* pAddressingMode, 
-                                          unsigned char   opcodeImmediate);
+static void handleShortImmediateAddressingMode(Assembler*      pThis, 
+                                               AddressingMode* pAddressingMode, 
+                                               unsigned char   opcodeImmediate);
+static void handleLongImmediateAddressingMode(Assembler*      pThis, 
+                                             AddressingMode* pAddressingMode, 
+                                             unsigned char   opcodeImmediate);
 static void handleTwoByteAddressingMode(Assembler*      pThis, 
                                         AddressingMode* pAddressingMode, 
                                         unsigned char   opcode);
+static void handleThreeByteAddressingMode(Assembler*      pThis, 
+                                          AddressingMode* pAddressingMode, 
+                                          unsigned char   opcode);
 static void handleZeroPageOrAbsoluteIndexedIndirectAddressingMode(Assembler*         pThis, 
                                                                   AddressingMode*    pAddressingMode, 
                                                                   const OpCodeEntry* pOpcodeEntry);
@@ -450,6 +458,7 @@ static int isProcessingTextFromPutFile(Assembler* pThis);
 static SizedString removeDirectoryAndSuffixFromFullFilename(SizedString* pFullFilename);
 static SizedString getNextCommaSeparatedOptionalStringArgument(Assembler* pThis, SizedString* pRemainingArguments);
 static SizedString getNextCommaSeparatedStringArgument(Assembler* pThis, SizedString* pRemainingArguments);
+static uint32_t getNextCommaSeparatedLongArgument(Assembler* pThis, SizedString* pRemainingArguments);
 static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments);
 static unsigned short getNextCommaSeparatedOptionalArgument(Assembler* pThis, SizedString* pRemainingArguments, unsigned short defaultValue);
 static int isUpdatingForwardReference(Assembler* pThis);
@@ -745,7 +754,11 @@ static void handleOpcode(Assembler* pThis, const OpCodeEntry* pOpcodeEntry)
         handleZeroPageAbsoluteOrRelativeAddressingMode(pThis, &addressingMode, pOpcodeEntry);
         break;
     case ADDRESSING_MODE_IMMEDIATE:
-        handleImmediateAddressingMode(pThis, &addressingMode, pOpcodeEntry->opcodeImmediate);
+        if ((pThis->longA && pOpcodeEntry->longImmediateIfLongA) ||
+            (pThis->longXY && pOpcodeEntry->longImmediateIfLongXY))
+            handleLongImmediateAddressingMode(pThis, &addressingMode, pOpcodeEntry->opcodeImmediate);
+        else
+            handleShortImmediateAddressingMode(pThis, &addressingMode, pOpcodeEntry->opcodeImmediate);
         break;
     case ADDRESSING_MODE_IMPLIED:
         handleImpliedAddressingMode(pThis, pOpcodeEntry->opcodeImplied);
@@ -927,16 +940,35 @@ static void emitFourByteInstruction(Assembler* pThis, unsigned char opCode, uint
     pThis->pLineInfo->pMachineCode[3] = HIHI_BYTE(value);
 }
 
-static void handleImmediateAddressingMode(Assembler*      pThis, 
-                                          AddressingMode* pAddressingMode, 
-                                          unsigned char   opcodeImmediate)
+static void handleShortImmediateAddressingMode(Assembler*      pThis, 
+                                               AddressingMode* pAddressingMode, 
+                                               unsigned char   opcodeImmediate)
 {
     handleTwoByteAddressingMode(pThis, pAddressingMode, opcodeImmediate);
+}
+
+static void handleLongImmediateAddressingMode(Assembler*      pThis, 
+                                              AddressingMode* pAddressingMode, 
+                                              unsigned char   opcodeImmediate)
+{
+    handleThreeByteAddressingMode(pThis, pAddressingMode, opcodeImmediate);
 }
 
 static void handleTwoByteAddressingMode(Assembler*      pThis, 
                                         AddressingMode* pAddressingMode, 
                                         unsigned char   opcode)
+{
+    if (opcode == _xXX)
+    {
+        logInvalidAddressingModeError(pThis);
+        return;
+    }
+    emitTwoByteInstruction(pThis, opcode, (unsigned short)pAddressingMode->expression.value);
+}
+
+static void handleThreeByteAddressingMode(Assembler*      pThis, 
+                                          AddressingMode* pAddressingMode, 
+                                          unsigned char   opcode)
 {
     if (opcode == _xXX)
     {
@@ -1501,6 +1533,133 @@ static void handleXC(Assembler* pThis)
     }
 }
 
+static void handleMX(Assembler *pThis)
+{
+    __try
+    {
+        Expression expression;
+        uint32_t value;
+        validateOperandWasProvided(pThis);
+        expression = getAbsoluteExpression(pThis, &pThis->parsedLine.operands);
+        value = expression.value;
+        if ((value & ~(uint32_t)3) != 0)
+        {
+            LOG_ERROR(pThis, "Unknown bits in %s", "MX");
+            return;
+        }
+        if ((value & 2) != 0)
+            pThis->longXY = 1;
+        else
+            pThis->longXY = 0;
+        if ((value & 1) != 0)
+            pThis->longA = 1;
+        else
+            pThis->longA = 0;
+    }
+    __catch
+    {
+        __nothrow;
+    }
+}
+
+static void handleREP(Assembler *pThis)
+{
+    __try
+    {
+        Expression expression;
+        uint32_t value;
+        validateOperandWasProvided(pThis);
+        expression = getAbsoluteExpression(pThis, &pThis->parsedLine.operands);
+        value = expression.value;
+        emitTwoByteInstruction(pThis, 0xC2, value);
+        if ((value & 0x10) != 0)
+            pThis->longXY = 0;
+        if ((value & 0x20) != 0)
+            pThis->longA = 0;
+    }
+    __catch
+    {
+        __nothrow;
+    }
+}
+
+static void handleSEP(Assembler *pThis)
+{
+    __try
+    {
+        Expression expression;
+        uint32_t value;
+        validateOperandWasProvided(pThis);
+        expression = getAbsoluteExpression(pThis, &pThis->parsedLine.operands);
+        value = expression.value;
+        emitTwoByteInstruction(pThis, 0xE2, value);
+        if ((value & 0x10) != 0)
+            pThis->longXY = 1;
+        if ((value & 0x20) != 0)
+            pThis->longA = 1;
+    }
+    __catch
+    {
+        __nothrow;
+    }
+}
+
+static void handleXCE(Assembler *pThis)
+{
+    __try
+    {
+        warnIfOperandWasProvided(pThis);
+        emitSingleByteInstruction(pThis, 0xFB);
+        pThis->longA = pThis->longXY = 0;
+    }
+    __catch
+    {
+        __nothrow;
+    }
+}
+
+static void handleMVx(Assembler* pThis, unsigned char opCode, const char *mnemonic)
+{
+    uint32_t destinationAddress = 0, sourceAddress = 0;
+    __try
+    {
+        SizedString remainingArguments = pThis->parsedLine.operands;
+        validateOperandWasProvided(pThis);
+        /* Assume that all operands have known values at this point.  This
+           is indeed the case with the Prince of Persia source code.
+           -- tkchia 20131012
+         */
+        destinationAddress = getNextCommaSeparatedLongArgument(pThis, &remainingArguments);
+        sourceAddress = getNextCommaSeparatedLongArgument(pThis, &remainingArguments);
+        if (SizedString_strlen(&remainingArguments) != 0)
+            __throw(invalidArgumentCountException);
+
+    }
+    __catch
+    {
+        if (getExceptionCode() == invalidArgumentCountException || getExceptionCode() == missingOperandException)
+            LOG_ERROR(pThis, "Bad number of arguments to %s instruction.", mnemonic);
+        __nothrow;
+    }
+    __try
+        allocateLineInfoMachineCodeBytes(pThis, 3);
+    __catch
+        __nothrow;
+    pThis->pLineInfo->pMachineCode[0] = opCode;
+    pThis->pLineInfo->pMachineCode[1] = HIHI_BYTE(destinationAddress);
+    pThis->pLineInfo->pMachineCode[2] = HIHI_BYTE(sourceAddress);
+}
+
+static void handleMVN(Assembler* pThis)
+{
+    handleMVx(pThis, 0x54, "MVN");
+}
+
+static void handleMVP(Assembler* pThis)
+{
+    handleMVx(pThis, 0x44, "MVP");
+}
+
 static void handlePUT(Assembler* pThis)
 {
     TextFile*    pIncludedFile = NULL;
@@ -1662,12 +1821,17 @@ static SizedString getNextCommaSeparatedStringArgument(Assembler* pThis, SizedSt
     return beforeComma;
 }
 
-static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments)
+static uint32_t getNextCommaSeparatedLongArgument(Assembler* pThis, SizedString* pRemainingArguments)
 {
     SizedString beforeComma = getNextCommaSeparatedStringArgument(pThis, pRemainingArguments);
     Expression expression;
     expression = ExpressionEval(pThis, &beforeComma);
     return expression.value;
+}
+
+static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments)
+{
+    return (unsigned short)getNextCommaSeparatedLongArgument(pThis, pRemainingArguments);
 }
 
 static unsigned short getNextCommaSeparatedOptionalArgument(Assembler* pThis, SizedString* pRemainingArguments, unsigned short defaultValue)
@@ -1867,7 +2031,7 @@ static void handleLUP(Assembler* pThis)
 
 static void flagThatLupDirectiveHasBeenSeen(Assembler* pThis)
 {
-    pThis->flags |= ASSEMBLER_LUP;
+    pThis->seenLUP = 1;
 }
 
 static void validateLupExpressionInRange(Assembler* pThis, Expression* pExpression)
@@ -1910,12 +2074,12 @@ static void handleLUPend(Assembler* pThis)
 
 static int haveSeenLupDirective(Assembler* pThis)
 {
-    return pThis->flags & ASSEMBLER_LUP;
+    return pThis->seenLUP;
 }
 
 static void clearLupDirectiveFlag(Assembler* pThis)
 {
-    pThis->flags &= ~ASSEMBLER_LUP;
+    pThis->seenLUP = 0;
 }
 
 static void checkForUndefinedSymbols(Assembler* pThis)

@@ -1,4 +1,5 @@
 /*  Copyright (C) 2013  Adam Green (https://github.com/adamgreen)
+    Copyright (C) 2013  Tee-Kiah Chia
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -30,9 +31,6 @@
 #define NUMBER_OF_SYMBOL_TABLE_HASH_BUCKETS 511
 #define SIZE_OF_OBJECT_AND_DUMMY_BUFFERS    (64 * 1024)
 
-/* Bits in the Assembler::flags fields. */
-#define ASSEMBLER_LUP       1
-
 /* Bits in the Conditional::flags field. */
 #define CONDITIONAL_SKIP_SOURCE           1
 #define CONDITIONAL_INHERITED_SKIP_SOURCE 2
@@ -57,6 +55,8 @@ typedef struct OpCodeEntry
     unsigned char opcodeAbsoluteIndirect;
     unsigned char opcodeAbsoluteIndexedIndirect;
     unsigned char opcodeZeroPageIndirect;
+    unsigned char longImmediateIfLongA : 1,
+                  longImmediateIfLongXY : 1;
 } OpCodeEntry;
 
 
@@ -87,7 +87,9 @@ struct Assembler
     ParsedLine                 parsedLine;
     LineInfo                   linesHead;
     InstructionSetSupported    instructionSet;
-    unsigned int               flags;
+    unsigned int               seenLUP : 1,
+                               longA : 1,
+                               longXY : 1;
     unsigned int               errorCount;
     unsigned int               warningCount;
     unsigned short             programCounter;
