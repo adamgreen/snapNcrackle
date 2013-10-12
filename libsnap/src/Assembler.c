@@ -371,7 +371,7 @@ static int doesLineContainALabel(Assembler* pThis);
 static int isGlobalLabelName(SizedString* pLabelName);
 static int isLocalLabelName(SizedString* pLabelName);
 static int isVariableLabelName(SizedString* pLabelName);
-static void addUnhandledLabel(Assembler* pThis);
+static void addUnhandledLabel(Assembler* pThis, unsigned short addressForLabel);
 static int hasLabelAlreadyBeenDefined(Assembler* pThis);
 static Symbol* attemptToAddSymbol(Assembler* pThis, SizedString* pLabelName, Expression* pExpression);
 static SizedString initGlobalLabelString(Assembler* pThis, SizedString* pLabelName);
@@ -522,12 +522,29 @@ static int attemptToPopTextFileAndGetNextLine(Assembler* pThis, SizedString* pLi
 
 static void parseLine(Assembler* pThis, const SizedString* pLine)
 {
+    /* The PoP code contains constructs like
+
+          bra PalFade
+          ...
+         PalFade dum 0
+         :green ds 1
+         :blue ds 1
+          dend
+          ...
+
+       In such cases, a DUM appears on the same line as a label, and the
+       correct behaviour is to assign to the label the assembly's program
+       counter _before_ the DUM, not after.
+
+       -- tkchia 20131012
+     */
+    unsigned short originalProgramCounter = pThis->programCounter;
     prepareLineInfoForThisLine(pThis, pLine);
     ParseLine(&pThis->parsedLine, pLine);
     rememberLabelIfGlobal(pThis);
     firstPassAssembleLine(pThis);
     if (!shouldSkipSourceLines(pThis))
-        addUnhandledLabel(pThis);
+        addUnhandledLabel(pThis, originalProgramCounter);
     pThis->programCounter += pThis->pLineInfo->machineCodeSize;
 }
 
@@ -578,7 +595,7 @@ static int isVariableLabelName(SizedString* pLabelName)
     return pLabelName->pString && pLabelName->pString[0] == ']';
 }
 
-static void addUnhandledLabel(Assembler* pThis)
+static void addUnhandledLabel(Assembler* pThis, unsigned short addressForLabel)
 {
     Expression  expression;
 
@@ -587,7 +604,7 @@ static void addUnhandledLabel(Assembler* pThis)
 
     __try
     {
-        expression = ExpressionEval_CreateAbsoluteExpression(pThis->programCounter);
+        expression = ExpressionEval_CreateAbsoluteExpression(addressForLabel);
         attemptToAddSymbol(pThis, &pThis->parsedLine.label, &expression);
     }
     __catch
