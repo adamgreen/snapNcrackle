@@ -195,6 +195,7 @@ static const OpCodeEntry g_65816AdditionalInstructions[] =
     /* Other 65816 Instructions */
     {"DEC", NULL, _xXX, _xXX, _xXX, 0x3A, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, 0, 0},
     {"INC", NULL, _xXX, _xXX, _xXX, 0x1A, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, 0, 0},
+    {"LDAL",NULL, _xXX, 0xAF, _xLL, _xXX, _xLL, _xXX, _xLL, _xLL, 0xBF, _xXX, _xXX, _xXX, _xXX, _xLL, 0, 0},
     {"PHB", NULL, _xXX, _xXX, _xXX, 0x8B, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, 0, 0},
     {"PLB", NULL, _xXX, _xXX, _xXX, 0xAB, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, _xXX, 0, 0},
     {"STAL",NULL, _xXX, 0x8F, _xLL, _xXX, _xLL, _xXX, _xLL, _xLL, 0x9F, _xXX, _xXX, _xXX, _xXX, _xLL, 0, 0},
