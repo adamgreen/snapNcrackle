@@ -6,5 +6,5 @@ disk image suitable for Apple II emulation.  As such it will only support the su
 these sources.  I don't know how useful it will be in general for other 6502 assembly language projects.
 
 == More Information
-* [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/snap.creole | snap Assembler Documentation]]
-* [[https://github.com/adamgreen/snapNcrackle/blob/master/notes/crackle.creole | crackle Disk Imaging Utility Documentation]]
+* [[snap.creole | snap Assembler Documentation]]
+* [[crackle.creole | crackle Disk Imaging Utility Documentation]]

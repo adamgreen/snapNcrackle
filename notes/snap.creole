@@ -58,7 +58,7 @@ label adc $100,x The rest of the line is a comment
 === Label
 If there is any non-whitespace character in the leftmost column other than '*' or ';' then it and the subsequent text
 will be treated as a label.  //See the 
-[[#comment | comment field description below]]
+[[snap.creole#comment | comment field description below]]
 to learn more about what '*' or ';' mean when found in the leftmost location.//  The label field is an optional field.
 If you don't want to specify a label for a particular line of code, then just indent the code for the line with atleast
 one whitespace character before specifying the opcode.
@@ -199,7 +199,7 @@ instructions currently supported.
 | PLP | Pull Processor Status from Stack |
 | PLX | Pull X Register from Stack (**65c02 only**) |
 | PLY | Pull Y Register from Stack (**65c02 only**) |
-| REP | Reset Processor Status Flags, and Do Implicit [[#mx | MX]] (**65802 only**) |
+| REP | Reset Processor Status Flags, and Do Implicit [[snap.creole#mx | MX]] (**65802 only**) |
 | ROL | Rotate Accumulator Left by 1 Bit |
 | ROR | Rotate Accumulator Right by 1 Bit |
 | RTI | Return from Interrupt Handler |
@@ -208,7 +208,7 @@ instructions currently supported.
 | SEC | Set Carry Flag |
 | SED | Set Decimal Flag |
 | SEI | Set Interrupt Disable Flag |
-| SEP | Set Processor Status Flags, and Do Implicit [[#mx | MX]] (**65802 only**) |
+| SEP | Set Processor Status Flags, and Do Implicit [[snap.creole#mx | MX]] (**65802 only**) |
 | STA | Store Accumulator to Memory |
 | STX | Store X Register to Memory |
 | STY | Store Y Register to Memory |
@@ -221,7 +221,7 @@ instructions currently supported.
 | TXA | Transfer X Register to Accumulator |
 | TXS | Transfer X Register to Stack Pointer |
 | TYA | Transfer Y Register to Stack Pointer |
-| XCE | Exchange Carry with Emulation, and Do Implicit [[#mx | MX]] 3 (**65802 only**) |
+| XCE | Exchange Carry with Emulation, and Do Implicit [[snap.creole#mx | MX]] 3 (**65802 only**) |
 
 ====Assembler Directives
 These only have meaning to the assembler and provide it with commands outside of the 65xx device's instruction set.
@@ -231,33 +231,33 @@ reserving space in memory for variables (ie: **DS** directive).
 This is a list of the currently supported assembler directives which will be described in more detail in sections found
 further down in this documentation.
 
-| [[#lup | --^]]   | Ending indicator for LUP directive. |
-| [[#equ | =]]     | Pseudoname for EQU. |
-| [[#asc | ASC]]   | Place ASCII string into memory. |
-| [[#da  | DA]]    | Place 2-byte addresses into memory. |
-| [[#db  | DB]]    | Place byte values into memory. |
-| [[#dum | DEND]]  | Ending indicator for DUM directive. |
-| [[#db  | DFB]]   | Pseudoname for DB. |
-| [[#do  | DO]]    | Start of conditional assembly section. |
-| [[#ds  | DS]]    | Define storage space in memory. |
-| [[#da  | DW]]    | Pseudoname for DA. |
-| [[#dum | DUM]]   | Start of dummy section. |
-| [[#do  | ELSE]]  | Start of alternate clause for DO directive. |
-| [[#equ | EQU]]   | Assign value to symbol. |
-| [[#do  | FIN]]   | Ending indicator for DO directive. |
-| [[#hex | HEX]]   | Place hex based values into memory. |
+| [[snap.creole#lup | --^]]   | Ending indicator for LUP directive. |
+| [[snap.creole#equ | =]]     | Pseudoname for EQU. |
+| [[snap.creole#asc | ASC]]   | Place ASCII string into memory. |
+| [[snap.creole#da  | DA]]    | Place 2-byte addresses into memory. |
+| [[snap.creole#db  | DB]]    | Place byte values into memory. |
+| [[snap.creole#dum | DEND]]  | Ending indicator for DUM directive. |
+| [[snap.creole#db  | DFB]]   | Pseudoname for DB. |
+| [[snap.creole#do  | DO]]    | Start of conditional assembly section. |
+| [[snap.creole#ds  | DS]]    | Define storage space in memory. |
+| [[snap.creole#da  | DW]]    | Pseudoname for DA. |
+| [[snap.creole#dum | DUM]]   | Start of dummy section. |
+| [[snap.creole#do  | ELSE]]  | Start of alternate clause for DO directive. |
+| [[snap.creole#equ | EQU]]   | Assign value to symbol. |
+| [[snap.creole#do  | FIN]]   | Ending indicator for DO directive. |
+| [[snap.creole#hex | HEX]]   | Place hex based values into memory. |
 |                                                                                 LST     | Ignored |
 |                                                                                 LSTDO   | Ignored |
-| [[#lup | LUP]]   | Start of code to duplicate multiple times. |
-| [[#mx  | MX]]    | Tell assembler which long status mode to assume. |
+| [[snap.creole#lup | LUP]]   | Start of code to duplicate multiple times. |
+| [[snap.creole#mx  | MX]]    | Tell assembler which long status mode to assume. |
 |                                                                                 MX      | Ignored |
-| [[#org | ORG]]   | Tell assembler desired target address. |
-| [[#put | PUT]]   | Include text from specified source file. |
-| [[#rev | REV]]   | Reverse byte order version of ASC. |
-| [[#sav | SAV]]   | Save output image to specified file. |
+| [[snap.creole#org | ORG]]   | Tell assembler desired target address. |
+| [[snap.creole#put | PUT]]   | Include text from specified source file. |
+| [[snap.creole#rev | REV]]   | Reverse byte order version of ASC. |
+| [[snap.creole#sav | SAV]]   | Save output image to specified file. |
 |                                                                                 TR      | Ignored |
-| [[#usr | USR]]   | Save output image for PoP RW18 insertion. |
-| [[#xc  | XC]]    | Switches instruction sets. |
+| [[snap.creole#usr | USR]]   | Save output image for PoP RW18 insertion. |
+| [[snap.creole#xc  | XC]]    | Switches instruction sets. |
 
 === Operand
 The required contents of the operand field will depend on the opcode used.  They will typically be addresses or 
