@@ -1118,7 +1118,7 @@ TEST(BlockDiskImage, PassInvalidLengthToProcessScript)
     createOnesBlockObjectFile();
 
     BlockDiskImage_ProcessScript(m_pDiskImage, copy("BLOCK,BlockDiskImageTestOnes.sav,0,513,0,0" LINE_ENDING));
-    STRCMP_EQUAL("<null>:1: error: 513 specifies an invalid legnth." LINE_ENDING,
+    STRCMP_EQUAL("<null>:1: error: 513 specifies an invalid length." LINE_ENDING,
                  printfSpy_GetLastErrorOutput());
 }
 

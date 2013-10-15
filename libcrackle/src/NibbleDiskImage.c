@@ -133,8 +133,8 @@ static void insertData(void* pThis, const unsigned char* pData, DiskImageInsert*
 static void insertRWTS16Data(NibbleDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert);
 static void prepareForFirstRWTS16Sector(NibbleDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert);
 static void advanceToNextSector(NibbleDiskImage* pThis);
-static void writeRWTS16Sector(NibbleDiskImage* pThis);
-static void validateRWTS16TrackAndSector(NibbleDiskImage* pThis);
+static void writeRWTS16Sector(NibbleDiskImage* pThis, int);
+static void validateRWTS16TrackAndSector(NibbleDiskImage* pThis, int isCopyProtectionSector);
 static void writeSectorLeadInSyncBytes(NibbleDiskImage* pThis);
 static void writeSyncBytes(NibbleDiskImage* pThis, size_t syncByteCount);
 static void writeRWTS16AddressField(NibbleDiskImage* pThis, unsigned char volume, unsigned char track, unsigned char sector);
@@ -159,6 +159,8 @@ static void checksumNibbilizeAndWriteAuxBuffer(NibbleDiskImage* pThis);
 static unsigned char nibbilizeByte(NibbleDiskImage* pThis, unsigned char byte);
 static void checksumNibbilizeAndWriteDataBuffer(NibbleDiskImage* pThis, const unsigned char* pData);
 static void nibbilizeAndWriteChecksum(NibbleDiskImage* pThis);
+static void insertRWTS16CPData(NibbleDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert);
+static void writeRWTS16CPDataField(NibbleDiskImage* pThis);
 static void insertRW18Data(NibbleDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert);
 static void prepareForFirstRW18Track(NibbleDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert);
 static void writeRW18Track(NibbleDiskImage* pThis);
@@ -182,6 +184,9 @@ __throws void NibbleDiskImage_InsertData(NibbleDiskImage* pThis, const unsigned 
     case DISK_IMAGE_INSERTION_RWTS16:
         insertRWTS16Data(pThis, pData, pInsert);
         break;
+    case DISK_IMAGE_INSERTION_RWTS16CP:
+        insertRWTS16CPData(pThis, pData, pInsert);
+        break;
     case DISK_IMAGE_INSERTION_RW18:
         insertRW18Data(pThis, pData, pInsert);
         break;
@@ -196,7 +201,7 @@ static void insertRWTS16Data(NibbleDiskImage* pThis, const unsigned char* pData,
     prepareForFirstRWTS16Sector(pThis, pData, pInsert);
     while (pThis->bytesLeft > 0)
     {
-        writeRWTS16Sector(pThis);
+        writeRWTS16Sector(pThis, 0);
         advanceToNextSector(pThis);
     }
 }
@@ -221,15 +226,16 @@ static void advanceToNextSector(NibbleDiskImage* pThis)
     }
 }
 
-static void writeRWTS16Sector(NibbleDiskImage* pThis)
+static void writeRWTS16Sector(NibbleDiskImage* pThis, int isCopyProtectionSector)
 {
     static const unsigned char   volume = 0;
     unsigned int                 imageOffset = NIBBLE_DISK_IMAGE_NIBBLES_PER_TRACK * pThis->track + 
                                                NIBBLE_DISK_IMAGE_RWTS16_GAP1_SYNC_BYTES +
                                                NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR * pThis->sector;
     const unsigned char*         pStart;
+    ptrdiff_t leeway;
     
-    validateRWTS16TrackAndSector(pThis);
+    validateRWTS16TrackAndSector(pThis, isCopyProtectionSector);
         
     pThis->pWrite = DiskImage_GetImagePointer(&pThis->super) + imageOffset;
     pStart = pThis->pWrite;
@@ -237,18 +243,24 @@ static void writeRWTS16Sector(NibbleDiskImage* pThis)
     writeSectorLeadInSyncBytes(pThis);
     writeRWTS16AddressField(pThis, volume, pThis->track, pThis->sector);
     writeSyncBytes(pThis, NIBBLE_DISK_IMAGE_RWTS16_GAP2_SYNC_BYTES);
-    writeRWTS16DataField(pThis, pThis->pData);
+    if (!isCopyProtectionSector)
+        writeRWTS16DataField(pThis, pThis->pData);
+    else
+        writeRWTS16CPDataField(pThis);
     
-    assert ( pThis->pWrite - pStart == NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR - NIBBLE_DISK_IMAGE_RWTS16_GAP3_SYNC_BYTES);
+    leeway = (NIBBLE_DISK_IMAGE_RWTS16_NIBBLES_PER_SECTOR - NIBBLE_DISK_IMAGE_RWTS16_GAP3_SYNC_BYTES) - (pThis->pWrite - pStart);
+    assert(leeway >= 0);
+    if (leeway > 0)
+        memset(pThis->pWrite, 0xff, (size_t)leeway);
 }
 
-static void validateRWTS16TrackAndSector(NibbleDiskImage* pThis)
+static void validateRWTS16TrackAndSector(NibbleDiskImage* pThis, int isCopyProtectionSector)
 {
     if (pThis->sector >= NIBBLE_DISK_IMAGE_RWTS16_SECTORS_PER_TRACK)
         __throw(invalidSectorException);
     if (pThis->track >= DISK_IMAGE_TRACKS_PER_SIDE)
         __throw(invalidTrackException);
-    if (pThis->bytesLeft < DISK_IMAGE_BYTES_PER_SECTOR)
+    if (pThis->bytesLeft < DISK_IMAGE_BYTES_PER_SECTOR && !isCopyProtectionSector)
         __throw(invalidLengthException);
 }
 
@@ -433,6 +445,31 @@ static void checksumNibbilizeAndWriteDataBuffer(NibbleDiskImage* pThis, const un
 static void nibbilizeAndWriteChecksum(NibbleDiskImage* pThis)
 {
     *pThis->pWrite++ = nibbilizeByte(pThis, 0x00);
+}
+
+static void insertRWTS16CPData(NibbleDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert)
+{
+    prepareForFirstRWTS16Sector(pThis, pData, pInsert);
+    writeRWTS16Sector(pThis, 1);
+}
+
+static void writeRWTS16CPDataField(NibbleDiskImage* pThis)
+{
+    /* If Michael Kelsey's description (textfiles.com/apple/CRACKING/asstcracks1.txt) is anything to go by, this is
+       a "bit insertion" copy protection technique.  The precise technique is likely hard to replicate in a nibble
+       disk image in a way which is faithful to the original _and_ also works with emulators.  I follow Kelsey's
+       solution here: use a nibble sequence which has no hidden timing bits, but still satisfies what the protection
+       check routines want.
+
+       -- tkchia 20131015
+    */
+    static const char magicNibbles[] = "\xe7\xe7\xe7\xe7\xe7\xe7\xaf\xf3\xfc\xee\xe7\xfc\xee\xe7\xfc\xee\xee\xfc";
+    size_t i;
+    writeRWTS16DataFieldProlog(pThis);
+    writeEncodedBytes(pThis, magicNibbles, sizeof magicNibbles - 1);
+    for (i = sizeof magicNibbles - 1; i < 343; ++i)
+        writeEncodedBytes(pThis, "\xff", 1);
+    writeRWTS16FieldEpilog(pThis);
 }
 
 static void insertRW18Data(NibbleDiskImage* pThis, const unsigned char* pData, DiskImageInsert* pInsert)

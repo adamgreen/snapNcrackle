@@ -91,6 +91,23 @@ RWTS16,objectFilename,startOffset,length,track,sector
 **sector** - At what sector within the specified track in the output disk image, should this file's data be inserted.
              The allowed values are 0 - 15.  This is a required field.\\
 
+===RWTS16CP
+This line is used to place a specially crafted "copy protection" sector in a nibble disk image.  The sector is checked by
+the secondary protection check code in the 5.25" diskette version of Prince of Persia.
+Lines of this format are not supported when writing to a block formatted disk image.  In those situations, you would
+probably want to use the BLOCK format instead.
+
+The lines of this format should have the following form:
+{{{
+RWTS16CP,track,sector
+}}}
+
+**RWTS16CP** - Indicates that this is a RWTS16CP formatted line.  This is a required field.\\
+**track** - At what track in the output disk image, should this file's data be inserted.  The allowed values are 0 - 34.
+            This is a required field.\\
+**sector** - At what sector within the specified track in the output disk image, should this file's data be inserted.
+             The allowed values are 0 - 15.  This is a required field.\\
+
 ===RW18
 These lines are used to place data at specific locations in a disk image using the RW18 format created by
 Roland Gustafsson.  This format was used by Prince of Persia and other Apple II titles from Brøderbund.

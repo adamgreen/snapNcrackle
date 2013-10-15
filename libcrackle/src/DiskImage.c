@@ -91,6 +91,7 @@ static void setBlockInsertFieldsBaseOnScriptFields(DiskImageScriptEngine* pThis,
                                                    const SizedString* pFields);
 static void rememberLastInsertionInformation(DiskImageScriptEngine* pThis);
 static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields);
+static void processRWTS16CPScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields);
 static void processRW18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields);
 static void processImageTableUpdates(DiskImageScriptEngine* pThis, unsigned short newImageTableAddress);
 static unsigned short getImageTableObjectSize(DiskImage* pDiskImage, unsigned short startImageTableAddress);
@@ -158,6 +159,8 @@ static void processNextScriptLine(DiskImageScriptEngine* pThis, const SizedStrin
             processBlockScriptLine(pThis, fieldCount, pFields);
         else if (0 == SizedString_strcasecmp(&pFields[0], "rwts16"))
             processRWTS16ScriptLine(pThis, fieldCount, pFields);
+        else if (0 == SizedString_strcasecmp(&pFields[0], "rwts16cp"))
+            processRWTS16CPScriptLine(pThis, fieldCount, pFields);
         else if (0 == SizedString_strcasecmp(&pFields[0], "rw18"))
             processRW18ScriptLine(pThis, fieldCount, pFields);
         else
@@ -282,6 +285,25 @@ static void processRWTS16ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCo
     DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert);
 }
 
+static void processRWTS16CPScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields)
+{
+    if (fieldCount != 3)
+    {
+        LOG_ERROR(pThis, 
+                  "%s doesn't contain correct fields: RWTS16CP,track,sector",
+                  "Line");
+        __throw(invalidArgumentException);
+    }
+
+    pThis->pDiskImage->objectFileLength = 0;
+    pThis->insert.sourceOffset = 0;
+    pThis->insert.length = 0;
+    pThis->insert.type = DISK_IMAGE_INSERTION_RWTS16CP;
+    pThis->insert.track = SizedString_strtoul(&pFields[1], NULL, 0);
+    pThis->insert.sector = SizedString_strtoul(&pFields[2], NULL, 0);
+    DiskImage_InsertObjectFile(pThis->pDiskImage, &pThis->insert);
+}
+
 static void processRW18ScriptLine(DiskImageScriptEngine* pThis, size_t fieldCount, const SizedString* pFields)
 {
     if (fieldCount < 7 || fieldCount > 8)
@@ -382,7 +404,7 @@ static void reportScriptLineException(DiskImageScriptEngine* pThis)
                   pThis->insert.sourceOffset,
                   pThis->pDiskImage->objectFileLength);
     else if (exceptionCode == invalidLengthException)
-        LOG_ERROR(pThis, "%u specifies an invalid legnth.", 
+        LOG_ERROR(pThis, "%u specifies an invalid length.", 
                   pThis->insert.length);
 }
 
@@ -584,6 +606,8 @@ __throws void DiskImage_InsertObjectFile(DiskImage* pThis, DiskImageInsert* pIns
 
 static void validateSourceObjectParameters(DiskImage* pThis, DiskImageInsert* pInsert)
 {
+    if (pInsert->type == DISK_IMAGE_INSERTION_RWTS16CP)
+        return;
     if (pInsert->sourceOffset >= pThis->objectFileLength)
         __throw(invalidSourceOffsetException);
     if (pInsert->sourceOffset + pInsert->length > pThis->object.bufferSize)
