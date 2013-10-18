@@ -97,7 +97,7 @@ int SizedString_strcasecmp(const SizedString* pString, const char* pSearchString
     
     while (charsLeft > 0 && *p2)
     {
-        int diff = tolower(*p1++) - tolower(*p2++);
+        int diff = tolower((unsigned char)*p1++) - tolower((unsigned char)*p2++);
         if (diff != 0)
             return diff;
         charsLeft--;
@@ -105,7 +105,7 @@ int SizedString_strcasecmp(const SizedString* pString, const char* pSearchString
     
     if (charsLeft == 0)
         p1 = &terminator;
-    return tolower(*p1) - tolower(*p2);
+    return tolower((unsigned char)*p1) - tolower((unsigned char)*p2);
 }
 
 
@@ -132,6 +132,31 @@ int SizedString_Compare(const SizedString* pString1, const SizedString* pString2
         p2 = &terminator;
         
     return *p1 - *p2;
+}
+
+int SizedString_CompareWithoutCase(const SizedString* pString1, const SizedString* pString2)
+{
+    static const char  terminator = '\0';
+    size_t             charsLeft1 = pString1->stringLength;
+    size_t             charsLeft2 = pString2->stringLength;
+    const char*        p1 = pString1->pString;
+    const char*        p2 = pString2->pString;
+    
+    while (charsLeft1 > 0 && charsLeft2 > 0)
+    {
+        int diff = tolower((unsigned char)*p1++) - tolower((unsigned char)*p2++);
+        if (diff != 0)
+            return diff;
+        charsLeft1--;
+        charsLeft2--;
+    }
+    
+    if (charsLeft1 == 0)
+        p1 = &terminator;
+    if (charsLeft2 == 0)
+        p2 = &terminator;
+        
+    return tolower((unsigned char)*p1) - tolower((unsigned char)*p2);
 }
 
 

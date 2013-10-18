@@ -22,7 +22,7 @@
 #include "InstructionSets.h"
 #include "TextFileSource.h"
 #include "LupSource.h"
-
+#include "MacroExpansionSource.h"
 
 static void commonObjectInit(Assembler* pThis, const AssemblerInitParams* pParams, TextFile* pTextFile);
 static FILE* createListFileOrRedirectToStdOut(Assembler* pThis, const AssemblerInitParams* pParams);
@@ -40,7 +40,10 @@ static void mergeInstructionSets(OpCodeEntry* pBaseSet, size_t baseSetLength, si
 static void updateInstructionEntry(OpCodeEntry* pEntryToUpdate, const OpCodeEntry* pAdditionalEntry);
 static void initParameterVariablesTo0(Assembler* pThis);
 static void initParameterVariableTo0(Assembler* pThis, const char* pVariableName);
+static void initParameterVariable(Assembler* pThis, const char* pVariableName, uint32_t value);
 static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned short orgAddress);
+static const MacroDefinition* findMacroDefinition(Assembler* pThis, SizedString* pMacroName);
+
 __throws Assembler* Assembler_CreateFromString(const char* pText, const AssemblerInitParams* pParams)
 {
     Assembler* pThis = NULL;
@@ -266,11 +269,16 @@ static void initParameterVariablesTo0(Assembler* pThis)
 
 static void initParameterVariableTo0(Assembler* pThis, const char* pVariableName)
 {
+    initParameterVariable(pThis, pVariableName, (uint32_t)0);
+}
+
+static void initParameterVariable(Assembler* pThis, const char* pVariableName, uint32_t value)
+{
     SizedString globalVariableName = SizedString_InitFromString(pVariableName);
     SizedString nullLocalName = SizedString_InitFromString(NULL);
     Symbol* pSymbol = SymbolTable_Add(pThis->pSymbols, &globalVariableName, &nullLocalName);
     pSymbol->pDefinedLine = &pThis->linesHead;
-    pSymbol->expression = ExpressionEval_CreateAbsoluteExpression(0);
+    pSymbol->expression = ExpressionEval_CreateAbsoluteExpression(value);
 }
 
 static void setOrgInAssemblerAndBinaryBufferModules(Assembler* pThis, unsigned short orgAddress)
@@ -459,6 +467,8 @@ static SizedString removeDirectoryAndSuffixFromFullFilename(SizedString* pFullFi
 static SizedString getNextCommaSeparatedOptionalStringArgument(Assembler* pThis, SizedString* pRemainingArguments);
 static SizedString getNextCommaSeparatedStringArgument(Assembler* pThis, SizedString* pRemainingArguments);
 static uint32_t getNextCommaSeparatedLongArgument(Assembler* pThis, SizedString* pRemainingArguments);
+static Expression getNextSemicolonSeparatedOptionalExpression(Assembler* pThis, SizedString* pRemainingArguments,
+                                                              uint32_t defaultValue);
 static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments);
 static unsigned short getNextCommaSeparatedOptionalArgument(Assembler* pThis, SizedString* pRemainingArguments, unsigned short defaultValue);
 static int isUpdatingForwardReference(Assembler* pThis);
@@ -478,6 +488,7 @@ static void validateLupExpressionInRange(Assembler* pThis, Expression* pExpressi
 static void validateThatLupEndWasFound(Assembler* pThis, ParsedLine* pParsedLine);
 static int haveSeenLupDirective(Assembler* pThis);
 static void clearLupDirectiveFlag(Assembler* pThis);
+static void handleMacroExpansion(Assembler* pThis, const MacroDefinition* pMacroDefinition);
 static void checkForUndefinedSymbols(Assembler* pThis);
 static void checkSymbolForOutstandingForwardReferences(Assembler* pThis, Symbol* pSymbol);
 static void checkForOpenConditionals(Assembler* pThis);
@@ -623,7 +634,7 @@ static Symbol* attemptToAddSymbol(Assembler* pThis, SizedString* pLabelName, Exp
     SizedString globalLabel = initGlobalLabelString(pThis, pLabelName);
     SizedString localLabel = initLocalLabelString(pLabelName);
     
-    validateLabelFormat(pThis, &pThis->parsedLine.label);
+    validateLabelFormat(pThis, pLabelName);
     Symbol* pSymbol = SymbolTable_Find(pThis->pSymbols, &globalLabel, &localLabel);
     if (pSymbol && (isSymbolAlreadyDefined(pSymbol, pThis->pLineInfo) && !isVariableLabelName(pLabelName)))
     {
@@ -722,6 +733,7 @@ static void firstPassAssembleLine(Assembler* pThis)
     size_t             instructionSetSize = pThis->instructionSetSizes[pThis->pLineInfo->instructionSet];
     SizedString*       pOperator = &pThis->parsedLine.op;
     const OpCodeEntry* pFoundEntry;
+    const MacroDefinition* pMacroDefinition;
     
     if (SizedString_strlen(pOperator) == 0)
         return;
@@ -730,9 +742,17 @@ static void firstPassAssembleLine(Assembler* pThis)
                           pInstructionSet, instructionSetSize, sizeof(*pInstructionSet), 
                           compareInstructionSetEntryToOperatorSizedString);
     if (pFoundEntry)
+    {
         handleOpcode(pThis, pFoundEntry);
-    else
-        handleInvalidOperator(pThis);
+        return;
+    }
+    pMacroDefinition = findMacroDefinition(pThis, pOperator);
+    if (pMacroDefinition)
+    {
+        handleMacroExpansion(pThis, pMacroDefinition);
+        return;
+    }
+    handleInvalidOperator(pThis);
 }
 
 static int compareInstructionSetEntryToOperatorSizedString(const void* pvKey, const void* pvEntry)
@@ -1846,6 +1866,21 @@ static uint32_t getNextCommaSeparatedLongArgument(Assembler* pThis, SizedString*
     return expression.value;
 }
 
+static Expression getNextSemicolonSeparatedOptionalExpression(Assembler* pThis, SizedString* pRemainingArguments,
+                                                              uint32_t defaultValue)
+{
+    SizedString beforeSemicolon;
+    SizedString afterSemicolon;
+    Expression expression;
+
+    SizedString_SplitString(pRemainingArguments, ';', &beforeSemicolon, &afterSemicolon);
+    *pRemainingArguments = afterSemicolon;
+    if (SizedString_strlen(&beforeSemicolon) == 0)
+        return ExpressionEval_CreateAbsoluteExpression(defaultValue);
+    expression = ExpressionEval(pThis, &beforeSemicolon);
+    return expression;
+}
+
 static unsigned short getNextCommaSeparatedArgument(Assembler* pThis, SizedString* pRemainingArguments)
 {
     return (unsigned short)getNextCommaSeparatedLongArgument(pThis, pRemainingArguments);
@@ -2097,6 +2132,126 @@ static int haveSeenLupDirective(Assembler* pThis)
 static void clearLupDirectiveFlag(Assembler* pThis)
 {
     pThis->seenLUP = 0;
+}
+
+static void handleMAC(Assembler* pThis)
+{
+    TextFile*   pTextFile = TextSource_GetTextFile(pThis->pTextSourceStack);
+
+    __try
+    {
+        SizedString    macroName;
+        SizedString*   macroExpansionLines;
+        SizedString    nextLine;
+        unsigned int   startingSourceLine;
+        unsigned short numberOfLines = 0;
+        unsigned short arrayCapacity;
+        ParsedLine     parsedLine;
+        MacroDefinition* pMacroDefinition;
+
+        if (SizedString_strlen(&pThis->parsedLine.label) == 0)
+        {
+            LOG_ERROR(pThis, "%s directive requires a line label.", "MAC");
+            __throw(invalidArgumentException);
+        }
+        macroName = pThis->parsedLine.label;
+        if (findMacroDefinition(pThis, &macroName))
+        {
+            LOG_ERROR(pThis, "'%.*s' macro has already been defined.", 
+                      macroName.stringLength, macroName.pString);
+            __throw(invalidArgumentException);
+        }
+        macroExpansionLines = (SizedString*)malloc(sizeof(SizedString));
+        if (!macroExpansionLines)
+            __throw(outOfMemoryException);
+        arrayCapacity = 1;
+
+        startingSourceLine = TextFile_GetLineNumber(pTextFile);
+        while (!TextFile_IsEndOfFile(pTextFile))
+        {
+            nextLine = TextFile_GetNextLine(pTextFile);
+            ParseLine(&parsedLine, &nextLine);
+            if (0 == SizedString_strcmp(&parsedLine.op, "<<<"))
+                break;
+            if (0 == SizedString_strcasecmp(&parsedLine.op, "MAC"))
+            {
+                LOG_ERROR(pThis, "nested %s directives not supported", "MAC");
+                __throw(invalidArgumentException);
+            }
+            if (numberOfLines == arrayCapacity)
+            {
+                arrayCapacity *= 2;
+                if (arrayCapacity <= numberOfLines)
+                {
+                    LOG_ERROR(pThis, "too many lines in %s macro definition", "MAC");
+                    __throw(bufferOverrunException);
+                }
+                macroExpansionLines = (SizedString*)realloc(macroExpansionLines, arrayCapacity * sizeof(SizedString));
+                if (!macroExpansionLines)
+                    __throw(outOfMemoryException);
+            }
+            macroExpansionLines[numberOfLines] = nextLine;
+            ++numberOfLines;
+        }
+        pMacroDefinition = (MacroDefinition*)malloc(sizeof(MacroDefinition));
+        if (!pMacroDefinition)
+            __throw(outOfMemoryException);
+        pMacroDefinition->macroName = pThis->parsedLine.label;
+        pMacroDefinition->macroExpansionLines = macroExpansionLines;
+        pMacroDefinition->startingSourceLine = startingSourceLine;
+        pMacroDefinition->numberOfLines = numberOfLines;
+        pMacroDefinition->pNext = pThis->pMacroDefinitionsList;
+        pThis->pMacroDefinitionsList = pMacroDefinition;
+    }
+    __catch
+    {
+        if (getExceptionCode() == outOfMemoryException)
+            LOG_ERROR(pThis, "Failed to allocate memory for %s directive.", "MAC");
+        __nothrow;
+    }
+}
+
+/* A simple linked list.  Not very efficient, but works for now.
+
+   -- tkchia 20131018
+*/
+static const MacroDefinition* findMacroDefinition(Assembler* pThis, SizedString* pMacroName)
+{
+    MacroDefinition* pCurrentMacro = pThis->pMacroDefinitionsList;
+    while (pCurrentMacro)
+    {
+        if (0 == SizedString_CompareWithoutCase(&pCurrentMacro->macroName, pMacroName))
+            return pCurrentMacro;
+        pCurrentMacro = pCurrentMacro->pNext;
+    }
+    return NULL;
+}
+
+static void handleMACend(Assembler* pThis)
+{
+    LOG_ERROR(pThis, "%s directive without corresponding MAC directive.", "<<<");
+}
+
+static void handleMacroExpansion(Assembler* pThis, const MacroDefinition* pMacroDefinition)
+{
+    const char * const variableNames[] = { "]1", "]2", "]3", "]4", "]5", "]6", "]7", "]8", "]9" };
+    TextSource* pTextSource;
+    SizedString pRemainingOperands = pThis->parsedLine.operands;
+    SizedString variableName;
+    Expression expression;
+    size_t i;
+
+    for (i = 0; i < 9; ++i)
+    {
+        variableName = SizedString_InitFromString(variableNames[i]);
+        expression = getNextSemicolonSeparatedOptionalExpression(pThis, &pRemainingOperands, (uint32_t)0);
+        attemptToAddSymbol(pThis, &variableName, &expression);
+    }
+    pTextSource = MacroExpansionSource_Create(TextSource_GetTextFile(pThis->pTextSourceStack),
+                                              pMacroDefinition->startingSourceLine,
+                                              pMacroDefinition->macroExpansionLines,
+                                              pMacroDefinition->numberOfLines);
+    TextSource_StackPush(&pThis->pTextSourceStack, pTextSource);
 }
 
 static void checkForUndefinedSymbols(Assembler* pThis)

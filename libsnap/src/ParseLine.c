@@ -102,7 +102,14 @@ static int isEndOfLineOrComment(const SizedString* pLine, const char* pCurr)
 
 static int isStartOfComment(const SizedString* pLine, const char* pCurr)
 {
-    return SizedString_EnumCurr(pLine, pCurr) == ';';
+    /* The `;' must either begin a line or be preceded by whitespace.
+       Otherwise, we need to consider it as a delimiter for arguments to a
+       macro.
+
+       -- tkchia 20131018
+    */
+    return SizedString_EnumCurr(pLine, pCurr) == ';' &&
+        (pCurr == pLine->pString || isspace((unsigned char)pCurr[-1]));
 }
 
 static void extractOperands(ParsedLine* pObject, const SizedString* pLine, const char** ppCurr)

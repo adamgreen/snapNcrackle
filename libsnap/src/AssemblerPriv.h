@@ -67,6 +67,14 @@ typedef struct Conditional
     unsigned int        flags;
 } Conditional;
 
+typedef struct MacroDefinition
+{
+    SizedString         macroName;
+    unsigned int        startingSourceLine;
+    SizedString*        macroExpansionLines;
+    unsigned short      numberOfLines;
+    struct MacroDefinition* pNext;
+} MacroDefinition;
 
 struct Assembler
 {
@@ -84,6 +92,7 @@ struct Assembler
     BinaryBuffer*              pCurrentBuffer;
     OpCodeEntry*               instructionSets[INSTRUCTION_SET_INVALID];
     size_t                     instructionSetSizes[INSTRUCTION_SET_INVALID];
+    MacroDefinition*           pMacroDefinitionsList;
     ParsedLine                 parsedLine;
     LineInfo                   linesHead;
     InstructionSetSupported    instructionSet;

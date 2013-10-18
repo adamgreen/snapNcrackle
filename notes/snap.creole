@@ -182,6 +182,7 @@ instructions currently supported.
 | JMP | Jump to New Address |
 | JSR | Jump to New Address and Push Return Address To Stack |
 | LDA | Load Accumulator from Memory |
+| LDAL | Load Accumulator from Memory, Long Addressing (**65802 only**) |
 | LDX | Load X Register from Memory |
 | LDY | Load Y Register from Memory |
 | LSR | Shift Accumulator Right by 1 Bit |
@@ -210,6 +211,7 @@ instructions currently supported.
 | SEI | Set Interrupt Disable Flag |
 | SEP | Set Processor Status Flags, and Do Implicit [[snap.creole#mx | MX]] (**65802 only**) |
 | STA | Store Accumulator to Memory |
+| STAL | Store Accumulator to Memory, Long Addressing (**65802 only**) |
 | STX | Store X Register to Memory |
 | STY | Store Y Register to Memory |
 | STZ | Store Zero in Memory (**65c02 only**) |
@@ -232,6 +234,7 @@ This is a list of the currently supported assembler directives which will be des
 further down in this documentation.
 
 | [[snap.creole#lup | --^]]   | Ending indicator for LUP directive. |
+|                     <<<     | Ending indicator for MAC directive. |
 | [[snap.creole#equ | =]]     | Pseudoname for EQU. |
 | [[snap.creole#asc | ASC]]   | Place ASCII string into memory. |
 | [[snap.creole#da  | DA]]    | Place 2-byte addresses into memory. |
@@ -249,8 +252,8 @@ further down in this documentation.
 |                                                                                 LST     | Ignored |
 |                                                                                 LSTDO   | Ignored |
 | [[snap.creole#lup | LUP]]   | Start of code to duplicate multiple times. |
+|                     MAC     | Define a macro. |
 | [[snap.creole#mx  | MX]]    | Tell assembler which long status mode to assume. |
-|                                                                                 MX      | Ignored |
 | [[snap.creole#org | ORG]]   | Tell assembler desired target address. |
 | [[snap.creole#put | PUT]]   | Include text from specified source file. |
 | [[snap.creole#rev | REV]]   | Reverse byte order version of ASC. |
@@ -754,9 +757,9 @@ Example:
 
 == Differences from Merlin 8
 Differences that will be corrected in the near future:
-* No macro support.  There is Apple IIGS source code in PoP which takes advantage of this macro feature.  I want to add
-  this anyway since it is pretty foolish to build a Merlin 'compatible' macro assembler that doesn't support this
-  feature.
+* Macro support is rather limited: macro arguments are treated as expressions, rather than as text as in Merlin; and
+  nested macro definitions are not allowed.
+  There is Apple IIGS source code in PoP which takes advantage of this macro feature.
 * **LUP** directive should allow decrementing iteration count to be substituted for '@' character in replicated source
   text.
 * Labels can't contain the period, '.', character in Merlin since when used in an expression, it would be confused with
@@ -820,7 +823,6 @@ prioritize it correctly :)
 ** CHK
 ** ERR
 ** KBD
-** MX - will be added when 65802 support is added.
 ** PAU
 ** SW
-** MAC, EOM, <<<, PMC, >>> - macro support is planned for a future release.
+** EOM, PMC, >>>
