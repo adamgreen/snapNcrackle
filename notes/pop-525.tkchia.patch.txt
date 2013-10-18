@@ -1,0 +1,201 @@
+	These are patches for Adam Green's Prince of Persia build system
+	(https://github.com/adamgreen/Prince-of-Persia-Apple-II/commit/
+	6de74e7a2778e5f692cd24b965944d0c36b7cda8).
+
+	When built with this patched version of snapNcrackle, the patched
+	POP build system will produce 5.25" floppy images with the copy
+	protection checks as well as all Easter eggs included.
+
+	-- tkchia 20131018
+
+diff -r -U3 --new-file '--exclude=.git' Prince-of-Persia-Apple-II.adamgreen.6de74e7a27/Makefile Prince-of-Persia-Apple-II.525/Makefile
+--- Prince-of-Persia-Apple-II.adamgreen.6de74e7a27/Makefile	2013-10-18 19:24:48.000000000 +0000
++++ Prince-of-Persia-Apple-II.525/Makefile	2013-10-14 17:46:36.000000000 +0000
+@@ -58,12 +58,17 @@
+ ifeq ($(OSTYPE),)
+ OSTYPE=$(shell uname)
+ endif
++ARCH=$(shell uname -p)
+ 
+ ifneq ($(findstring Darwin,$(OSTYPE)),)
+ TOOL_PATH=Build/osx32
+ else
++ifneq ($(findstring x86_64,$(ARCH)),)
++TOOL_PATH=Build/lin64
++else
+ TOOL_PATH=Build/lin32
+ endif
++endif
+ 
+ endif
+ 
+@@ -79,6 +84,8 @@
+ 
+ # Assembler source file paths using globbing operator in place of space.
+ GAME_SOURCES_GLOB=01?POP?Source/Source
++MAKEDISK_SOURCES_GLOB=04?Support/MakeDisk/S
++CP_525_SOURCES_GLOB=02?POP?Disk?Routines/CP.525
+ 
+ 
+ # Game data file paths.
+@@ -96,7 +103,10 @@
+ # case object filenames so that incremental builds work properly on Linux.
+ OBJECTS =$(OUTPUT_DIR)/popboot35
+ OBJECTS+=$(OUTPUT_DIR)/rw1835.pop
++OBJECTS+=$(OUTPUT_DIR)/BLANK525
+ OBJECTS+=$(OUTPUT_DIR)/boot
++OBJECTS+=$(OUTPUT_DIR)/POPBOOT525
++OBJECTS+=$(OUTPUT_DIR)/LOSHOW525
+ OBJECTS+=$(OUTPUT_DIR)/RW18525
+ OBJECTS+=$(OUTPUT_DIR)/AUTO
+ OBJECTS+=$(OUTPUT_DIR)/CTRLSUBS
+@@ -105,10 +115,13 @@
+ OBJECTS+=$(OUTPUT_DIR)/FRAMEADV
+ OBJECTS+=$(OUTPUT_DIR)/FRAMEDEF
+ OBJECTS+=$(OUTPUT_DIR)/GAMEBG
++OBJECTS+=$(OUTPUT_DIR)/GAMEBG525
+ OBJECTS+=$(OUTPUT_DIR)/GRAFIX
++OBJECTS+=$(OUTPUT_DIR)/GRAFIX525
+ OBJECTS+=$(OUTPUT_DIR)/HIRES
+ OBJECTS+=$(OUTPUT_DIR)/HRTABLES
+ OBJECTS+=$(OUTPUT_DIR)/MASTER
++OBJECTS+=$(OUTPUT_DIR)/MASTER525
+ OBJECTS+=$(OUTPUT_DIR)/MISC
+ OBJECTS+=$(OUTPUT_DIR)/MOVER
+ OBJECTS+=$(OUTPUT_DIR)/SEQTABLE
+@@ -116,6 +129,7 @@
+ OBJECTS+=$(OUTPUT_DIR)/SUBS
+ OBJECTS+=$(OUTPUT_DIR)/TABLES
+ OBJECTS+=$(OUTPUT_DIR)/UNPACK
++OBJECTS+=$(OUTPUT_DIR)/UNPACK525
+ OBJECTS+=$(OUTPUT_DIR)/CTRL
+ OBJECTS+=$(OUTPUT_DIR)/FRAMEADV
+ OBJECTS+=$(OUTPUT_DIR)/FRAMEDEF
+@@ -134,6 +148,7 @@
+ OBJECTS+=$(OUTPUT_DIR)/VERSION.PATCH
+ else
+ OBJECTS+=$(OUTPUT_DIR)/TOPCTRL
++OBJECTS+=$(OUTPUT_DIR)/TOPCTRL525
+ OBJECTS+=$(OUTPUT_DIR)/SPECIALK
+ OBJECTS+=$(OUTPUT_DIR)/VERSION
+ endif
+@@ -186,7 +201,10 @@
+ 
+ 
+ # Flags to pass into build tools.
+-ASM_FLAGS=--putdirs "$(call convert-slash,./01 POP Source/Source)" --outdir $(call convert-slash,$(OUTPUT_DIR))
++ASM_FLAGS= \
++    --putdirs "$(call convert-slash,./01 POP Source/Source);$(or \
++              )$(call convert-slash,./02 POP Disk Routines/CP.525)" \
++    --outdir $(call convert-slash,$(OUTPUT_DIR))
+ IMAGER_35_FLAGS=--format hdv_3.5
+ IMAGER_525_FLAGS=--format nib_5.25
+ 
+@@ -236,10 +254,18 @@
+ 	@echo Assembling $<
+ 	$(Q) $(ASSEMBLER) "$(call convert-slash,$<)" $(ASM_FLAGS) --list $(call convert-slash,$@.LST)
+ 
++$(OUTPUT_DIR)/% : $(MAKEDISK_SOURCES_GLOB)/%.S Makefile
++	@echo Assembling $<
++	$(Q) $(ASSEMBLER) "$(call convert-slash,$<)" $(ASM_FLAGS) --list $(call convert-slash,$@.LST)
++
+ $(OUTPUT_DIR)/% : $(OTHER_FILES)/%.S Makefile
+ 	@echo Assembling $<
+ 	$(Q) $(ASSEMBLER) "$(call convert-slash,$<)" $(ASM_FLAGS) --list $(call convert-slash,$@.LST)
+ 
++$(OUTPUT_DIR)/% : $(CP_525_SOURCES_GLOB)/%.S Makefile
++	@echo Assembling $<
++	$(Q) $(ASSEMBLER) "$(call convert-slash,$<)" $(ASM_FLAGS) --list $(call convert-slash,$@.LST)
++
+ 
+ # Default rules to patch and assemble .S files.
+ $(OUTPUT_DIR)/%.PATCH : $(GAME_SOURCES_GLOB)/%.S Makefile
+diff -r -U3 --new-file '--exclude=.git' Prince-of-Persia-Apple-II.adamgreen.6de74e7a27/Other/BLANK525.S Prince-of-Persia-Apple-II.525/Other/BLANK525.S
+--- Prince-of-Persia-Apple-II.adamgreen.6de74e7a27/Other/BLANK525.S	1970-01-01 00:00:00.000000000 +0000
++++ Prince-of-Persia-Apple-II.525/Other/BLANK525.S	2013-10-13 18:53:09.000000000 +0000
+@@ -0,0 +1,3 @@
++	org $2f00
++	ds $100,$00
++	sav blank525
+diff -r -U3 --new-file '--exclude=.git' Prince-of-Persia-Apple-II.adamgreen.6de74e7a27/Other/GAMEBG525.S Prince-of-Persia-Apple-II.525/Other/GAMEBG525.S
+--- Prince-of-Persia-Apple-II.adamgreen.6de74e7a27/Other/GAMEBG525.S	1970-01-01 00:00:00.000000000 +0000
++++ Prince-of-Persia-Apple-II.525/Other/GAMEBG525.S	2013-10-05 16:58:51.000000000 +0000
+@@ -0,0 +1,2 @@
++ThreeFive = 0
++	put GAMEBG,,,2
+diff -r -U3 --new-file '--exclude=.git' Prince-of-Persia-Apple-II.adamgreen.6de74e7a27/Other/LOSHOW525.S Prince-of-Persia-Apple-II.525/Other/LOSHOW525.S
+--- Prince-of-Persia-Apple-II.adamgreen.6de74e7a27/Other/LOSHOW525.S	1970-01-01 00:00:00.000000000 +0000
++++ Prince-of-Persia-Apple-II.525/Other/LOSHOW525.S	2013-10-13 18:52:03.000000000 +0000
+@@ -0,0 +1,4 @@
++	xc
++	xc
++	put loshow
++	sav loshow525
+diff -r -U3 --new-file '--exclude=.git' Prince-of-Persia-Apple-II.adamgreen.6de74e7a27/Other/POPBOOT525.S Prince-of-Persia-Apple-II.525/Other/POPBOOT525.S
+--- Prince-of-Persia-Apple-II.adamgreen.6de74e7a27/Other/POPBOOT525.S	1970-01-01 00:00:00.000000000 +0000
++++ Prince-of-Persia-Apple-II.525/Other/POPBOOT525.S	2013-10-14 17:47:04.000000000 +0000
+@@ -0,0 +1,2 @@
++	put	POPBOOT0
++	sav	POPBOOT525
+diff -r -U3 --new-file '--exclude=.git' Prince-of-Persia-Apple-II.adamgreen.6de74e7a27/Other/PrinceOfPersia_5.25_SideA.layout Prince-of-Persia-Apple-II.525/Other/PrinceOfPersia_5.25_SideA.layout
+--- Prince-of-Persia-Apple-II.adamgreen.6de74e7a27/Other/PrinceOfPersia_5.25_SideA.layout	2013-10-18 19:24:48.000000000 +0000
++++ Prince-of-Persia-Apple-II.525/Other/PrinceOfPersia_5.25_SideA.layout	2013-10-14 20:03:38.000000000 +0000
+@@ -1,32 +1,32 @@
+-RWTS16,./obj/BOOT,0x000,0x100,0,0
+-RWTS16,./obj/BOOT,0x100,0x100,0,13
++RWTS16,./obj/POPBOOT525,0x000,0x100,0,0
++RWTS16,./obj/POPBOOT525,0x100,0x100,0,13
++RWTS16,./obj/POPBOOT525,0x200,0x100,0,11
++RWTS16,./obj/POPBOOT525,0x300,0x100,0,9
++RWTS16CP,0,7
++RWTS16,./obj/POPBOOT525,0x400,0x100,0,5
++RWTS16,./obj/POPBOOT525,0x500,0x100,0,3
++RWTS16,./obj/POPBOOT525,0x600,0x100,0,1
+ RWTS16,./obj/RW18525,0x000,0x100,0,14
+ RWTS16,./obj/RW18525,0x100,0x100,0,12
+ RWTS16,./obj/RW18525,0x200,0x100,0,10
+ RWTS16,./obj/RW18525,0x300,0x100,0,8
+ RWTS16,./obj/RW18525,0x400,0x100,0,6
+-RWTS16,./obj/BOOT,0x100,0x100,0,1
+-RWTS16,./obj/BOOT,0x100,0x100,0,2
+-RWTS16,./obj/BOOT,0x100,0x100,0,3
+-RWTS16,./obj/BOOT,0x100,0x100,0,4
+-RWTS16,./obj/BOOT,0x100,0x100,0,5
+-RWTS16,./obj/BOOT,0x100,0x100,0,7
+-RWTS16,./obj/BOOT,0x100,0x100,0,9
+-RWTS16,./obj/BOOT,0x100,0x100,0,11
+-RWTS16,./obj/BOOT,0x100,0x100,0,15
++RWTS16,./obj/LOSHOW525,0x100,0x100,0,4
++RWTS16,./obj/LOSHOW525,0x100,0x100,0,2
++RWTS16,./obj/BLANK525,0x000,0x100,0,15
+ RW18,./obj/HIRES,0,*,*,*,*
+-RW18,./obj/MASTER,0,*,*,*,*
++RW18,./obj/MASTER525,0,*,*,*,*
+ RW18,./obj/HRTABLES,0,*,*,*,*
+-RW18,./obj/UNPACK,0,*,*,*,*
++RW18,./obj/UNPACK525,0,*,*,*,*
+ RW18,./obj/TABLES,0,*,*,*,*
+ RW18,./obj/FRAMEADV,0,*,*,*,*
+-RW18,./obj/GRAFIX,0,*,*,*,*
+-RW18,./obj/TOPCTRL,0,*,*,*,*
++RW18,./obj/GRAFIX525,0,*,*,*,*
++RW18,./obj/TOPCTRL525,0,*,*,*,*
+ RW18,./obj/FRAMEDEF,0,*,*,*,*
+ RW18,./obj/SEQTABLE,0,*,*,*,*
+ RW18,./obj/CTRL,0,*,*,*,*
+ RW18,./obj/COLL,0,*,*,*,*
+-RW18,./obj/GAMEBG,0,*,*,*,*
++RW18,./obj/GAMEBG525,0,*,*,*,*
+ RW18,./obj/AUTO,0,*,*,*,*
+ RW18,./obj/CTRLSUBS,0,*,*,*,*
+ RW18,./obj/SPECIALK,0,*,*,*,*
+diff -r -U3 --new-file '--exclude=.git' Prince-of-Persia-Apple-II.adamgreen.6de74e7a27/Other/TOPCTRL525.S Prince-of-Persia-Apple-II.525/Other/TOPCTRL525.S
+--- Prince-of-Persia-Apple-II.adamgreen.6de74e7a27/Other/TOPCTRL525.S	1970-01-01 00:00:00.000000000 +0000
++++ Prince-of-Persia-Apple-II.525/Other/TOPCTRL525.S	2013-10-05 17:00:20.000000000 +0000
+@@ -0,0 +1,6 @@
++org = $2000
++EditorDisk = 0
++FinalDisk = 1
++DemoDisk = 0
++ThreeFive = 0
++	put TOPCTRL,,,6
