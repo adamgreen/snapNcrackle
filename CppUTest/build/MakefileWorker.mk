@@ -240,8 +240,11 @@ else
 endif
 
 ifeq ($(CPPUTEST_USE_GCOV), Y)
-	CPPUTEST_CXXFLAGS += -fprofile-arcs -ftest-coverage
-	CPPUTEST_CFLAGS += -fprofile-arcs -ftest-coverage
+    CPPUTEST_GCOV_FLAGS = -fprofile-arcs -ftest-coverage
+	CPPUTEST_CXXFLAGS += $(CPPUTEST_GCOV_FLAGS)
+	CPPUTEST_CFLAGS += $(CPPUTEST_GCOV_FLAGS)
+else
+    CPPUTEST_GCOV_FLAGS =
 endif
 
 CPPUTEST_CXXFLAGS += $(CPPUTEST_WARNINGFLAGS) $(CPPUTEST_CXX_WARNINGFLAGS)
@@ -265,7 +268,7 @@ LD_LIBRARIES += -lstdc++
 
 # Xcode uses a different library for code coverage.
 ifeq ($(UNAME_OS),$(MACOSX_STR))
-    LD_LIBRARIES += -lprofile_rt
+    LD_LIBRARIES += $(CPPUTEST_GCOV_FLAGS)
 else
     LD_LIBRARIES += -lgcov
 endif
