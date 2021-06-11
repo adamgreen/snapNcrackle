@@ -1,3 +1,6 @@
+== Archived - June 10th, 2021
+This project is no longer under active development.
+
 == Overview
 snap is a minimal 6502 assembler and crackle is a simple disk imaging utility.  The main goal of this project is to
 create an assembler that is able to assemble the 
